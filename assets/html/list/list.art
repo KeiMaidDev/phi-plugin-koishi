@@ -1,0 +1,77 @@
+{{extend defaultLayout}}
+{{set pvis = ({
+    default: false,
+    '.song_name .song': [186, 12, 10, 8, null, { method: 'pvis', nowrap: true, useFontMetrics: !(themeInfo && themeInfo.fontUrl) }]
+})}}
+{{block 'css'}}
+
+<link rel="stylesheet" href="{{_res_path}}html/list/list.css">
+{{if renderNoJs}}
+<style>
+    /* 12px 标题栏在原字体 normal 行高下由页面脚本缩至 8px。 */
+    .song_name [name="pvis"] { font-size: 8px; }
+</style>
+{{/if}}
+
+{{/block}}
+{{block 'main'}}
+
+    <div class="head_title">
+        <p>{{head_title}}</p>
+    </div>
+
+    
+    <div class="list_box">
+        {{each song line}}
+        <div class="line">
+            <div class="song_name">
+                <div class="num"><span name="pvis">{{$index + 1}}</span></div>
+                <div class="song"><span name="pvis"{{if renderNoJs}} class="phi-fit-line" title="{{line.song}} - {{line.composer}}"{{/if}}>{{line.song}} - {{line.composer}}</span></div>
+                <div class="dif {{line.rank}}"><span name="pvis">{{line.difficulty}}</span></div>
+            </div>
+            <div class="ill_box">
+                <img src="{{line.illustration}}" alt="{{line.illustration}}">
+            </div>
+            <div class="info_box">
+                <div class="down">
+                    <div class="acc">
+                        <div class="box-content">{{line.acc ? line.acc.toFixed(4) : '---'}}%</div>
+                        <div class="suggest">> {{line.suggest || '---'}}</div>
+                    </div>
+                    <div class="score_rating">
+                        <div class="score">{{line.score}}</div>
+                        <div class="rating">
+                            <img src="{{line.Rating ? `${_res_path}html/otherimg/${line.Rating}.png` : `${_res_path}html/otherimg/NEW.png`}}"
+                                alt="{{line.Rating}}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{/each}}
+    </div>
+    <div class="createdbox">
+        <div class="phi-plugin">
+            <p>{{_plugin}}</p>
+        </div>
+        <div class="ver">
+            <p>{{Version.ver}}</p>
+        </div>
+    </div>
+    {{if theme == "snow"}}
+    <div class="snow-box"> </div>
+    <script>
+        themeSnow();
+    </script>
+    {{else if theme == "topText" || theme == "foolsDay"}}
+    <div class="topTextBox" id="topTextBox"></div>
+    <script>
+        themeTopText();
+    </script>
+    {{else if theme == "star"}}
+    <canvas id="stars"></canvas>
+    <script>
+        themeStar();
+    </script>
+    {{/if}}
+{{/block}}

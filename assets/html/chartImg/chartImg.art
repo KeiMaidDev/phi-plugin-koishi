@@ -1,0 +1,201 @@
+{{extend defaultLayout}}
+{{block 'css'}}
+    <link rel="stylesheet" href="{{_res_path}}html/chartImg/chartImg.css">
+    {{if theme != 'star' && (!themeInfo || !themeInfo.backgroundUrl)}}
+    <style>
+        /* 本页已有曲绘背景，避免重复绘制整页模糊背景。 */
+        .theme-background { display: none; }
+    </style>
+    {{/if}}
+    {{if !renderNoJs}}
+    <script src="{{_res_path}}html/chartInfo/echarts.js"></script>
+    <script src="{{_res_path}}html/chartInfo/echarts-wordcloud.min.js"></script>
+    {{/if}}
+    {{if renderNoJs}}
+    <style>
+        /* 静态 SVG 与文本参与布局，信息较多时面板按实际内容增长。 */
+        .chart-info { height: auto; min-height: 500px; }
+        .chart-info > .box-content, .chart-info .info-content { height: auto; }
+        .chart-info .info-box, .chart-info .words-box, .chart-info .notes-bar { height: auto; min-width: 0; }
+        .chart-info .info-box .content p { overflow-wrap: anywhere; }
+        .chart-info .notes-content p { white-space: nowrap; }
+        .chart-info .words { position: static; width: 100%; height: 430px; }
+        .chart-info .box-tip { position: static; align-self: flex-end; margin: 8px 0 12px; }
+        .chart-info .box-tip p { font-size: 36px; }
+        .chart-info .bar-box { height: 350px; flex: none; }
+    </style>
+    {{/if}}
+{{/block}}
+{{block 'main'}}
+    <div class="background{{if illustrationPreBlurred && (!themeInfo || !themeInfo.cssUrl)}} chart-background-preblurred{{/if}}">
+        <img src="{{illustration}}" alt="曲绘-模糊">
+    </div>
+    <div class="backBlock">
+        <div class="totalBox" id="box">
+            <img src="{{chartImg}}" alt="谱面预览">
+        </div>
+    </div>
+    <div class="chart-info">
+        <div class="box-content dot-box">
+            <div class="dot left top"></div>
+            <div class="dot left bottom"></div>
+            <div class="dot right top"></div>
+            <div class="dot right bottom"></div>
+            <div class="info-content">
+                <div class="info-box{{charterReal ? ' has-charter' : ''}}">
+                    <div class="content-title">
+                        <p>Basic Information</p>
+                    </div>
+                    <div class="content">
+                        <p>曲目 {{song}}</p>
+                        <p>时长 {{length}}</p>
+                        <p>难度 {{rank}} {{difficulty}}</p>
+                        <p>谱师 {{charter}}</p>
+                        {{if charterReal}}
+                        <p class="charter-real">（{{charterReal}}）</p>
+                        <p class="charter-source">谱师名录来源于 daogemm.github.io，按字典序排列</p>
+                        {{/if}}
+                    </div>
+                </div>
+                <div class="notes-box">
+                    <div class="content-title">
+                        <p>Notes</p>
+                    </div>
+                    <div class="content">
+                        <div class="notes-content tap-p">
+                            <p>{{tap}}</p>
+                            <p>Tap</p>
+                        </div>
+                        <div class="notes-content drag-p"> 
+                            <p>{{drag}}</p>
+                            <p>Drag</p>
+                        </div>
+                        <div class="notes-content hold-p">
+                            <p>{{hold}}</p>
+                            <p>Hold</p>
+                        </div>
+                        <div class="notes-content flick-p">
+                            <p>{{flick}}</p>
+                            <p>Flick</p>
+                        </div>
+                        <div class="notes-content">
+                            <p>{{combo}}</p>
+                            <p>Combo</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="words-box">
+                    <div class="content-title">
+                        <p>Chart Tag</p>
+                    </div>
+                    <div class="box-tip">
+                        <p>{{tip}}</p>
+                    </div>
+                    <div class="words" id="words">
+                        {{if renderNoJs}}
+                        {{@ staticCharts.radar(words, wordsMaxValue, { width: 450, height: 430, fontSize: 30, showValue: true })}}
+                        {{/if}}
+                    </div>
+                </div>
+                <div class="notes-bar">
+                    <div class="content-title">
+                        <p>Notes Distribution</p>
+                    </div>
+                    <div class="box-tip">
+                        <p>谱面时长：{{chartLength}}</p>
+                    </div>
+                    <div class="bar-box" id="bar-box">
+                        {{each distribution e}}
+                        <div class="bar" style="height: {{e[4]}}%">
+                            <div
+                                class="bar-item TAP-BKG"
+                                style="height: {{e[0]}}%"
+                            ></div>
+                            <div
+                                class="bar-item DRAG-BKG"
+                                style="height: {{e[1]}}%"
+                            ></div>
+                            <div
+                                class="bar-item HOLD-BKG"
+                                style="height: {{e[2]}}%"
+                            ></div>
+                            <div
+                                class="bar-item FLICK-BKG"
+                                style="height: {{e[3]}}%"
+                            ></div>
+                        </div>
+                        {{/each}}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{if !renderNoJs}}
+    <script>
+        var chart = echarts.init(document.getElementById("words"), {renderer: 'svg'});
+        // 准备雷达图数据
+        var indicators = [];
+        var values = [];
+        {{each words e}}
+        indicators.push({name: '{{e.name}}({{e.value}})', max: {{wordsMaxValue}}});
+        values.push({{e.value}});
+        {{/each}}
+        
+        chart.setOption({
+            animation: false,
+            radar: {
+                indicator: indicators,
+                shape: 'polygon',
+                splitNumber: 5,
+                name: {
+                    textStyle: {
+                        color: '#fff',
+                        fontFamily: 'phi',
+                        fontSize: 30
+                    }
+                },
+                splitLine: {
+                    lineStyle: {
+                        color: 'rgba(255, 255, 255, 0.3)'
+                    }
+                },
+                splitArea: {
+                    show: true,
+                    areaStyle: {
+                        color: [
+                            'rgba(255, 255, 255, 0.05)',
+                            'rgba(255, 255, 255, 0.1)'
+                        ]
+                    }
+                },
+                axisLine: {
+                    lineStyle: {
+                        color: 'rgba(255, 255, 255, 0.5)'
+                    }
+                }
+            },
+            series: [
+                {
+                    type: 'radar',
+                    data: [
+                        {
+                            value: values,
+                            name: 'Data',
+                            lineStyle: {
+                                color: 'rgba(100, 200, 255, 0.8)',
+                                width: 2
+                            },
+                            areaStyle: {
+                                color: 'rgba(100, 200, 255, 0.3)'
+                            },
+                            itemStyle: {
+                                color: 'rgba(100, 200, 255, 1)'
+                            }
+                        }
+                    ]
+                }
+            ]
+        });
+    </script>
+    {{/if}}
+{{/block}}

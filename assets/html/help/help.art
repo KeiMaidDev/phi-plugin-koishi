@@ -1,0 +1,103 @@
+{{extend defaultLayout}}
+{{set pvis = ({
+    default: false,
+    '.order': [142, 119, 30, 14, null, { method: 'pvis', breakWords: true, useFontMetrics: !(themeInfo && themeInfo.fontUrl) }],
+    '.song': [200.48, 24.2, 18, 10, null, { method: 'pvis', nowrap: true, useFontMetrics: !(themeInfo && themeInfo.fontUrl) }],
+    '.desc': [211.45, 96.8, 15, 12, null, { method: 'pvis', breakWords: true, useFontMetrics: !(themeInfo && themeInfo.fontUrl) }]
+})}}
+{{block 'css'}}
+
+<link rel="stylesheet" href="{{_res_path}}html/help/help.css">
+{{if renderNoJs}}
+<style>
+    .help-expanded .info_box, .help-expanded .song { min-width: 0; }
+    .order p, .desc p { white-space: normal; overflow-wrap: anywhere; }
+    .help-expanded { height: auto; min-height: 121px; align-items: stretch; }
+    .help-expanded .order, .help-expanded .info_box, .help-expanded .desc { height: auto; }
+    .help-expanded .up { height: 24.2px; flex-shrink: 0; }
+    .help-expanded .down { height: auto; min-height: 96.8px; }
+    .help-expanded .desc img { max-width: 100%; height: auto; }
+</style>
+{{/if}}
+
+{{/block}}
+{{block 'main'}}
+    
+    {{each helpGroup group}}
+    {{if group.auth!="master"||isMaster}}
+    {{set len = group?.list?.length || 0 }}
+    <div class="help_box">
+        <div class="help-group">——·{{group.group}}·——</div>
+        {{if len > 0}}
+        {{each group.list help idx}}
+        {{set helpTitle = cmdHead ? help.title.replace(/[\/杠钢刚]/g,`/${cmdHead} `) : help.title}}
+        {{set helpExample = cmdHead ? (help.eg || help.title).replace(/[\/杠钢刚]/g,`/${cmdHead} `) : (help.eg || help.title)}}
+        {{set expandedHelp = renderNoJs && typeof staticText !== 'undefined' && staticText.fitRule && staticText.fitRule(help.desc && help.desc.replace(/\s/g,'&ensp;'), pvis['.desc'], { minimum: 1 }) < 12}}
+        <div class="line{{expandedHelp ? ' help-expanded' : ''}}">
+            <div class="order">
+                {{if cmdHead}}
+                <p name="pvis">{{#helpTitle}}</p>
+                {{else}}
+                <p name="pvis">{{#helpTitle}}</p>
+                {{/if}}
+            </div>
+            <div class="info_box">
+                <div class="up">
+                    <div class="num">{{idx + 1}}</div>
+                    <div class="song">
+                        {{if cmdHead}}
+                        <p name="pvis">{{#helpExample}}</p>
+                        {{else}}
+                        <p name="pvis">{{#helpExample}}</p>
+                        {{/if}}
+                    </div>
+                    <!-- <div class="Master">Master</div> -->
+                </div>
+                <div class="down">
+                    <div class="desc">
+                        {{if help.desc}}
+                        <p name="pvis">{{#help.desc.replace(/\s/g,'&ensp;')}}</p>
+                        {{/if}}
+                        {{if help.img}}
+                        <img src="{{_res_path}}html/otherimg/{{help.img}}" alt="{{help.img}}">
+                        {{/if}}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{/each}}
+        {{/if}}
+    </div>
+    {{/if}}
+    {{/each}}
+
+    <div class="createdbox">
+        <div class="phi-plugin">
+            <p>{{_plugin}}</p>
+        </div>
+        <div class="ver">
+            <p>{{Version.ver}}</p>
+        </div>
+    </div>
+    <div class="copyright">
+        <p>*Phi-Plugin不是Phigros官方项目，与南京鸽游网络有限公司及Phigros官方不存在授权、合作或运营关系。
+        </p>
+    </div>
+    
+    {{if theme == "snow"}}
+    <div class="snow-box"> </div>
+    <script>
+        themeSnow();
+    </script>
+    {{else if theme == "topText" || theme == "foolsDay"}}
+    <div class="topTextBox" id="topTextBox"></div>
+    <script>
+        themeTopText();
+    </script>
+    {{else if theme == "star"}}
+    <canvas id="stars"></canvas>
+    <script>
+        themeStar();
+    </script>
+    {{/if}}
+{{/block}}
