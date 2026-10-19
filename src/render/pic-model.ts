@@ -1,0 +1,677 @@
+// @ts-nocheck
+import LazyRenderer, { validateRendererDependencies } from './lazy-renderer'
+import { randomUUID } from 'node:crypto'
+import { Data, Version, Plugin_Name, Display_Plugin_Name, Config } from '../services/index'
+import { _path, pluginResources, imgPath, tempPath } from '../utils/path'
+import fCompute from '../domain/game/f-compute'
+import themeManager from '../services/theme/manager'
+import fs from 'node:fs'
+import logger from '../utils/logger'
+import segment from '../platform/segment'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+import platform from '../platform/index'
+import { registerProcessCleanup } from '../utils/process-cleanup'
+import RenderPressureHistory from './render-pressure-history'
+
+/**@import {botEvent} from '../services/base-class' */
+
+export class PicModel {
+
+    constructor({ registerCleanup = true } = {}) {
+        /**
+         * 空闲渲染器下标
+         * @type {number[]}
+         */
+        this.idle = []
+        /**
+         * 等待空闲渲染器的请求队列（事件驱动，无需轮询）
+         * @type {{settled: boolean, done: (idx: number) => void, timer: any}[]}
+         */
+        this.waiters = []
+        /**
+         * 渲染中的请求 id（仅用于诊断日志）
+         * @type {Set<number>}
+         */
+        this.rendering = new Set()
+        /**
+         * 渲染器槽位；忙碌槽位在当前请求完成后才替换或缩减。
+         * @type {(import('./lazy-renderer').Renderer | undefined)[]}
+         */
+        this.puppeteer = []
+        this.poolManaged = true
+        this.poolId = randomUUID()
+        this.rendererSequence = 0
+        /** @type {(string | undefined)[]} */
+        this.rendererKeys = []
+        /** @type {Set<number>} */
+        this.leased = new Set()
+        /** @type {Map<import('./lazy-renderer').Renderer, Promise<void>>} */
+        this.retired = new Map()
+        /** @type {{count: number, timeout: number} | undefined} */
+        this.rendererSettings = undefined
+        /** @type {unknown} */
+        this.sessionOwner = undefined
+        /** @type {Promise<void> | null} */
+        this.sessionClosePromise = null
+        /** @type {Set<() => void>} */
+        this.drainers = new Set()
+        this.tot = 0
+        this.pressureWindowStartedAt = new Date().toISOString()
+        this.pressureCompleted = 0
+        this.pressureFailed = 0
+        this.pressureTimedOut = 0
+        this.pressureMaxActive = 0
+        this.pressureMaxQueued = 0
+        this.pressureHistory = new RenderPressureHistory()
+        this.shuttingDown = false
+        this.closePromise = null
+        if (registerCleanup) registerProcessCleanup(() => this.close(), () => this.forceClose())
+    }
+
+    async init() {
+        /** 清理临时文件 */
+        try {
+            if (fs.existsSync(tempPath)) {
+                fs.rmSync(tempPath, { force: true, recursive: true })
+            }
+        } catch (err) {
+            logger.error(`[Phi-Plugin][清理临时文件失败]`)
+            logger.error(err)
+        }
+        this.refreshRenderers()
+        return this;
+    }
+
+    /** 每次分配和归还都读取最新配置，兼容 YAML 监听与宿主面板即时更新。 */
+    /** @param {Record<string, any>} [patch] */
+    getRendererSettings(patch = {}) {
+        const defaults = Config.getdefSet('config')
+        const values = { ...defaults, ...Config.getConfig('config'), ...patch }
+        const count = Number(values.renderNum)
+        const timeout = Number(values.timeout)
+        return {
+            count: Number.isSafeInteger(count) && count >= 1 && count <= 10 ? count : defaults.renderNum,
+            timeout: Number.isFinite(timeout) && timeout >= 0 ? timeout : defaults.timeout,
+        }
+    }
+
+    /** 在 Koishi 同步 accept 回调里拒绝缺失的服务，提交前不启动渲染。 @param {Record<string, any>} [patch] */
+    validateRendererSettings(patch = {}) {
+        const settings = this.getRendererSettings(patch)
+        validateRendererDependencies()
+        return settings
+    }
+
+    /** @param {{count: number, timeout: number}} settings */
+    createRenderer(settings) {
+        return new LazyRenderer({ puppeteerTimeout: settings.timeout }, `${this.poolId}-${this.rendererSequence++}`)
+    }
+
+    /** @param {import('./lazy-renderer').Renderer} renderer */
+    retireRenderer(renderer) {
+        if (this.retired.has(renderer)) return
+        const task = Promise.resolve().then(() => renderer.shutdown()).then(() => {
+            this.retired.delete(renderer)
+        }, err => {
+            // 关闭失败的实例继续保留给退出阶段的同步回收。
+            logger.error('[Phi-Plugin] 旧渲染器回收失败', err)
+        })
+        this.retired.set(renderer, task)
+    }
+
+    /** 不替换已经分配的槽位，排队请求保持 FIFO 并在分配时使用最新配置。 */
+    refreshRenderers() {
+        if (!this.poolManaged || this.shuttingDown) return
+        const settings = this.getRendererSettings()
+        const key = String(settings.timeout)
+        const changed = !this.rendererSettings || this.rendererSettings.count !== settings.count
+            || this.rendererSettings.timeout !== settings.timeout
+        this.rendererSettings = settings
+        const size = Math.max(settings.count, this.puppeteer.length)
+        for (let idx = 0; idx < size; idx++) {
+            if (this.leased.has(idx)) continue
+            const old = this.puppeteer[idx]
+            if (idx >= settings.count) {
+                delete this.puppeteer[idx]
+                delete this.rendererKeys[idx]
+                if (old) this.retireRenderer(old)
+            } else if (!old || this.rendererKeys[idx] !== key) {
+                this.puppeteer[idx] = this.createRenderer(settings)
+                this.rendererKeys[idx] = key
+                if (old) this.retireRenderer(old)
+            }
+        }
+        while (this.puppeteer.length > settings.count && !this.leased.has(this.puppeteer.length - 1)) {
+            this.puppeteer.pop()
+            this.rendererKeys.pop()
+        }
+        this.idle = Array.from({ length: settings.count }, (_, idx) => idx).filter(idx => !this.leased.has(idx))
+        if (changed) logger.info(`[Phi-Plugin] 共享 Puppeteer 渲染配置已生效，并发上限 ${settings.count}`)
+        this.dispatchWaiters()
+    }
+
+    /** 把可用槽位依次交给现有等待请求，避免新请求插队。 */
+    dispatchWaiters() {
+        while (this.idle.length && this.waiters.length && this.leased.size < (this.rendererSettings?.count || Infinity)) {
+            const waiter = this.waiters.shift()
+            if (!waiter || waiter.settled) continue
+            const idx = /** @type {number} */ (this.idle.shift())
+            this.leased.add(idx)
+            waiter.done(idx)
+        }
+    }
+
+    /**
+     * 获取一个空闲渲染器下标；超时/关闭返回 -1，队列已满返回 -2
+     * 事件驱动，替代原本每 100ms 轮询一次的忙等
+     * @param {number} timeout 等待超时时间 ms
+     * @returns {Promise<number>}
+     */
+    acquire(timeout) {
+        if (this.shuttingDown) return Promise.resolve(-1)
+        this.refreshRenderers()
+        if (this.idle.length && (!this.poolManaged || this.leased.size < (this.rendererSettings?.count || 1))) {
+            const idx = /** @type {number} */ (this.idle.shift())
+            this.leased?.add(idx)
+            return Promise.resolve(idx)
+        }
+        const configuredLimit = Number(Config.getUserCfg('config', 'renderQueueLimit'))
+        const queueLimit = Number.isSafeInteger(configuredLimit) && configuredLimit >= 0 && configuredLimit <= 1000
+            ? configuredLimit : Config.getdefSet('config').renderQueueLimit
+        if (this.waiters.length >= queueLimit) return Promise.resolve(-2)
+        /** @type {Promise<number>} */
+        const p = new Promise(resolve => {
+            /** @type {{ settled: boolean, timer: any, done: (idx: number) => void }} */
+            const waiter = {
+                settled: false,
+                timer: null,
+                done: (idx) => {
+                    if (waiter.settled) return
+                    waiter.settled = true
+                    clearTimeout(waiter.timer)
+                    resolve(idx)
+                },
+            }
+            waiter.timer = setTimeout(() => {
+                const i = this.waiters.indexOf(waiter)
+                if (i >= 0) this.waiters.splice(i, 1)
+                waiter.done(-1)
+            }, timeout)
+            waiter.timer.unref?.()
+            this.waiters.push(waiter)
+            this.pressureMaxQueued = Math.max(this.pressureMaxQueued, this.waiters.length)
+        })
+        return p
+    }
+
+    /**
+     * 归还渲染器：优先直接移交给等待队列中的下一个请求，否则放回空闲池
+     * @param {number} idx
+     */
+    release(idx) {
+        this.leased?.delete(idx)
+        if (this.shuttingDown) {
+            this.notifyDrained()
+            return
+        }
+        if (this.poolManaged) {
+            this.refreshRenderers()
+            return
+        }
+        while (this.waiters.length) {
+            const waiter = this.waiters.shift()
+            if (!waiter || waiter.settled) continue
+            waiter.done(idx)
+            return
+        }
+        this.idle.push(idx)
+    }
+
+    notifyDrained() {
+        if (this.leased?.size || this.rendering.size) return
+        for (const resolve of this.drainers || []) resolve()
+        this.drainers?.clear()
+    }
+
+    /** 已分配给微任务但尚未进入 screenshot 的槽位也必须纳入在途统计。 @returns {Promise<void>} */
+    waitForDrain() {
+        if (!this.leased.size && !this.rendering.size) return Promise.resolve()
+        return new Promise(resolve => this.drainers.add(resolve))
+    }
+
+    /** 同一个 ESM 导出在 Koishi 重载后继续使用；只重建槽位，不重载业务模块。 @param {unknown} owner */
+    async beginSession(owner) {
+        if (this.sessionOwner === owner && !this.shuttingDown) return
+        if (this.sessionOwner !== undefined && !this.shuttingDown) throw new Error('phi-plugin 已有活动的渲染会话')
+        if (this.sessionClosePromise) await this.sessionClosePromise
+        if (this.closePromise) await this.closePromise
+        if (this.puppeteer.length) await this.close()
+        this.puppeteer = []
+        this.rendererKeys = []
+        this.rendererSettings = undefined
+        this.idle = []
+        this.waiters = []
+        this.leased.clear()
+        this.retired.clear()
+        this.sessionOwner = owner
+        this.shuttingDown = false
+        this.closePromise = null
+        this.sessionClosePromise = null
+        this.poolId = randomUUID()
+        this.refreshRenderers()
+    }
+
+    /** 停接单，先让旧请求结束，再释放槽位；旧 owner 不能关闭新会话。 @param {unknown} owner */
+    async endSession(owner) {
+        if (this.sessionOwner !== owner) return
+        if (this.sessionClosePromise) return this.sessionClosePromise
+        this.shuttingDown = true
+        this.idle = []
+        while (this.waiters.length) this.waiters.shift()?.done(-1)
+        this.sessionClosePromise = (async () => {
+            await this.waitForDrain()
+            await this.close()
+        })()
+        return this.sessionClosePromise
+    }
+
+    /**
+     * 曲目图鉴
+     * @param {any} e
+     * @param {any} info
+     */
+    async alias(e, info) {
+        return await this.common(e, 'atlas', {
+            ...info,
+            length: info.length ? info.length.replace(':', "'") + "''" : "-",
+        })
+    }
+
+
+    /**
+     * 
+     * @param {any} e 
+     * @param {any} data 
+     * @returns 
+     */
+    async b19(e, data) {
+        return await this.common(e, 'b19', data)
+    }
+
+    /**
+     * 
+     * @param {any} e 
+     * @param {any} data 
+     * @returns 
+     */
+    async arcgros_b19(e, data) {
+        return await this.common(e, 'arcgrosB19', data)
+    }
+
+    /**
+     * 
+     * @param {any} e 
+     * @param {any} data 
+     * @returns 
+     */
+    async update(e, data) {
+        return await this.common(e, 'update', data)
+    }
+
+    /**
+     * 
+     * @param {any} e 
+     * @param {any} data 
+     * @returns 
+     */
+    async tasks(e, data) {
+        return await this.common(e, 'tasks', data)
+    }
+
+    /**
+     * 个人信息
+     * @param {any} e 
+     * @param {any} data 
+     * @param {1|2|number} picversion 版本
+     */
+    async user_info(e, data, picversion) {
+        switch (picversion) {
+            case 1: {
+                return await this.render('userinfo/userinfo', {
+                    ...data,
+                }, {
+                    e,
+                    scale: Config.getUserCfg('config', 'renderScale') / 100
+                })
+            }
+            case 2: {
+                return await this.render('userinfo/userinfo-old', {
+                    ...data,
+                }, {
+                    e,
+                    scale: Config.getUserCfg('config', 'renderScale') / 100
+                })
+            }
+            default: {
+                return await this.render('userinfo/userinfo', {
+                    ...data,
+                }, {
+                    e,
+                    scale: Config.getUserCfg('config', 'renderScale') / 100
+                })
+            }
+        }
+    }
+
+    /**
+     * 
+     * @param {any} e 
+     * @param {any} data 
+     * @returns 
+     */
+    async lvsco(e, data) {
+        return await this.common(e, 'lvsco', data)
+    }
+
+    /**
+     * 
+     * @param {any} e 
+     * @param {any} data 
+     * @returns 
+     */
+    async list(e, data) {
+        return await this.common(e, 'list', data)
+    }
+
+    /**
+     * 单曲成绩
+     * @param {any} e 
+     * @param {any} data
+     * @param {1|2} picversion 版本
+     */
+    async score(e, data, picversion) {
+
+        switch (picversion) {
+            case 1: {
+                return await this.render('score/score', {
+                    ...data,
+                }, {
+                    e,
+                    scale: Config.getUserCfg('config', 'renderScale') / 100
+                })
+            }
+
+            default: {
+                return await this.render('score/scoreOld', {
+                    ...data,
+                }, {
+                    e,
+                    scale: Config.getUserCfg('config', 'renderScale') / 100
+                })
+            }
+        }
+    }
+
+    /**
+     * 
+     * @param {any} e 
+     * @param {any} data 
+     * @returns 
+     */
+    async ill(e, data) {
+        return await this.common(e, 'ill', data)
+    }
+
+
+    /**
+     * 
+     * @param {any} e 
+     * @param {import('../services/apps/guess-game/guess-ill').guessIllData | import('../services/apps/guess-game/guess-tips').guessIllDataLite} data 
+     * @returns 
+     */
+    async guess(e, data) {
+        return await this.common(e, 'guess', data)
+    }
+
+    /**
+     * 弗一把猜测记录
+     * @param {any} e
+     * @param {any} data
+     * @returns
+     */
+    async frib19(e, data) {
+        return await this.common(e, 'frib19', data)
+    }
+
+    /**
+     * 
+     * @param {any} e 
+     * @param {any} data 
+     * @returns 
+     */
+    async rand(e, data) {
+        return await this.common(e, 'rand', data)
+    }
+
+    /**
+     * 
+     * @param {any} e 
+     * @param {any} data 
+     * @returns 
+     */
+    async help(e, data) {
+        return await this.common(e, 'help', data)
+    }
+
+    /** 主题市场目录页 */
+    async market(/** @type {any} */ e, /** @type {any} */ data) {
+        return await this.common(e, 'market', data)
+    }
+
+    /** 主题市场详情页 */
+    async marketDetail(/** @type {any} */ e, /** @type {any} */ data) {
+        return await this.common(e, 'market', data, 'detail')
+    }
+
+    /**
+     * 
+     * @param {any} e 
+     * @param {any} data 
+     * @returns 
+     */
+    async chap(e, data) {
+        return await this.common(e, 'chap', data)
+    }
+
+    /**
+     * 
+     * @param {botEvent} e 
+     * @param {{stats: import('../domain/save/analyze-save-history').AnalyzeSaveHistoryResult} & {background: string}} data 
+     * @returns 
+     */
+    async analyzeSaveHistory(e, data) {
+        return await this.common(e, 'analyzeSaveHistory', data)
+    }
+
+    /** 
+     * @typedef {'atlas'|'task'|'b19'|'arcgrosB19'|'update'|'tasks'|'sign'|'lvsco'|'list'|'suggest'|
+     * 'ill'|'chartInfo'|'guess'|'frib19'|'rand'|'help'|'chap'|'rankingList'|'clg'|'chartImg'|'jrrp'|'newSong'|'market'|
+     * 'setting'|'analyzeSaveHistory'|'historyB30'|'table'|'newnotice'|'difficultyHistory'
+     * } picKind
+     */
+
+    /**
+     * 
+     * @param {*} e 
+     * @param {picKind} kind 
+     * @param {*} data
+     * @param {string} [tplName] 模板名称，默认为kind
+     * @returns 
+     */
+    async common(e, kind, data, tplName = kind) {
+        return await this.render(`${kind}/${tplName}`, {
+            ...data,
+        }, {
+            e,
+            scale: Config.getUserCfg('config', 'renderScale') / 100,
+        })
+    }
+
+    /**
+     * 
+     * @param {string} renderPath 
+     * @param {any} params 
+     * @param {any} cfg 
+     * @returns 
+     */
+    async render(renderPath, params, cfg) {
+        const id = this.tot++
+        const waitingTimeout = Config.getUserCfg('config', 'waitingTimeout')
+
+        /** 事件驱动地等待一个空闲渲染器，替代原本每 100ms 轮询一次的忙等 */
+        const puppeteerNum = await this.acquire(waitingTimeout)
+        if (puppeteerNum === -2) {
+            this.pressureFailed += 1
+            logger.warn('[Phi-Plugin][渲染队列已满]', this.waiters.length)
+            return '图片生成请求较多，请稍后重试QAQ！'
+        }
+        if (puppeteerNum < 0) {
+            this.pressureTimedOut += 1
+            logger.error(`[Phi-Plugin][等待超时]`, id)
+            logger.warn(`[Phi-Plugin][空闲渲染器]`, this.idle)
+            logger.warn(`[Phi-Plugin][渲染中] `, [...this.rendering])
+            logger.warn(`[Phi-Plugin][等待数量] `, this.waiters.length)
+            return '等待超时，请稍后重试QAQ！'
+        }
+
+        this.rendering.add(id)
+        this.pressureMaxActive = Math.max(this.pressureMaxActive, this.rendering.size)
+        try {
+            let [app, tpl] = renderPath.split('/')
+            const resourceRoot = pluginResources.replace(/\\/g, '/') + '/'
+            const resourceRootUrl = platform.name === 'koishi' ? pathToFileURL(pluginResources).href + '/' : resourceRoot
+            const layoutPath = resourceRoot + 'html/common/layout/'
+            const resPath = resourceRootUrl
+
+            Data.createDir(`data/html/${Plugin_Name}/${app}/${tpl}`, 'root')
+
+            /** 主题解析：自定义模板仅作用于 B19，页面样式与公共主题信息由 themeInfo 注入布局。 */
+            let tplFile = path.join(pluginResources, 'html', app, `${tpl}.art`).replace(/\\/g, '/')
+            let themeInfo = null
+            const themeId = params.theme
+            if (themeId) {
+                const t = themeManager.getRenderInfo(themeId, resourceRoot, renderPath)
+                if (t?.tplFile && renderPath === 'b19/b19') tplFile = t.tplFile
+                if (t?.themeInfo) themeInfo = t.themeInfo
+            }
+
+            const quality = Number(params.quality ?? Config.getUserCfg('config', 'randerQuality'))
+            let data = {
+                ...params,
+                quality: Number.isFinite(quality) && quality >= 1 && quality <= 100
+                    ? Math.round(quality) : Config.getdefSet('config').randerQuality,
+                themeInfo,
+                saveId: (params.saveId || params.save_id || tpl),
+                tplFile,
+                pluResPath: resPath,
+                _res_path: resPath,
+                _imgPath: platform.name === 'koishi' ? pathToFileURL(imgPath).href + '/' : imgPath + '/',
+                _layout_path: layoutPath,
+                defaultLayout: layoutPath + 'default.art',
+                elemLayout: layoutPath + 'elem.art',
+                pageGotoParams: {
+                    timeout: Config.getUserCfg('config', 'timeout'),
+                },
+                sys: {
+                    scale: `style="transform:scale(${cfg.scale || 1})"`,
+                    copyright: `Created By ${platform.name}<span class="version">${Version.yunzai}</span> & phi-Plugin<span class="version">${Version.ver}</span>`
+                },
+                Version: { ...Version },
+                _plugin: Display_Plugin_Name,
+                Math,
+                fCompute,
+            }
+
+            /** 返回图片信息 */
+            const renderer = this.puppeteer[puppeteerNum]
+            if (!renderer) throw new Error('渲染器槽位不可用')
+            const img = await renderer.screenshot(`${Plugin_Name}/${app}/${tpl}`, data)
+            if (!img) throw new Error('截图返回为空')
+            this.pressureCompleted += 1
+            return Array.isArray(img) ? img.map(image => segment.image(image)) : segment.image(img)
+        } catch (err) {
+            this.pressureFailed += 1
+            logger.error(`[Phi-Plugin][渲染失败]`, id)
+            logger.error(err)
+            logger.warn(`[Phi-Plugin][渲染器]`, puppeteerNum)
+            logger.warn(`[Phi-Plugin][空闲渲染器]`, this.idle)
+            logger.warn(`[Phi-Plugin][渲染中] `, [...this.rendering])
+            logger.warn(`[Phi-Plugin][等待数量] `, this.waiters.length)
+            return '渲染失败QAQ！\n' + err
+        } finally {
+            this.rendering.delete(id)
+            this.release(puppeteerNum)
+        }
+    }
+
+    /**
+     * 取得当前绘图压力窗口，并从当前并发状态开始新的统计窗口。
+     * 仅包含队列和计数，不包含用户、命令、模板或绘图内容。
+     */
+    takeRenderPressureSnapshot() {
+        const endedAt = new Date().toISOString()
+        const snapshot = {
+            windowStartedAt: this.pressureWindowStartedAt,
+            capacity: this.rendererSettings?.count || Math.max(1, this.puppeteer.length),
+            active: this.rendering.size,
+            queued: this.waiters.length,
+            maxActive: Math.max(this.pressureMaxActive, this.rendering.size),
+            maxQueued: Math.max(this.pressureMaxQueued, this.waiters.length),
+            completed: this.pressureCompleted,
+            failed: this.pressureFailed,
+            timedOut: this.pressureTimedOut,
+        }
+        const history = this.pressureHistory.record(snapshot, endedAt)
+        this.pressureWindowStartedAt = endedAt
+        this.pressureCompleted = 0
+        this.pressureFailed = 0
+        this.pressureTimedOut = 0
+        this.pressureMaxActive = this.rendering.size
+        this.pressureMaxQueued = this.waiters.length
+        return { ...snapshot, history }
+    }
+
+    async restart() {
+        if (this.shuttingDown) return
+        this.refreshRenderers()
+        await Promise.allSettled(this.puppeteer.filter(renderer => !!renderer).map(renderer => renderer.restart(true)))
+    }
+
+    /** 停止接单、清空等待队列并释放全部插件渲染资源。 */
+    async close() {
+        if (this.closePromise) return this.closePromise
+        this.shuttingDown = true
+        this.idle = []
+        while (this.waiters.length) this.waiters.shift()?.done(-1)
+        this.closePromise = (async () => {
+            const tasks = this.puppeteer.filter(renderer => !!renderer)
+                .map(renderer => Promise.resolve().then(() => renderer.shutdown()))
+            await Promise.allSettled([...tasks, ...(this.retired?.values() || [])])
+        })()
+        return this.closePromise
+    }
+
+    /** 进程 exit 阶段的同步兜底。 */
+    forceClose() {
+        this.shuttingDown = true
+        this.idle = []
+        for (const renderer of new Set([...this.puppeteer, ...(this.retired?.keys() || [])])) renderer?.forceShutdown()
+    }
+
+}
+
+const rendererPool = new PicModel()
+// Koishi 先预检共享 Puppeteer 服务，再由 owner 会话开放渲染；初始化失败不能留下匿名活动池。
+if (platform.name === 'koishi') Object.assign(rendererPool, { shuttingDown: true })
+export default rendererPool
