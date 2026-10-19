@@ -1,8 +1,8 @@
 <div align="center">
   <h1>
     <picture>
-      <source srcset="https://github.com/user-attachments/assets/b9dd395d-b983-4532-a6b1-12abfaba5cea" type="image/avif" width="80%" />
-      <img src="https://github.com/Catrong/phi-plugin/assets/117198625/3d952c50-80b5-4031-9104-666027fbddcb" width="80%">
+      <source srcset="https://github.com/user-attachments/assets/c18cd28c-220e-445d-9001-3f7a8f25ac51" type="image/avif" width="80%" />
+      <img src="https://github.com/Catrong/phi-plugin/assets/117198625/731e11cb-71d3-4575-8c0d-b9cedcd442d4" width="80%" />
     </picture>
   
 ### [中文](./README.md) | English
@@ -10,274 +10,207 @@
 
 [![Guild](https://img.shields.io/badge/QQGuild-Hutao114Pgr939-9cf?style=flat-square&logo=GroupMe)](https://pd.qq.com/s/e3z86q6bw)
 [![Guild](https://img.shields.io/badge/Discord-RkBwFBaRqa-9cf?style=flat-square&logo=Discord)](https://discord.gg/invite/RkBwFBaRqa)
-[![Bilibili](https://img.shields.io/badge/Bilibili-就是不会告诉你-A4CAFA?style=flat-square&logo=bilibili&logoColor=white&labelColor=ff69b4)](https://space.bilibili.com/403342249)
-[![Stars](https://img.shields.io/github/stars/Catrong/phi-plugin?style=flat-square&color=yellow&label=Star)](../../stargazers)
-
-![version](https://img.shields.io/badge/Plugin_Version-koishi-9cf?style=flat-square)
-![version](https://img.shields.io/badge/Phigros-4.0.1-9cf?style=flat-square)  
+[![npm](https://img.shields.io/npm/v/koishi-plugin-phi-plugin-koishi?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-phi-plugin-koishi)
+![version](https://img.shields.io/badge/Phigros-4.0.1-9cf?style=flat-square)
 ![version](https://img.shields.io/badge/PhigrosVer-157-9cf?style=flat-square)
-![Koishi](https://img.shields.io/badge/Koishi-v4.8.11cf?style=flat-square&logo=dependabot)](/yoimiya-kokomi/Yunzai-Bot)
+![version](https://img.shields.io/badge/Koishi-4.8.11-9cf?style=flat-square&logo=dependabot)
 </div>
 
 ### Introduction
 
-`phi-plugin` is a plugin for querying Phigros information, including b30, score, userinfo, and more Phigros-related features. Suggestions and issues can be submitted via [Issues](./issues). [Pull request](./pulls) are welcome.
+`phi-plugin-koishi` is a Koishi plugin for querying Phigros information, including b30, score, userinfo, and other Phigros-related features. It is ported from [phi-plugin](https://github.com/Catrong/phi-plugin). For suggestions and issues, please use this project's [Issues](../../issues); [PRs](../../pulls) are welcome.
 
-In the Koishi edition, use native commands such as `phi help`, `phi b30`, and `phi sign`. Legacy no-space forms like `#phihelp` are not supported. Image rendering uses the shared `koishi-plugin-puppeteer` service. Structured state is stored in the Koishi database; save snapshots and backups live under `data/phi-plugin`.
-
-Plugin settings are managed in the Koishi console. Mutable business data lives in `data/phi-plugin/config/aliases.json` and `songs.json`; missing files are seeded from built-in defaults and manual edits are hot-reloaded.
+After installation, run `phi help` to view the detailed commands.
 
 ---
 
 ### Installation
 
-Install the plugin in a Koishi workspace and enable the `database`, `monetary`, and `puppeteer` services. The upstream Git clone examples below are kept for reference; use your Koishi package manager for deployment.
-
-> Using GitHub
-
+Run the following command in the Koishi root directory:
 ```bash
-# Install plugin core
-git clone --depth=1 https://github.com/Catrong/phi-plugin.git ./plugins/phi-plugin/
-# Enter plugin directory
-cd ./plugins/phi-plugin/
-# Install dependencies
-pnpm install -P
+yarn clone https://github.com/KeiMaidDev/phi-plugin-koishi
 ```
-
-> Using Gitee
-
-```bash
-# Install plugin core
-git clone --depth=1 https://gitee.com/catrong/phi-plugin.git ./plugins/phi-plugin/
-# Enter plugin directory
-cd ./plugins/phi-plugin/
-# Install dependencies
-pnpm install -P 
-```
-
-> [!WARNING]
-> Please use the master's permission to execute this command to download the song illustrations. Otherwise, the relevant song illustrations will not be displayed properly! (It can be standard input or other platforms.)
-> 
->```
-> /phi downill
->```
-
----
 
 #### Todo
 
-* [ ] Optimize UI design
-* [ ] Add collection/avatar gallery
-* [ ] Song selection via phi
-* [ ] Optimize sessionToken QR scanning
-* [ ] Modify settings via commands
-* [ ] Query Song History Constants
-* [ ] Score Map Tags
-* [ ] Adapt to TapTap International Version
-* [ ] ...
+* [ ] Optimize the UI design
 
+* [ ] Add galleries for collectibles, avatars, and more
+
+* [ ] Song selection via phi
+
+* [ ] Improve QR code sessionToken retrieval
+
+* [ ] Modify some settings via commands
+
+* [ ] Query historical chart constants
+
+* [ ] Chart tags
+
+* [ ] Support TapTap International
+
+* [ ] ...
 ---
 
 ### Features
-
-Note: `#` can be replaced with `/`. Command headers are customizable.
 
 #### **User Features**
 
 | **Command** | **Description** |
 | :- | :- |
 | `phi help` | Show help |
-| `phi (gb\|cn)?bind <token>` | Bind sessionToken (supports CN/Global, default is CN) |
-| `phi unbind` | Clear the current Bot's local sessionToken, API ID, save, and history only; API platform bindings are unchanged |
+| `phi bind <sessionToken>` | Bind sessionToken; supports CN/Global and defaults to CN |
+| `phi unbind` | Clear only the current Bot's locally stored sessionToken, API ID, save, and history; API platform bindings are unchanged |
 | `phi clean` | Delete all records |
-| `phi update` | Update save data |
-| `phi b30` (aliases: `phi rks`, `phi pgr`) | Query Rks (provides b30 results) |
-| `phi info [1\|2]` | View personal stats |
-| `phi lmtacc [0-100]` | Calculate Rks with minimum ACC limit |
-| `phi lvscore <rating range> <difficulty>` | Get scores in range |
+| `phi update` | Update the save |
+| `phi b30` (aliases: `phi rks`, `phi pgr`) | Query RKS and display the resulting b30 |
+| `phi info [1\|2]` | Query personal statistics |
+| `phi lmtacc [0-100]` | Calculate RKS after limiting to a minimum ACC |
+| `phi lvscore <rating range> <difficulty>` | Get scores in a range |
 | `phi chap <chapter name\|help>` | Get chapter scores |
-| `phi ahv <rating>[-v version]` | Get rating score table |
-| `phi list <-dif difficultyRange> <-acc accRange> <EZ\|HD\|IN\|AT> <NEW\|C\|B\|A\|S\|V\|FC\|PHI>` | List scores per song in range |
-| `phi hisb30` | Calculate B30 changes based on history |
-| `phi best1(+)` | Text-based b30 (up to b99) |
-| `phi score <song> [-dif (EZ\|HD\|IN\|AT)] [-or (acc\|score\|fc\|time)] [-unrank]` | Get single score & improvement tips (parameters for score ranking, API required) |
-| `phi suggest` | Get songs that can increase Rks by +0.01 |
-| `phi ranklist [rank]` | Rks leaderboard |
-| `phi rankfind <rks>` | Find how many users have higher RKS than the queried RKS |
-| `phi data` | Check user data count |
-| `phi guess` | Guess song from illustration (reply directly) |
-| `phi ltr` | Guess song via letters (use `phi open` / `phi ans`) |
-| `phi tipgame` | Guess song via hints (use `phi tip` / `phi ans`) |
-| `phi fri [EZ\|HD\|IN\|AT] [min difficulty]` | Friberg song guessing; reply with a song name to compare charter (verified names from daogemm.github.io; when both sides have verified names, any shared name counts as close), first-release version (with release date), chapter, original flag, difficulty, BPM and note count (use `phi ans` to reveal); per-player and per-group answer cooldowns, more participants means more attempts |
-| `phi song <song>` | Query song info (supports aliases) |
-| `phi chart <song> [difficulty=IN]` | View chart details |
-| `phi tag <song name> [difficulty=IN] <tag>` | View chart tags, available tags shown in response, default difficulty is IN |
-| `phi settag <song name> [difficulty=IN] <tag>` | Tag a chart, recommended to use `phi tag` to query tag list first, default difficulty is IN |
-| `phi comment <song> [difficulty=IN]` (newline then text) | Comment on songs |
-| `phi mycmt` | View own cloud comments |
-| `phi recmt <ID>` | Delete comment (owner/admin) |
-| `phi table <rating>` | Phigros rating table |
-| `phi difhis` | Query song rating history |
-| `phi new` | Check new songs |
+| `phi ahv <rating>[-v version]` | Get the constant rating table |
+| `phi 理论分表 [-v version]` | View the theoretical RKS table for the specified version (simulated data, save data not required) |
+| `phi list <-dif rating range> <-acc ACC range> <EZ\|HD\|IN\|AT> <NEW\|C\|B\|A\|S\|V\|FC\|PHI>` | Get the score of every song in the range |
+| `phi hisb30` | Calculate B30 changes from history |
+| `phi best1(+)` | Query a text b30 (or more), up to b99 |
+| `phi score <song> [-dif difficulty] [-or acc\|score\|fc\|time] [-unrank]` | Get a single song's score and improvement suggestions; the parameters control score ranking, currently available only after enabling the API |
+| `phi suggest` | Get songs that can increase RKS by 0.01 and the ACC required |
+| `phi ranklist [rank]` | Get the RKS leaderboard |
+| `phi rankfind <rks>` | Get how many users have a higher RKS than the queried RKS |
+| `phi data` | Get the user's data count |
+| `phi guess [-l <0-3>]` | Guess the song illustration. Reply directly without a command. The bot stays silent if the reply is not a song name and responds if it is an incorrect song name. Use `phi ans` to end |
+| `phi ltr` | Guess the song name from letters. Use `phi open <letter>` to reveal a letter, reply directly to answer, and use `phi ans` to get the answer |
+| `phi tipgame` | Guess the song name from hints. Use `phi tip` for the next hint and `phi ans` for the answer; reply directly to answer |
+| `phi fri [difficulty=EZ\|HD\|IN\|AT] [minimum rating]` | Friberg song guessing. Reply directly with a song name guess. Each guess compares the charters (verified names from daogemm.github.io; when both sides have verified names, one shared name among multiple charters counts as close), first-release version (including release time), chapter, exclusivity, difficulty, BPM, and note count against the answer. Use `phi ans` to get the answer. Difficulty and note count use the selected difficulty's chart. Answers have personal and group cooldowns, and more participants allow more guesses |
+| `phi song <song>` | Query a Phigros song's info and supports aliases |
+| `phi chart <song> [difficulty=IN]` | Query detailed information about a Phigros chart |
+| `phi tag <song> [difficulty=IN] <tag>` | View chart tags; available tags are shown in the response, and the default difficulty is IN |
+| `phi settag <song> [difficulty=IN] <tag>` | Add a tag to a chart. It is recommended to query the tag list with `phi tag` first; the default difficulty is IN |
+| `phi comment <song> [difficulty=IN]` (enter the content on a new line) | Comment on a song; the default difficulty is IN |
+| `phi recmt <comment ID>` | View and confirm whether to delete a comment; only the sender and owner have permission, and a second confirmation is required |
+| `phi mycmt` | View your own cloud comments |
+| `phi table <rating>` | Query the Phigros constant rating table |
+| `phi difhis` | Query historical chart constants |
+| `phi new` | Query newly added songs |
 | `phi tips` | Random tips |
-| `phi jrrp` | Daily luck |
-| `phi alias xxx` | Query song aliases |
-| `phi rand [rating] [difficulty]` | Random song by criteria |
-| `phi randclg [total] [difficulty] ([rating range])` | Random challenge (e.g., `phi rand 40 (IN 13-15)`) |
-| `phi ill <song>` | View song illustration |
-| `phi search <condition> <value>` | Search songs by BPM/rating/notes |
-| `phi theme [number]` | Switch themes; page styles are applied according to the theme package |
-| `phi myset` | View/modify user settings, value supports selection by number (e.g., /myset theme 1) |
-| `phi sign` | Daily check-in |
-| `phi task` | View tasks |
-| `phi retask` | Refresh tasks (20 Notes) |
-| `phi transfer <target> <amount>` | Send Notes |
+| `phi jrrp` | Today's luck |
+| `phi song-alias xxx` | Query a song's aliases |
+| `phi rand [rating] [difficulty]` | Randomly select a song by conditions; supports difficulty and rating, difficulties can be multi-selected, and ratings use `-` as the separator |
+| `phi randclg [assignment total] [difficulty] ([song rating range])` | Random assignment, e.g. `phi rand 40 (IN 13-15)` |
+| `phi ill <song>` | Query a Phigros song's illustration |
+| `phi search <condition> <value>` | Search songs by BPM, rating, or note count; conditions are `bpm`, `dif`, and `cmb`, and values can be ranges separated by `-` |
+| `phi theme [number]` | Switch the drawing theme; page-level styles are applied according to the theme package configuration |
+| `phi myset` | View and modify user settings; the parameter is the setting name, values can be selected by number, and viewing the setting list first is recommended |
+| `phi sign` | Check in to receive Notes |
+| `phi task` | View your tasks |
+| `phi retask` | Refresh tasks for 20 Notes |
+| `phi transfer <target> <amount>` | Send Notes to a target; supports @ or QQ number |
 
 #### **Admin Features**
 
-| **Command** | **Description** |
+| Command | Description |
 | :- | :- |
-| `phi backup (back)?` | Backup saves (+back to send) |
-| `phi restore` | Restore from backup |
-| `phi setnick xxx ---> xxx` | Set song alias |
-| `phi gx` | Update plugin |
+| `phi backup (back)?` | Back up save files; add `back` to send the backup file, which is automatically saved in the `/phi-plugin/backup/` directory |
+| `phi restore` | Restore from a backup without losing existing data; place the file in the `/phi-plugin/backup/` directory |
+| `phi setnick xxx ---> xxx` | Set a song alias in the format `original name (or existing alias) ---> alias` (spaces around `--->` are automatically trimmed) |
+| `phi gx` | Update this plugin |
 | `phi repu` | Restart puppeteer |
-| `phi downill` | Download illustration |
-| `phi get <rank>` | Get sessionToken by rank |
-| `phi del <token>` | Ban sessionToken |
-| `phi allow <token>` | Unban sessionToken |
-| `phi ban <feature>` | Disable features |
-| `phi botclaimlink` | **Owner command** Get a Bot platform claim link that is valid for 15 minutes; private chat is recommended |
-| `phi resetapibot` | **Owner command** Issue a new API Bot identity; only use this if the credentials are lost or revoked, or when intentionally replacing the identity |
+| `phi downill` | Download song illustrations locally |
+| `phi get <rank>` | Get the sessionToken of a rank on the leaderboard |
+| `phi del <sessionToken>` | Disable a sessionToken |
+| `phi allow <sessionToken>` | Restore a sessionToken |
+| `phi ban <feature>` | Disable a feature category; see [Feature Parameter Description](#phi-ban-feature-parameters) |
+| `phi botclaimlink` | **Owner command** Get a Bot platform claim link valid for 15 minutes; sending it in a private chat is recommended |
+| `phi resetapibot` | **Owner command** Request a new API Bot identity; only use it when credentials are lost, revoked, or intentionally being replaced |
 
 <details open>  
-<summary>Ban Parameters</summary>
+<summary>Feature Parameter Description</summary>
 
-#### `phi ban` Parameters
+#### `phi ban` Feature Parameters
 
 | Parameter | Feature | Affected Commands |
 | :- | :- | :- |
 | all | All features | All |
-| help | Help | `phi help` `phi tkhelp` |
-| bind | Binding | `phi bind` `phi unbind` |
-| b19 | Image queries | `phi b30` `phi update` `phi info` `phi list` `phi p30` `phi lmtacc` `phi score` `phi lvscore` `phi chap` `phi suggest` |
-| wb19 | Text queries | `phi data` `phi best` |
-| song | Song info | `phi song` `phi chart` `phi ill` `phi search` `phi alias` `phi rand` `phi randclg` `phi table` `phi comment` `phi recmt` |
-| ranklist | Leaderboards | `phi ranklist` `phi rankfind` |
+| help | Help features | `phi help` `phi tkhelp` `phi myset` |
+| bind | Binding features | `phi bind` `phi unbind` |
+| b19 | Image score queries | `phi b30` `phi update` `phi info` `phi list` `phi p30` `phi lmtacc` `phi score` `phi lvscore` `phi chap` `phi suggest` |
+| wb19 | Text score queries | `phi data` `phi best` |
+| song | Song info features | `phi song` `phi chart` `phi ill` `phi search` `phi song-alias` `phi rand` `phi randclg` `phi table` `phi comment` `phi recmt` |
+| ranklist | Leaderboard features; does not disable user ranking | `phi ranklist` `phi rankfind` |
 | fnc | Utilities | `phi com` `phi tips` `phi newlog` |
-| tipgame | Hint game | `phi tipgame` |
-| guessgame | Guess game | `phi guess` |
-| ltrgame | Letter game | `phi ltr` |
+| tipgame | Hint guessing game | `phi tipgame` |
+| guessgame | Song guessing game | `phi guess` |
+| ltrgame | Letter guessing game | `phi ltr` |
 | fribgame | Friberg game | `phi fri` `phi friberg` `phi fib` |
-| sign | Social | `phi sign` `phi transfer` `phi task` `phi retask` `phi jrrp` |
-| setting | Settings | `phi theme` |
+| sign | Entertainment features | `phi sign` `phi transfer` `phi task` `phi retask` `phi jrrp` |
+| setting | System settings | `phi theme` |
 </details>
 
 ## API Feature Testing Now Open
 
-API features can be manually enabled/disabled in settings. When enabled, it automatically syncs user usage records and historical scores from Phi-Plugin applications (web, Yunzai, excluding Koishi for now) to the API server. Some features require API to be enabled.
+API features can be enabled or disabled manually in the settings. Once enabled, user activity records and historical scores from Phi-Plugin applications (web and Yunzai, excluding Koishi for now) are automatically synced to the API server. Some features require the API to be enabled.
 
-| **Command** | **Description**
-| :- | :-
-| `phi bind <userId>` | Enable score query API, bind API account
-| `phi setapitoken <token>` | Set API Token
-| `phi tokenList` | Get list of currently bound platforms
-| `phi auth <api Token>` | Get sessionToken via API Token
-| `phi clearApiData` | Permanently delete the phi-api account and cloud data; requires Phigros SSTK permission and confirmation
-| `phi updateHistory` | Update historical scores from BOT to API server
-| `phi updateUserToken` | **Owner command** Upload current BOT user tokens to API server
+| Command | Description |
+| :- | :- |
+| `phi (bind\|绑定) <userId>` | Enable the score query API and bind an API account |
+| `phi setapitoken <token>` | Set the API Token |
+| `phi tokenList` | Get the list of currently bound platforms |
+| `phi auth <api Token>` | Get a sessionToken using an API Token |
+| `phi alias-submit song \| alias \| note` | Submit a song alias proposal via private chat |
+| `phi alias-mine` | Query your alias proposals |
+| `phi alias-appeal proposal ID \| reason` | Request a public review via private chat |
+| `phi alias-public` | Query proposals currently under public voting |
+| `phi alias-vote proposal ID approve/reject` | Participate in public voting or change your vote |
+| `phi alias-unvote proposal ID` | Withdraw your public vote |
+| `phi clearApiData` | Permanently delete the phi-api account and clear cloud data; requires Phigros SSTK permission and second confirmation |
+| `phi updateHistory` | Update historical scores from the BOT to the API server |
+| `phi updateUserToken` | **Owner command** Upload the current BOT's user tokens to the API server |
 
-#### Claiming the Bot Platform Identity (Bot Owner)
+#### Bot Platform Claim (Bot Owner)
 
-Claiming associates this phi-plugin deployment with your signed-in web account so that you can view its status and binding statistics and manage it from the web dashboard. The Bot is already active after it successfully registers with the API; leaving it unclaimed does not disable the Bot or user score queries.
+Claiming associates the current phi-plugin deployment with a signed-in web account so that you can view the Bot's status, binding statistics, and management options in the web console. After successfully registering with the API, the Bot already works normally; leaving it unclaimed does not affect Bot activation or user score queries.
 
-Claim procedure:
+Claim steps:
 
-1. Update phi-plugin to a version that supports Bot platform authentication and make sure `openPhiPluginApi` is enabled.
-2. Start or restart the Bot once. If the plugin has no API Bot identity, it automatically registers with the API and writes the credentials to the local configuration. Never disclose or manually send `apiBotClientSecret`.
-3. As the Bot owner, send `phi botClaimLink` (or `phi 获取Bot认领链接`) in a **private chat** with the Bot.
-4. Open the returned claim link within 15 minutes. If you are not signed in on the website, sign in first and then continue from the original claim page.
-5. Verify the Bot name and `clientId` shown on the page, then confirm the claim. You can then view and manage the Bot from the Bot management page in the web dashboard.
+1. Update phi-plugin to a version that supports Bot platform authentication and confirm that `openPhiPluginApi` is enabled.
+2. Start or restart the Bot once. If the plugin lacks an API Bot identity, it automatically registers with the API and writes the credentials to the local configuration. Never disclose or manually send `apiBotClientSecret`.
+3. As the Bot owner, send `phi 获取Bot认领链接` (or `phi botClaimLink`) in a **private chat**.
+4. Open the claim link returned by the Bot within 15 minutes. If the web page is not signed in, sign in first and then continue from the original claim page.
+5. Verify the Bot name and `clientId` shown on the page, then confirm the claim. Afterward, you can view and manage the Bot on the Bot management page in the web console.
 
-A claim link is single-use. If it expires or has already been used, send the command again to obtain a new one. When the command is sent in a group chat, the plugin does not post the link in the group; it writes the link to the Bot console instead. Using a private chat is recommended.
+A claim link is single-use. If it expires or has been used, send the command again to get a new one. When executed in a group chat, the plugin does not send the link to the group; it outputs the link to the Bot console instead. Using a private chat is recommended.
 
-`phi resetapibot` issues a completely new `clientId` and secret and replaces the current Bot identity. This is not part of the normal claim procedure. Only use it if the local credentials are lost, the identity has been revoked by the API, or you intentionally want to replace the Bot identity. The new identity must be claimed again. To prevent sensitive information from leaking, when this command is used in a group chat, the new identity details and claim link are written only to the Bot console.
+`phi resetapibot` requests a completely new `clientId` and secret and replaces the current Bot identity. This is not a normal claim step. Only use it if the local credentials are lost, the identity has been revoked by the API, or you have decided to replace the Bot identity; it must be claimed again after resetting. To prevent sensitive information from leaking, when executed in a group chat, the new identity information and claim link are output only to the Bot console.
 
 #### Detailed Permission Explanation:
 
-Binding and retrieving saves only requires a score query ID. When binding with `sessionToken` for the first time, the `API Token` will be set to the `sessionToken`, and if users provide a `sessionToken` during binding, the bot will save it locally.
+Binding and retrieving saves only require a score query ID. When binding with a `sessionToken` for the first time, the `API Token` is set to the `sessionToken`; if the user provides a `sessionToken` during binding, the bot saves it locally.
 
----
 
-### Support Development
-
-[<img src="https://github.com/user-attachments/assets/8c181f08-a2b6-4e67-8b61-bd2e4027a6a4" width="400" />](https://afdian.com/a/Feijiang_)  
-
-Your support is my greatest motivation!
-
-#### Sponsors
-
-Special thanks to these sponsors (list may not be fully updated):
-
-<table>
-    <tr>
-        <td align="center" valign="top" width="35%" nowrap="nowrap"><a href="https://github.com/qilinX88"><img src="https://avatars.githubusercontent.com/u/92022485?v=4?s=100" style="border-radius: 50%" width="50px;" alt="Loser_X"/><br /><sub><b>@Loser_X</b></sub></a><br />🌸 20 🌸</td>
-        <td align="center" valign="top" width="35%" nowrap="nowrap"><a href="https://github.com/S-t-e-v-e-e"><img src="https://avatars.githubusercontent.com/u/117198625?v=4?s=100" style="border-radius: 50%" width="50px;" alt="史蒂夫"/><br /><sub><b>@Steve~ɘvɘɈƧ</b></sub><br />🌸 40 🌸</td>
-        <td align="center" valign="top" width="35%" nowrap="nowrap"><img src="https://pic1.afdiancdn.com/user/a743be34fb4e11ef81be52540025c377/avatar/a284c446cefded67dbbf0c14b9eda2a0_w1080_h1080_s115.jpeg?imageView2/1/w/240/h/240" style="border-radius: 50%" width="50px;" alt="溯洌RIPPLE"/><br /><sub><b>溯洌RIPPLE</b></sub><br/>🌸 35 🌸</td>
-        <td align="center" valign="top" width="35%" nowrap="nowrap"><img src="https://pic1.afdiancdn.com/default/avatar/avatar-purple.png?imageView2/1/" style="border-radius: 50%" width="50px;" alt="祈"/><br /><sub><b>祈</b></sub><br/>🌸 15 🌸</td>
-        <td align="center" valign="top" width="35%" nowrap="nowrap"><img src="https://pic1.afdiancdn.com/user/7f56847012a911f0853552540025c377/avatar/752eaae4cf8018a82719ea8f42569eae_w2000_h2000_s2699.png?imageView2/1/w/240/h/240" style="border-radius: 50%" width="50px;" alt="茗亿"/><br /><sub><b>茗亿</b></sub><br/>🌸 30 🌸</td>
-        <td align="center" valign="top" width="35%" nowrap="nowrap"><img src="https://pic1.afdiancdn.com/user/fbcb2b98204611eea8f152540025c377/avatar/d4e7f58683064153bfbedb99ad95c6d8_w855_h875_s117.jpeg?imageView2/1/w/240/h/240" style="border-radius: 50%" width="50px;" alt="..."/><br /><sub><b>...</b></sub><br/>🌸 50 🌸</td>
-        <td align="center" valign="top" width="35%" nowrap="nowrap"><img src="https://pic1.afdiancdn.com/user/4041ac584eb111f0b57952540025c377/avatar/04de899ed964c6cfe315d27ea56a1fea_w1080_h1080_s69.jpeg?imageView2/1/w/240/h/240" style="border-radius: 50%" width="50px;" alt="夏夏肃炎"/><br /><sub><b>夏夏肃炎</b></sub><br/>🌸 5 🌸</td>
-        <td align="center" valign="top" width="35%" nowrap="nowrap"><img src="https://pic1.afdiancdn.com/user/7737c9cca1f211ed896a5254001e7c00/avatar/7a320f384ead8f4fca4630efa31c0c3b_w705_h705_s346.jpeg?imageView2/1/w/240/h/240" style="border-radius: 50%" width="50px;" alt="Bluerosion"/><br /><sub><b>Bluerosion</b></sub><br/>🌸 52.0 🌸</td>
-        <td align="center" valign="top" width="35%" nowrap="nowrap"><img src="https://pic1.afdiancdn.com/user/00794630e24f11ebac7252540025c377/avatar/f67fff0ab78bcf86d81a7b12a55ba3ca_w374_h354_s148.png?imageView2/1/w/240/h/240" style="border-radius: 50%" width="50px;" alt="Bluerosion"/><br /><sub><b>铃</b></sub><br/>🌸 5 🌸</td>
-    </tr>
-</table>
 
 ---
 
 ### Previews
 
-| **Best30**<br><picture><source srcset="https://github.com/user-attachments/assets/22670da2-cd67-4da3-9589-e139f3db6d82" type="image/avif" width="80%" /><img src="https://github.com/user-attachments/assets/7faf1dba-2cd5-44d5-bc9d-d880fd2f2201" width="80%" /></picture><br>By [@Steve~ɘvɘɈƧ](https://github.com/S-t-e-v-e-e) | **Single Score**<br><picture><source srcset="https://github.com/user-attachments/assets/8a5adadb-3cdf-4371-b1d3-cc869f89a545" type="image/avif" width="40%" /><img src="https://github.com/user-attachments/assets/4594ef39-dacf-4079-9612-5090626f572b" width="40%"></picture><br>Legacy Version<br><picture><source srcset="https://github.com/user-attachments/assets/83296c38-2181-479f-ad26-dfb2e09bccf8" type="image/avif" width="40%" /><img src="https://github.com/Catrong/phi-plugin/assets/117198625/093e3d30-7f9e-48cb-9e12-bb9f0bb3b40c" width="40%"></picture><br>**Song Info**<br><picture><source srcset="https://github.com/user-attachments/assets/e332c88d-ecd0-49e7-aa6b-310645f14a5a" type="image/avif" width="40%" /><img src="https://github.com/Catrong/phi-plugin/assets/117198625/c6eb9694-8f72-4d3f-85d9-5120375b047b" width="40%"></picture> |
+|**Best30 Preview**<br><picture><source srcset="https://github.com/user-attachments/assets/22670da2-cd67-4da3-9589-e139f3db6d82" type="image/avif" width="80%" /><img src="https://github.com/user-attachments/assets/7faf1dba-2cd5-44d5-bc9d-d880fd2f2201" width="80%" /></picture><br>Preview by [@Steve喵~](https://github.com/S-t-e-v-e-e) | **Single Score Preview**<br><picture><source srcset="https://github.com/user-attachments/assets/8a5adadb-3cdf-4371-b1d3-cc869f89a545" type="image/avif" width="40%" /><img src="https://github.com/user-attachments/assets/4594ef39-dacf-4079-9612-5090626f572b" width="40%"></picture><br>Preview by [@Steve喵~](https://github.com/S-t-e-v-e-e)<br><br>**Single Score Preview (Legacy)**<br><picture><source srcset="https://github.com/user-attachments/assets/83296c38-2181-479f-ad26-dfb2e09bccf8" type="image/avif" width="40%" /><img src="https://github.com/Catrong/phi-plugin/assets/117198625/093e3d30-7f9e-48cb-9e12-bb9f0bb3b40c" width="40%"></picture><br>Preview by [@Steve喵~](https://github.com/S-t-e-v-e-e)<br><br>**Song Info Preview**<br><picture><source srcset="https://github.com/user-attachments/assets/e332c88d-ecd0-49e7-aa6b-310645f14a5a" type="image/avif" width="40%" /><img src="https://github.com/Catrong/phi-plugin/assets/117198625/c6eb9694-8f72-4d3f-85d9-5120375b047b" width="40%"></picture> |
 |:-------------------:|:------------------------:|
-| **Range Scores**<br><picture><source srcset="https://github.com/user-attachments/assets/b1a4ff41-d26b-4ccc-942d-087797ff02b3" type="image/avif" /><img src="https://github.com/Catrong/phi-plugin/assets/117198625/411dff8e-ec93-4ebe-80ff-510105fd3f65"></picture><br>By [@东城Eastown](https://space.bilibili.com/171389567) <br>**User Stats**<br><picture><source srcset="https://github.com/user-attachments/assets/1361b1e9-510f-4140-a87d-a74b2ee70337" type="image/avif" /><img src="https://github.com/user-attachments/assets/ed20abfa-5bb1-4215-8b2b-8c5171126432"></picture> | **Legacy Stats**<br><picture><source srcset="https://github.com/user-attachments/assets/c876119b-d98f-4751-85ba-675e6f2ba55f" type="image/avif" width="60%" /><img src="https://github.com/Catrong/phi-plugin/assets/117198625/9e536f1a-4cbe-41da-b2da-94d1bcd70488" width="60%"></picture> |
-
----
-
-### Contributors
-
-<a href="https://github.com/Catrong/phi-plugin/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Catrong/phi-plugin" />
-</a>
-
-![Alt](https://repobeats.axiom.co/api/embed/3ba1307fae8ac160167cbb2556334fe324ce3065.svg "Repobeats analytics image")
-
-### Star History
-
-<a href="https://www.star-history.com/#Catrong/phi-plugin&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Catrong/phi-plugin&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Catrong/phi-plugin&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Catrong/phi-plugin&type=Date" />
- </picture>
-</a>
+|**Range Scores Preview**<br><picture><source srcset="https://github.com/user-attachments/assets/b1a4ff41-d26b-4ccc-942d-087797ff02b3" type="image/avif" /><img src="https://github.com/Catrong/phi-plugin/assets/117198625/411dff8e-ec93-4ebe-80ff-510105fd3f65"></picture><br>Preview by [@东城Eastown](https://space.bilibili.com/171389567) <br><br>**User Info Preview**<br><picture><source srcset="https://github.com/user-attachments/assets/1361b1e9-510f-4140-a87d-a74b2ee70337" type="image/avif" /><img src="https://github.com/user-attachments/assets/ed20abfa-5bb1-4215-8b2b-8c5171126432"></picture><br>Preview by [@Steve喵~](https://github.com/S-t-e-v-e-e)|**User Info Preview (Legacy)**<br><picture><source srcset="https://github.com/user-attachments/assets/c876119b-d98f-4751-85ba-675e6f2ba55f" type="image/avif" width="60%" /><img src="https://github.com/Catrong/phi-plugin/assets/117198625/9e536f1a-4cbe-41da-b2da-94d1bcd70488" width="60%"></picture><br>Preview by [@东城Eastown](https://space.bilibili.com/171389567)|
 
 ---
 
 ### Disclaimer
 
-1. This plugin is intended for non-commercial use only.
-2. All images/assets are from the internet and will be removed upon request.
-3. Cloud save system adapted from [7aGiven/PhigrosLibrary](https://github.com/7aGiven/PhigrosLibrary)
-4. Charter data is sourced from [DP-Tool](https://daogemm.github.io/)
+1. The features are intended only for internal communication and limited use. Do not use `phi-Plugin-koishi` for any profit-making purpose.
+2. Images and other assets come from the internet and are intended only for learning and exchange. If there is any infringement, please contact us and they will be removed immediately.
+3. The cloud save system is adapted from [7aGiven/PhigrosLibrary](https://github.com/7aGiven/PhigrosLibrary).
+4. Charter data is sourced from [DP-Tool](https://daogemm.github.io/).
 
 ### Related Projects
 
 <table>
     <tr>
-        <td align="center"><a href="https://github.com/yhArcadia/Yunzai-Bot-plugins-index"><b>Yunzai-Bot Plugin Index</b></a></td>
-        <td align="center"><a href="https://github.com/yoimiya-kokomi/Yunzai-Bot"><b>Yunzai-Bot</b></a></td>
-        <td align="center"><a href="https://github.com/yoimiya-kokomi/Miao-Yunzai"><b>Miao-Yunzai</b></a></td>
-        <td align="center"><a href="https://github.com/TimeRainStarSky/Yunzai"><b>TRSS-Yunzai</b></a></td>
-        <td align="center"><a href="https://daogemm.github.io/"><b>DP-Tool</b></a></td>
+        <td align="center"> <a href="https://github.com/Catrong/phi-plugin"><b>phi-plugin</b></a></td>
+        <td align="center"> <a href="https://github.com/koishijs/koishi"><b>Koishi</b></a></td>
+        <td align="center"> <a href="https://daogemm.github.io/"><b>DP-Tool</b></a></td>
     </tr>
 </table>
