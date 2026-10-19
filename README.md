@@ -5,7 +5,7 @@
       <img src="https://github.com/Catrong/phi-plugin/assets/117198625/731e11cb-71d3-4575-8c0d-b9cedcd442d4" width="80%" />
     </picture>
   
-### 中文 | [English](./readme.en.md)
+### 中文 | [English](./README_en.md)
   </h1>
 
 [![Guild](https://img.shields.io/badge/频道-Hutao114Pgr939-9cf?style=flat-square&logo=GroupMe)](https://pd.qq.com/s/e3z86q6bw)
@@ -22,16 +22,14 @@
 
 具体功能可在安装插件后通过 `phi help` 查看详细指令
 
-Koishi 版统一使用 `koishi-plugin-puppeteer` 服务渲染图片，不再启动插件独立 Chromium；请同时安装并启用该服务。共享浏览器由 Koishi 管理，插件卸载时只关闭自己创建的页面。
-
-Koishi 版仅支持原生命令，例如 `phi help`、`phi b30`、`phi sign`；不再兼容无空格的 `#phihelp` 旧写法。结构化状态存入 Koishi 数据库，存档快照与备份保存在 `data/phi-plugin`。
-
-插件设置统一在 Koishi 控制台管理。可变业务数据保存在 `data/phi-plugin/config/aliases.json` 与 `songs.json`；文件缺失时会用内置默认值创建，手工修改会热加载。
-
 ---
 
 ### 安装
 
+在koishi根目录执行
+```bash
+yarn clone https://github.com/KeiMaidDev/phi-plugin-koishi
+```
 
 #### Todo
 
