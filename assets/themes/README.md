@@ -1,6 +1,6 @@
 # 自定义主题包
 
-每个主题放在本目录下的独立文件夹中，并通过 `info.yaml` 声明资源。`css` 推荐使用页面映射：
+插件包内的 `assets/themes` 是只读内置主题目录。运行时安装或手工放置的主题应位于实例的 `data/phi-plugin/themes/<主题 id>/`，并通过 `info.yaml` 声明资源；这样升级插件时不会写入或占用 `node_modules`。`css` 推荐使用页面映射：
 
 ```yaml
 font: "font.ttf"

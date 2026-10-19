@@ -8,7 +8,6 @@
     "lib",
     "assets",
     "config/defaults",
-    "config/runtime/.gitkeep",
     "LICENSE"
   ],
   "license": "GPL-3.0",

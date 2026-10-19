@@ -18,17 +18,18 @@ export async function createEngine(ctx: Context, config: Record<string, any>, h:
     ;(globalThis as any).__PHI_DATA_ROOT = dataRoot
 
     const { useKoishiAdapter } = require('./platform/koishi.ts')
-    const { bindHostSettings } = require('./config/host.ts')
     const adapter = useKoishiAdapter(ctx, { h, rootPath: ctx.baseDir, botConfig: config })
+
+    const { default: Config } = require('./services/config-store.ts')
+    Config.config = {}
+    Config.initCfg()
+
+    const { bindHostSettings } = require('./config/host.ts')
     const unbind = bindHostSettings(config, values => {
         if (typeof (ctx.scope as any)?.update === 'function') {
             ;(ctx.scope as any).update({ ...(ctx.scope as any).config, ...values })
         }
     })
-
-    const { default: Config } = require('./services/config-store.ts')
-    Config.config = {}
-    Config.initCfg()
 
     // 启动后立即异步探测 Online API；本地初始化继续并行执行。
     const { default: autoSeekApi } = require('./providers/phi-api/auto-seek-api.ts')

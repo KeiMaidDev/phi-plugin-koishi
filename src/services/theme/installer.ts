@@ -26,7 +26,7 @@ const MAX_TEXT_BYTES = 5 * 1024 * 1024
 const MAX_RESOURCE_BYTES = 20 * 1024 * 1024
 const MAX_COMPRESSION_RATIO = 200
 
-const RESERVED_IDS = new Set(['default', 'snow', 'star', 'dss2', 'topText', 'foolsDay'])
+const RESERVED_IDS = new Set(['default', 'snow', 'star', 'dss2', 'topText', 'foolsDay', 'milthm'])
 const TEXT_EXTENSIONS = new Set(['.art', '.css', '.json', '.md', '.txt', '.yaml'])
 const ALLOWED_EXTENSIONS = new Set([
     '.art', '.avif', '.css', '.docx', '.gif', '.jpeg', '.jpg', '.json', '.md', '.otf', '.pdf', '.png',

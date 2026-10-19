@@ -11,7 +11,7 @@ export const pluginRoot = runtime.__PHI_PLUGIN_ROOT || (path.basename(bundleDir)
 /**插件名 */
 export const pluginName = path.basename(pluginRoot)
 /**数据路径 */
-export const dataPath = runtime.__PHI_DATA_ROOT || path.join(pluginRoot, 'data')
+export const dataPath = runtime.__PHI_DATA_ROOT || path.join(process.cwd(), 'data', pluginName)
 /**插件临时文件目录 */
 export const tempPath = path.join(dataPath, 'temp')
 /**插件资源目录 */
@@ -36,7 +36,7 @@ export const savePath = path.join(dataPath, 'saveData')
 export const apiSavePath = path.join(dataPath, 'apiSaveData')
 
 /**用户设置路径 */
-export const configPath = path.join(pluginRoot, 'config', 'runtime')
+export const configPath = path.join(dataPath, 'config')
 
 /**默认图片路径 */
 export const imgPath = path.join(pluginResources, 'html', 'otherimg')
@@ -45,7 +45,7 @@ export const imgPath = path.join(pluginResources, 'html', 'otherimg')
 export const ortherIllPath = path.join(pluginResources, 'otherill')
 
 /**原画资源 */
-export const originalIllPath = path.join(pluginResources, 'original_ill')
+export const originalIllPath = path.join(dataPath, 'original_ill')
 
 /**备份路径 */
 export const backupPath = path.join(dataPath, 'backup')

@@ -1,7 +1,7 @@
 // @ts-nocheck
 import lodash from 'lodash'
 import fs from 'fs'
-import { pluginRoot } from '../utils/path'
+import { dataPath } from '../utils/path'
 import logger from '../utils/logger'
 import { redis } from '../platform/index'
 
@@ -13,7 +13,7 @@ const getRoot = (root = '') => {
     if (root === 'root' || root === 'yunzai') {
         root = `${process.cwd()}/`
     } else if (!root) {
-        root = `${pluginRoot}/`
+        root = `${dataPath}/`
     }
     return root
 }

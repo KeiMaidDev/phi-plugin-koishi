@@ -220,7 +220,7 @@ export default class readFile {
             //     await getRksRank.delUserRks(list[i])
             // }
 
-            await this.SetFile("user_token.json", user_token)
+            await this.SetFile(path.join(dataPath, 'user_token.json'), user_token)
 
             already = 0
             tot = Object.keys(user_token).length

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import fs from 'node:fs'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import logger from '../../utils/logger'
 import fileWatcherRegistry from '../../utils/file-watcher-registry'
 import YamlReader from '../../utils/yaml-reader'
@@ -9,7 +10,7 @@ import { USER_SETTING_OPTIONS } from '../../domain/game/const-num'
 import themePolicy from './policy'
 import { recoverAllMarketInstalls } from './recovery'
 import { withMarketInstallLock } from './install-lock'
-import { migrateLegacyThemeDirectories, themesDir } from './paths'
+import { bundledThemesDir, migrateLegacyThemeDirectories, themesDir } from './paths'
 
 /** 自定义主题目录 */
 const THEMES_DIR = themesDir
@@ -33,7 +34,7 @@ const BUILTIN_TEMPLATES = {
 }
 
 /** 自定义主题 id 不允许与之冲突的 id（内置优先） */
-const CONFLICT_IDS = new Set(['default', 'snow', 'star', 'dss2', 'topText', 'foolsDay'])
+const CONFLICT_IDS = new Set(['default', 'snow', 'star', 'dss2', 'topText', 'foolsDay', 'milthm'])
 
 /** 主题 id 合法性 */
 const ID_RE = /^[a-zA-Z0-9_-]+$/
@@ -65,12 +66,13 @@ const encodeThemeUrlPath = value => value.split('/').map(encodeURIComponent).joi
  * @property {string} [template] b19 模板文件名
  * @property {Record<string, string>} [css] 按渲染页面配置的样式表文件名
  * @property {boolean} [legacyCss] 是否使用旧版 B19 替换样式语义
+ * @property {'data'|'bundled'} source 主题目录来源
  * @property {boolean} marketInstalled 是否由主题市场安装
  * @property {string} [marketVersion] 市场安装收据中的版本
  */
 
 /**
- * 主题管理器：内置主题与 assets/themes/<themeId>/ 下自定义主题的统一注册表，
+ * 主题管理器：内置只读主题与实例 data/phi-plugin/themes/<themeId>/ 下自定义主题的统一注册表，
  * 提供主题列表/选项/渲染配置解析，并支持目录热更新（无需重启 bot）。
  */
 export default new class themeManager {
@@ -84,8 +86,12 @@ export default new class themeManager {
     }
 
     async init() {
-        for (const migration of migrateLegacyThemeDirectories()) {
-            logger.info(`[phi-plugin][主题] 已迁移主题目录：${migration.from} -> ${migration.to}`)
+        try {
+            for (const migration of migrateLegacyThemeDirectories()) {
+                logger.info(`[phi-plugin][主题] 已迁移主题目录：${migration.from} -> ${migration.to}`)
+            }
+        } catch (error) {
+            logger.error('[phi-plugin][主题] 旧主题目录迁移失败，继续使用只读主题与现有数据目录', error)
         }
         /** @type {{themeId: string, error: unknown}[]} */
         let recoveryFailures = []
@@ -100,7 +106,7 @@ export default new class themeManager {
             logger.error(`[phi-plugin][主题] 恢复中断的市场主题安装失败：${failure.themeId}`, failure.error)
         }
         this.scan()
-        // 监听主题目录：info.yaml 及主题目录的增删改均触发重新扫描（目录不存在时 chokidar 会等待其出现）
+        // 只监听实例数据目录；插件包内的只读主题不产生运行时变更。
         const lease = fileWatcherRegistry.watch('b19:themes', THEMES_DIR, () => {
             this.scan()
         }, ['add', 'addDir', 'change', 'unlink', 'unlinkDir'], {
@@ -129,20 +135,24 @@ export default new class themeManager {
         try {
             /** @type {Map<string, CustomTheme>} */
             const themes = new Map()
-            if (fs.existsSync(THEMES_DIR)) {
-                for (const dirName of fs.readdirSync(THEMES_DIR)) {
+            const scanRoot = (root, source) => {
+                if (!fs.existsSync(root)) return
+                for (const dirName of fs.readdirSync(root)) {
                     if (dirName.startsWith('.phi-market-')) continue
-                    const dir = path.join(THEMES_DIR, dirName)
+                    const dir = path.join(root, dirName)
                     let isDir = false
                     try {
                         // 主题根目录必须是实体目录，避免通过目录链接绕过资源根边界。
                         isDir = fs.lstatSync(dir).isDirectory()
                     } catch { }
                     if (!isDir) continue
-                    const entry = this.parseThemeDir(dir, dirName, themes)
+                    const entry = this.parseThemeDir(dir, dirName, themes, source)
                     if (entry) themes.set(entry.id, entry)
                 }
             }
+            // 数据目录优先，同名主题不会被只读包内副本覆盖。
+            scanRoot(THEMES_DIR, 'data')
+            scanRoot(bundledThemesDir, 'bundled')
             this.customThemes = themes
             logger.info(`[phi-plugin][主题] 注册表更新完成：内置 ${BUILTIN_THEMES.length} 个，自定义 ${themes.size} 个`)
         } catch (err) {
@@ -161,9 +171,10 @@ export default new class themeManager {
      * @param {string} dir 主题目录绝对路径
      * @param {string} dirName 目录名（日志用）
      * @param {Map<string, CustomTheme>} themes 已注册的主题（用于查重）
+     * @param {'data'|'bundled'} source 主题来源
      * @returns {CustomTheme | null}
      */
-    parseThemeDir(dir, dirName, themes) {
+    parseThemeDir(dir, dirName, themes, source) {
         const yamlPath = path.join(dir, 'info.yaml')
         if (!fs.existsSync(yamlPath)) {
             logger.warn(`[phi-plugin][主题] ${dirName} 缺少 info.yaml，跳过该主题`)
@@ -189,7 +200,7 @@ export default new class themeManager {
             logger.warn(`[phi-plugin][主题] ${dirName} 的 id「${id}」非法（须匹配 /^[a-zA-Z0-9_-]+$/），跳过该主题`)
             return null
         }
-        if (CONFLICT_IDS.has(id)) {
+        if (source !== 'bundled' && CONFLICT_IDS.has(id)) {
             logger.warn(`[phi-plugin][主题] ${dirName} 的 id「${id}」与内置主题冲突，跳过该主题（内置优先）`)
             return null
         }
@@ -200,7 +211,7 @@ export default new class themeManager {
 
         const name = typeof yamlData.name === 'string' && yamlData.name ? yamlData.name : id
         /** @type {CustomTheme} */
-        const entry = { id, name, dir, dirName, marketInstalled: false }
+        const entry = { id, name, dir, dirName, source, marketInstalled: false }
         const receiptPath = path.join(dir, '.phi-market.json')
         if (fs.existsSync(receiptPath)) {
             entry.marketInstalled = true
@@ -258,7 +269,7 @@ export default new class themeManager {
     /**
      * 获取主题条目（内置或自定义），未知 id 返回 null
      * @param {string} [id]
-     * @returns {{id: string, name: string, dir?: string, dirName?: string, template?: string, css?: Record<string, string>, legacyCss?: boolean, font?: string, background?: string, icons?: Record<string, string>, colors?: Record<string, string>, marketInstalled?: boolean, marketVersion?: string} | null}
+     * @returns {{id: string, name: string, dir?: string, dirName?: string, source?: 'data'|'bundled', template?: string, css?: Record<string, string>, legacyCss?: boolean, font?: string, background?: string, icons?: Record<string, string>, colors?: Record<string, string>, marketInstalled?: boolean, marketVersion?: string} | null}
      */
     getTheme(id) {
         if (!id) return null
@@ -339,7 +350,9 @@ export default new class themeManager {
         if (!id) return null
         const custom = this.customThemes.get(id)
         if (custom) {
-            const baseUrl = `${resPath}themes/${encodeURIComponent(custom.dirName)}/`
+            const baseUrl = custom.source === 'data'
+                ? pathToFileURL(custom.dir).href + '/'
+                : `${resPath}themes/${encodeURIComponent(custom.dirName)}/`
             const renderTarget = page.includes('/') ? page : `${page}/${page}`
             const app = renderTarget.split('/')[0]
             let realThemeDir

@@ -1,7 +1,7 @@
 // @ts-nocheck
 import LazyRenderer, { validateRendererDependencies } from './lazy-renderer'
 import { randomUUID } from 'node:crypto'
-import { Data, Version, Plugin_Name, Display_Plugin_Name, Config } from '../services/index'
+import { Version, Plugin_Name, Display_Plugin_Name, Config } from '../services/index'
 import { _path, pluginResources, imgPath, tempPath } from '../utils/path'
 import fCompute from '../domain/game/f-compute'
 import themeManager from '../services/theme/manager'
@@ -554,7 +554,6 @@ export class PicModel {
             const layoutPath = resourceRoot + 'html/common/layout/'
             const resPath = resourceRootUrl
 
-            Data.createDir(`data/html/${Plugin_Name}/${app}/${tpl}`, 'root')
 
             /** 主题解析：自定义模板仅作用于 B19，页面样式与公共主题信息由 themeInfo 注入布局。 */
             let tplFile = path.join(pluginResources, 'html', app, `${tpl}.art`).replace(/\\/g, '/')

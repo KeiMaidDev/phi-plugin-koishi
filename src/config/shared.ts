@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
-import { pluginRoot } from '../utils/path'
+import { configPath, pluginRoot } from '../utils/path'
 /**
  * @typedef {object} SettingDefinition
  * @property {string} key
@@ -34,7 +34,7 @@ const fields = new Set(editable.map(item => item.key))
 
 // 读取时获取实际签发值，不把凭据快照固化为启动时的空默认值。
 function readGeneratedSettings() {
-    const file = path.join(pluginRoot, 'config', 'runtime', 'config.yaml')
+    const file = path.join(configPath, 'config.yaml')
     const local = fs.existsSync(file) ? YAML.parse(fs.readFileSync(file, 'utf8')) : {}
     return Object.fromEntries(definitions.filter(item => item.generated)
         .map(item => [item.key, local?.[item.key] ?? defaults[item.key]]))

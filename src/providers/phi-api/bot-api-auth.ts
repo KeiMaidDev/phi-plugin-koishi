@@ -7,7 +7,7 @@ import YAML from 'yaml';
 import Config from '../../services/config-store';
 import { writeHostSettings } from '../../config/host';
 import logger from '../../utils/logger';
-import { pluginRoot } from '../../utils/path';
+import { configPath } from '../../utils/path';
 import { APIBASEURL } from '../../domain/game/const-num';
 import { classifyApiConnectionError, isFatalBotIdentityError, PhiApiError } from './phi-api-errors';
 import { isApiVersionBlocked } from './api-version';
@@ -30,7 +30,7 @@ function writeIdentityAtomic(identity) {
         apiBotClientSecret: identity.secret,
         apiBotSecretVersion: identity.secretVersion,
     })) return;
-    const target = path.join(pluginRoot, 'config', 'runtime', 'config.yaml');
+    const target = path.join(configPath, 'config.yaml');
     const current = YAML.parse(fs.readFileSync(target, 'utf8')) || {};
     current.apiBotClientId = identity.clientId;
     current.apiBotClientSecret = identity.secret;

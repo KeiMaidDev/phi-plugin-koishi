@@ -2,16 +2,17 @@
 
 import YAML from 'yaml'
 import fs from 'node:fs'
+import path from 'node:path'
 import YamlReader from '../utils/yaml-reader'
 import fileWatcherRegistry from '../utils/file-watcher-registry'
-import { pluginRoot } from '../utils/path'
+import { configPath, pluginRoot } from '../utils/path'
 import logger from '../utils/logger'
 import platform from '../platform/index'
 import { getHostSettings, writeHostSetting } from '../config/host'
 import { PHI_COMMAND_HEAD } from '../constants'
 
-const Plugin_Name = 'phi-plugin'
-const Plugin_Path = pluginRoot
+const defaultsPath = path.join(pluginRoot, 'config', 'defaults')
+const legacyConfigPath = path.join(pluginRoot, 'config', 'runtime')
 class Config {
     constructor() {
         /** @type {Record<string, any>} */
@@ -20,21 +21,20 @@ class Config {
         /** 监听文件 */
         /** @type {Record<string, any>} */
         this.watcher = {}
-
-        this.initCfg()
     }
 
     /** 初始化配置 */
     initCfg() {
-        let path = `${Plugin_Path}/config/runtime/`
-        let pathDef = `${Plugin_Path}/config/defaults/`
-        fs.mkdirSync(path, { recursive: true })
-        const files = fs.readdirSync(pathDef).filter(file => file.endsWith('.yaml'))
+        fs.mkdirSync(configPath, { recursive: true })
+        const files = fs.readdirSync(defaultsPath).filter(file => file.endsWith('.yaml'))
         for (let file of files) {
-            if (!fs.existsSync(`${path}${file}`)) {
-                fs.copyFileSync(`${pathDef}${file}`, `${path}${file}`)
+            const target = path.join(configPath, file)
+            if (!fs.existsSync(target)) {
+                const legacy = path.join(legacyConfigPath, file)
+                const source = fs.existsSync(legacy) ? legacy : path.join(defaultsPath, file)
+                fs.copyFileSync(source, target)
             }
-            this.watch(`${path}${file}`, file.replace('.yaml', ''), 'runtime')
+            this.watch(target, file.replace('.yaml', ''), 'runtime')
         }
     }
 
@@ -129,7 +129,9 @@ class Config {
      * @returns {Record<string, any>}
      */
     getYaml(type, name) {
-        let file = `${Plugin_Path}/config/${type}/${name}.yaml`
+        const file = type === 'defaults'
+            ? path.join(defaultsPath, `${name}.yaml`)
+            : path.join(configPath, `${name}.yaml`)
         let key = `${type}.${name}`
 
         if (this.config[key]) return this.config[key]
@@ -200,8 +202,10 @@ class Config {
      */
     modify(name, key, value, type = 'runtime') {
         if (name === 'config' && type === 'runtime' && writeHostSetting(key, value)) return
-        let path = `${Plugin_Path}/config/${type}/${name}.yaml`
-        new YamlReader(path).set(key, value)
+        const file = type === 'defaults'
+            ? path.join(defaultsPath, `${name}.yaml`)
+            : path.join(configPath, `${name}.yaml`)
+        new YamlReader(file).set(key, value)
         delete this.config[`${type}.${name}`]
     }
 
@@ -214,8 +218,10 @@ class Config {
      * @param {'runtime'|'defaults'} type 配置文件或默认
      */
     modifyarr(name, key, value, category = 'add', type = 'runtime') {
-        let path = `${Plugin_Path}/config/${type}/${name}.yaml`
-        let yaml = new YamlReader(path)
+        const file = type === 'defaults'
+            ? path.join(defaultsPath, `${name}.yaml`)
+            : path.join(configPath, `${name}.yaml`)
+        let yaml = new YamlReader(file)
         const keyPath = String(key)
         if (category == 'add') {
             yaml.addIn(keyPath, value)
