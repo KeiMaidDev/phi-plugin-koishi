@@ -11,6 +11,10 @@ import { redis } from "../../platform/index";
 
 export default class getBanGroup {
 
+    static configure(config) {
+        this.config = config
+    }
+
     /**
      * @param {string} group 
      * @param {string} fnc 

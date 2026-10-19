@@ -9,6 +9,8 @@ import aliasProposalService from '../../providers/phi-api/alias-proposal-service
 import botSyncService from '../../providers/phi-api/bot-sync-service'
 import { isValidCron, type Config } from '../../config'
 import logger from '../../utils/logger'
+import type { Context } from 'koishi'
+import type {} from 'koishi-plugin-cron'
 
 /** @import {PlatformEvent} from '../../platform/types' */
 /** @import {AliasProposalRecord, AliasProposalStatus} from '../../types/alias-proposal' */
@@ -20,7 +22,7 @@ const DEFAULT_TASK_CRON = '0 * * * * ?'
 /**
  * 创建 Bot 状态与正式别名同步定时任务。
  * 开关和日志开关在每次触发时读取，修改后立即生效（Yunzai 每次触发都会重读 task.log）；
- * cron 由 Yunzai 在注册时固化，修改后重载插件生效。
+ * cron 在任务注册时固化，修改后重载插件生效。
  * @returns {import('../../platform/types').PlatformTask}
  */
 export function createAliasProposalTask(config: Config) {
@@ -42,6 +44,29 @@ export function createAliasProposalTask(config: Config) {
         get log() {
             return Boolean(config.aliasSyncTaskLog)
         },
+    }
+}
+
+/**
+ * 将同步任务注册到 Koishi cron 服务；表达式无效时回退为默认每分钟。
+ */
+export function registerAliasProposalTask(ctx: Context, config: Config) {
+    const task = createAliasProposalTask(config)
+    const run = async () => {
+        if (!config.enableAliasSyncTask) return
+        if (task.log) logger.info(`[phi-plugin] ${task.name}开始`)
+        try {
+            await task.fnc()
+        } finally {
+            if (task.log) logger.info(`[phi-plugin] ${task.name}完成`)
+        }
+    }
+    const expression = task.cron || DEFAULT_TASK_CRON
+    try {
+        return ctx.cron(expression, run)
+    } catch (error) {
+        logger.warn(`[phi-plugin] 同步任务周期配置无效：${expression}，已回退为 ${DEFAULT_TASK_CRON}`, error)
+        return ctx.cron(DEFAULT_TASK_CRON, run)
     }
 }
 

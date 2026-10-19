@@ -42,7 +42,8 @@ export function registerEngineCommands(ctx: Context, runtime: EngineRuntime) {
     for (const alias of spec.aliases ?? []) command.alias(`phi.${alias}`)
     command.action(async (argv) => {
       try {
-        return await invokeEngine(runtime, spec, argv.session)
+        const result = await invokeEngine(runtime, spec, argv.session)
+        return typeof result === 'boolean' ? undefined : result
       } catch (error) {
         ctx.logger('phi-plugin').error(error)
         return `Phi 功能执行失败：${error instanceof Error ? error.message : String(error)}`

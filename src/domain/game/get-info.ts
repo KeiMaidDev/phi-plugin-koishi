@@ -71,6 +71,9 @@ import Save from '../save/save'
 
 class getInfo {
 
+    get config() { return this.runtime.config }
+    get data() { return this.runtime.data }
+
     constructor() {
         /**
          * 难度映射
@@ -183,7 +186,6 @@ class getInfo {
         /** @type {Record<idString, Partial<Record<levelKind, string[]>>>} 来源于 https://daogemm.github.io/files/infos/charters.json */
         this.charters = {}
 
-        this.setupInfoWatchers()
     }
 
     /**

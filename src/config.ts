@@ -156,15 +156,9 @@ export const DEFAULT_CONFIG = {
 
 export const Config: Schema<Config> = Schema.intersect([
   Schema.object({
-    timezone: Schema.string().default("Asia/Shanghai").description("签到时区：Sign-in 使用的 IANA 时区。"),
-    signInRewardMin: Schema.number().min(0).step(1).default(5).description("签到奖励下限：Sign-in 奖励的最小 Note 数量。"),
-    signInRewardMax: Schema.number().min(0).step(1).default(20).description("签到奖励上限：Sign-in 奖励的最大 Note 数量。"),
-    transferFee: Schema.number().min(0).max(100).step(1).default(20).description("转账手续费：Transfer 手续费百分比，范围为 0 到 100。"),
-  }).description("Note 设置"),
-  Schema.object({
     defaultGlobal: Schema.boolean().default(false).description("默认使用国际服：开启后默认使用国际服查询，关闭后默认使用国服查询"),
     onLinePhiIllUrl: Schema.union([Schema.const(1).description("GitHub raw"), Schema.const(2).description("Gitee raw"), Schema.const(3).description("弦塔资源站"), Schema.const(4).description("cnb.cool")]).default(1).description("在线曲绘来源：仅在未下载曲绘时有效，不影响下载曲绘指令。在线曲绘将重复下载曲绘资源，建议使用 /下载曲绘 将曲绘缓存到本地"),
-    githubProxy: Schema.union([Schema.const(false).description('不使用代理'), Schema.string()]).default("https://gh-proxy.com").description("GitHub代理：仅在在线曲绘来源为 GitHub raw 或下载曲绘源为 GitHub 时生效。填 false 为不使用代理，也可填写代理地址，如 https://gh-proxy.com"),
+    githubProxy: Schema.union([Schema.const(false).description('不使用代理'), Schema.string().description('使用代理')]).default("https://gh-proxy.com").description("GitHub代理：仅在在线曲绘来源为 GitHub raw 或下载曲绘源为 GitHub 时生效。填 false 为不使用代理，也可填写代理地址，如 https://gh-proxy.com"),
     downIllUrl: Schema.union([Schema.const("https://gitee.com/Steveeee-e/phi-plugin-ill.git").description("gitee（暂时弃用）"), Schema.const("https://github.com/Catrong/phi-plugin-ill.git").description("github"), Schema.string().description('自定义地址')]).default("https://github.com/Catrong/phi-plugin-ill.git").description("下载曲绘源：下载曲绘的源，实时生效。选择 GitHub 时会使用上面的 GitHub代理配置"),
     watchInfoPath: Schema.boolean().default(false).description("监听信息文件：是否监听信息文件变化，按文件粒度只重载受影响的曲目数据；如果机器人有自动更新插件功能建议开启，如遇监听文件数量超限请尝试关闭"),
     allowComment: Schema.boolean().default(true).description("曲目评论：是否开启曲目评论功能，该功能目前暂无敏感词校验"),
@@ -172,17 +166,9 @@ export const Config: Schema<Config> = Schema.intersect([
     isGuild: Schema.boolean().default(false).description("频道模式：开启后文字版仅限私聊，关闭文字版图片，文字版将折叠为长消息"),
     TapTapLoginQRcode: Schema.boolean().default(true).description("绑定二维码：登录TapTap绑定是否发送二维码，开启仅发送二维码，关闭直接发送链接"),
     SimpleBindReply: Schema.boolean().default(false).description("绑定精简回复：开启后绑定流程仅发送二维码、绑定成功提示、成绩更新图与API不可用提示，避免官方Bot被动回复超出条数限制（群聊5条/私信4条）"),
-    openPhiPluginApi: Schema.boolean().default(true).description("API 总开关：关闭后自定义主题、查分统计和在线查分 API 均不可用"),
-    enableCustomThemeApi: Schema.boolean().default(true).description("自定义主题 API：允许浏览、下载和使用 API 提供的自定义主题，受 API 总开关控制"),
-    enableScoreStatisticsApi: Schema.boolean().default(true).description("查分数据统计 API：允许使用无需用户认证的成绩统计、排行汇总与谱面分析，受 API 总开关控制"),
-    enableOnlineScoreApi: Schema.boolean().default(true).description("在线查分 API：允许使用需要用户认证的在线查分能力，受 API 总开关和用户个人 API 开关控制"),
-    enableAliasSyncTask: Schema.boolean().default(true).description("状态别名同步任务：是否开启 Bot 状态心跳、API 消息拉取与正式别名快照同步的定时任务，受 API 总开关控制，修改后立即生效"),
-    aliasSyncTaskCron: Schema.string().pattern(/^[\d*,\-/?A-Za-z]+(?: +[\d*,\-/?A-Za-z]+){4,5}$/).default("0 * * * * ?").description("同步任务周期：同步任务的 cron 表达式（6 位含秒），如 0 * * * * ? 为每分钟；修改后重载插件或重启生效。仅 Yunzai 平台生效，Koishi 按固定间隔执行"),
-    aliasSyncTaskLog: Schema.boolean().default(false).description("同步任务日志：是否在每次任务触发时打印开始处理/完成日志，默认关闭以免刷屏，异常日志不受影响，修改后立即生效"),
     mutiNickWaitTimeOut: Schema.number().min(5).max(999).default(10).description("多个曲目回复序号等待时长：别名重复触发多个曲目选择时，等待回复序号的时长，单位：秒"),
     otherinfo: Schema.union([Schema.const(0).description("原版曲库"), Schema.const(1).description("原版+自定义"), Schema.const(2).description("仅自定义")]).default(0).description("曲库：使用曲库的模式，若启用自定义则重名的以自定义为准"),
     allowChartTag: Schema.boolean().default(false).description("谱面标签：是否开启谱面标签功能，目前暂无敏感词校验。"),
-    themeMarketDownloadOrigin: Schema.string().role('link').pattern(/^https:\/\/[^/?#]+$/).default("https://lyh.org.cn:18473").description("主题下载来源：主题市场下载链接允许的唯一 HTTPS 来源，不含路径。"),
   }).description("系统设置"),
   Schema.object({
     renderScale: Schema.number().min(50).max(200).default(100).description("渲染精度：对所有的图片生效，设置渲染精度"),
@@ -200,6 +186,25 @@ export const Config: Schema<Config> = Schema.intersect([
     WordB19Img: Schema.boolean().default(false).description("文字版B19曲绘图片：关闭可大幅度提升发送速度"),
     WordSuggImg: Schema.boolean().default(false).description("Suggest曲绘图片：关闭可大幅度提升发送速度"),
   }).description("渲染设置"),
+  Schema.object({
+    openPhiPluginApi: Schema.boolean().default(true).description("API 总开关：关闭后自定义主题、查分统计和在线查分 API 均不可用"),
+    enableCustomThemeApi: Schema.boolean().default(true).description("自定义主题 API：允许浏览、下载和使用 API 提供的自定义主题，受 API 总开关控制"),
+    enableScoreStatisticsApi: Schema.boolean().default(true).description("查分数据统计 API：允许使用无需用户认证的成绩统计、排行汇总与谱面分析，受 API 总开关控制"),
+    enableOnlineScoreApi: Schema.boolean().default(true).description("在线查分 API：允许使用需要用户认证的在线查分能力，受 API 总开关和用户个人 API 开关控制"),
+    enableAliasSyncTask: Schema.boolean().default(true).description("状态别名同步任务：是否开启 Bot 状态心跳、API 消息拉取与正式别名快照同步的定时任务，受 API 总开关控制，修改后立即生效"),
+    aliasSyncTaskCron: Schema.string().pattern(/^[\d*,\-/?A-Za-z]+(?: +[\d*,\-/?A-Za-z]+){4,5}$/).default("0 * * * * ?").description("同步任务周期：同步任务的 cron 表达式，支持标准 5 位格式或带秒的 6 位格式，如 0 * * * * ? 或 * * * * * 为每分钟；修改后重载插件或重启生效"),
+    aliasSyncTaskLog: Schema.boolean().default(false).description("同步任务日志：是否在每次任务触发时打印开始处理/完成日志，默认关闭以免刷屏，异常日志不受影响，修改后立即生效"),
+    themeMarketDownloadOrigin: Schema.string().role('link').pattern(/^https:\/\/[^/?#]+$/).default("https://lyh.org.cn:18473").description("主题下载来源：主题市场下载链接允许的唯一 HTTPS 来源，不含路径。"),
+    apiBotClientId: Schema.string().default("").description("Bot 客户端 ID：由 API 自动签发，也可手动修改；客户端 ID、密钥及版本号须保持匹配。"),
+    apiBotClientSecret: Schema.string().role('secret').default("").description("Bot 客户端密钥：由 API 自动签发，也可手动修改；客户端 ID、密钥及版本号须保持匹配。"),
+    apiBotSecretVersion: Schema.number().min(0).step(1).default(0).description("Bot 密钥版本：由 API 自动签发，也可手动修改；客户端 ID、密钥及版本号须保持匹配。"),
+  }).description("API 设置"),
+  Schema.object({
+    timezone: Schema.string().default("Asia/Shanghai").description("签到时区：Sign-in 使用的 IANA 时区。"),
+    signInRewardMin: Schema.number().min(0).step(1).default(5).description("签到奖励下限：Sign-in 奖励的最小 Note 数量。"),
+    signInRewardMax: Schema.number().min(0).step(1).default(20).description("签到奖励上限：Sign-in 奖励的最大 Note 数量。"),
+    transferFee: Schema.number().min(0).max(100).step(1).default(20).description("转账手续费：Transfer 手续费百分比，范围为 0 到 100。"),
+  }).description("Note 设置"),
   Schema.object({
     GuessTipCd: Schema.number().min(0).max(120).default(15).description("提示间隔：猜曲绘的提示间隔时间，单位：秒"),
     GuessTipRecall: Schema.boolean().default(false).description("猜曲绘撤回：是否在下一条提示发出的时候撤回上一条"),
@@ -242,11 +247,6 @@ export const Config: Schema<Config> = Schema.intersect([
   Schema.object({
     debug: Schema.number().min(0).default(0).description("调试日志：设置为 0 关闭测试日志。"),
   }).description("其他设置"),
-  Schema.object({
-    apiBotClientId: Schema.string().default("").description("Bot 客户端 ID：由 API 自动签发，也可手动修改；客户端 ID、密钥及版本号须保持匹配。"),
-    apiBotClientSecret: Schema.string().role('secret').default("").description("Bot 客户端密钥：由 API 自动签发，也可手动修改；客户端 ID、密钥及版本号须保持匹配。"),
-    apiBotSecretVersion: Schema.number().min(0).step(1).default(0).description("Bot 密钥版本：由 API 自动签发，也可手动修改；客户端 ID、密钥及版本号须保持匹配。"),
-  }).description("API 内部凭据"),
 ]) as Schema<Config>
 
 export function resolveConfig(input: Partial<Config> = {}): Config {

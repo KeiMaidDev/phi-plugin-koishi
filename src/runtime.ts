@@ -4,12 +4,44 @@ import fs from 'node:fs'
 import type { Context, h as H } from 'koishi'
 import type { Config } from './config'
 import type { PhiRuntime } from './runtime-context'
+import YAML from 'yaml'
 
 export interface EngineRuntime extends PhiRuntime {
     apps: Record<string, any>
     adapter: any
     picmodle: any
     dispose(): Promise<void>
+}
+
+/** 从旧配置存储恢复已签发的 Bot 身份，避免升级后重复申请并触发注册限流。 */
+function restoreLegacyBotIdentity(ctx: Context, config: Config, configRoot: string) {
+    const hasAnyIdentity = Boolean(config.apiBotClientId || config.apiBotClientSecret)
+    if (hasAnyIdentity) return false
+
+    const legacyPath = path.join(configRoot, 'config', 'config.yaml')
+    if (!fs.existsSync(legacyPath)) return false
+
+    try {
+        const legacy = YAML.parse(fs.readFileSync(legacyPath, 'utf8')) || {}
+        const identity = {
+            apiBotClientId: String(legacy.apiBotClientId || '').trim(),
+            apiBotClientSecret: String(legacy.apiBotClientSecret || '').trim(),
+            apiBotSecretVersion: Number(legacy.apiBotSecretVersion || 0),
+        }
+        if (!identity.apiBotClientId || !identity.apiBotClientSecret) return false
+        if (!Number.isSafeInteger(identity.apiBotSecretVersion) || identity.apiBotSecretVersion < 1) return false
+
+        Object.assign(config, identity)
+        const scope = ctx.scope as any
+        if (typeof scope?.update === 'function') {
+            scope.update({ ...scope.config, ...identity }, false)
+        }
+        const logger = typeof ctx.logger === 'function' ? ctx.logger('phi-plugin') : ctx.logger
+        logger?.info?.('[phi-plugin] 已恢复旧版 API Bot 身份配置')
+        return true
+    } catch {
+        return false
+    }
 }
 
 export async function createEngine(ctx: Context, config: Config, h: typeof H): Promise<EngineRuntime> {
@@ -26,13 +58,14 @@ export async function createEngine(ctx: Context, config: Config, h: typeof H): P
     const { BusinessDataStore } = require('./services/business-data.ts')
     const data = new BusinessDataStore()
     await data.init()
+    restoreLegacyBotIdentity(ctx, config, dataRoot)
 
     const runtime: PhiRuntime = { config, data }
     const updateConfig = (values: Partial<Config>) => {
         Object.assign(config, values)
         const scope = ctx.scope as any
         if (typeof scope?.update === 'function') {
-            scope.update({ ...scope.config, ...values })
+            scope.update({ ...scope.config, ...values }, false)
         }
     }
 
@@ -65,6 +98,8 @@ export async function createEngine(ctx: Context, config: Config, h: typeof H): P
 
     const { createApps } = require('./services/apps/index.ts')
     const apps = createApps(runtime)
+    const { registerAliasProposalTask } = require('./services/apps/alias-proposal.ts')
+    registerAliasProposalTask(ctx, config)
 
     let disposed = false
     return {

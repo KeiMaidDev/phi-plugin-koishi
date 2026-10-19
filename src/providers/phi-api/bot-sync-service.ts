@@ -28,7 +28,7 @@ export class BotSyncService {
         const acknowledgedMessageIds = [...this.pendingAcknowledgements]
         try {
             // 始终在本地滚动采样；服务端许可只决定是否把匿名压力历史放入请求。
-            const renderPressure = (await import('../../render/pic-model')).default.takeRenderPressureSnapshot()
+            const renderPressure = require('../../render/pic-model.ts').default.takeRenderPressureSnapshot()
             const response = await makeRequest.syncBot({
                 pluginVersion: Version.ver,
                 acknowledgedMessageIds,

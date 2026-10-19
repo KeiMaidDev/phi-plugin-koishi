@@ -1,6 +1,7 @@
 import { Context, h } from 'koishi'
 import type {} from 'koishi-plugin-monetary'
 import type {} from 'koishi-plugin-puppeteer'
+import type {} from 'koishi-plugin-cron'
 import { installCommunityModels, installCommunityStore, installNotesStore, installPhiModels } from './database'
 import { createEngine } from './runtime'
 import { registerEngineCommands } from './commands'
@@ -10,7 +11,7 @@ import { Config, resolveConfig, validateConfig, type Config as PhiConfig } from 
 export { Config }
 export type { PhiConfig }
 export const name = 'phi-plugin-koishi'
-export const inject = ['database', 'monetary', 'puppeteer']
+export const inject = ['database', 'monetary', 'puppeteer', 'cron']
 
 export async function apply(ctx: Context, input: PhiConfig) {
   const config = resolveConfig(input)

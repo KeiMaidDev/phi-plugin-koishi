@@ -436,10 +436,10 @@ export class AutoSeekApi {
     const identity = await botApiAuth.recoverAfterReconnect(Version.ver, signal)
     throwIfAborted()
     this.logger.mark(chalk.green(`API Bot身份已就绪：${identity.clientId}`))
-    const { default: botSyncService } = await import('./bot-sync-service')
+    const { default: botSyncService } = require('./bot-sync-service.ts')
     await botSyncService.recoverAfterReconnect(signal)
     throwIfAborted()
-    const { default: aliasProposalService } = await import('./alias-proposal-service')
+    const { default: aliasProposalService } = require('./alias-proposal-service.ts')
     await aliasProposalService.initialize(signal)
   }
 

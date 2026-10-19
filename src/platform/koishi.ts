@@ -509,7 +509,8 @@ export function createKoishiAdapter(ctx, options = {}) {
                 return { __phiSegment: true, type: 'at', userId }
             },
             markdown(text) {
-                return text
+                if (typeof h === 'function') return h('markdown', {}, String(text))
+                return { type: 'markdown', attrs: {}, children: [String(text)] }
             },
             text(text) {
                 if (typeof h?.text === 'function') return h.text(text)
@@ -737,7 +738,7 @@ export function createKoishiAdapter(ctx, options = {}) {
          * @param {Record<string, unknown>} [data]
          */
         async sendWithAt(e, msg, quote = false, data = {}) {
-            if (e?.isGroup) {
+            if (e?.isGroup && this.getAdapterName(e) !== 'qq') {
                 const at = this.segment.at(e.user_id || e.userId || '')
                 if (typeof msg === 'string') return this.reply(e, [at, ` ${msg}`], { quote, ...data })
                 return this.reply(e, [at, ...asArray(msg)], { quote, ...data })

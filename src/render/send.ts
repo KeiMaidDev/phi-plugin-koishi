@@ -9,6 +9,10 @@ import platform from "../platform/index";
 
 class send {
 
+    static configure(config) {
+        this.config = config
+    }
+
     /**
      * 普通回复，统一经过平台接口。
      * @param {*} e

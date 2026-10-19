@@ -82,7 +82,7 @@ function quickCommandReplyData(e, commands) {
  */
 export function isOfficialBot(e) {
     const adapter = platform.getAdapterName(e)
-    return typeof adapter === 'string' && /^(qqbot|qq[-_ ]?official[-_ ]?bot)$/i.test(adapter.trim())
+    return typeof adapter === 'string' && /^(qq|qqbot|qq[-_ ]?official[-_ ]?bot)$/i.test(adapter.trim())
 }
 
 /**
