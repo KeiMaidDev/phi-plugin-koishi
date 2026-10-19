@@ -1,6 +1,8 @@
 // @ts-nocheck
+import autoSeekApi from '../../providers/phi-api/auto-seek-api'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import logger from '../../utils/logger'
-import { Config } from '../../services/index'
 import platform from '../../platform/index'
 import PhigrosUser from '../../vendor/phigros/phigros-user'
 import { canUseApi } from './api-permission'
@@ -757,7 +759,7 @@ export class UserCredentials {
         }
 
         if (old?.session && old.session !== user.session) {
-            notifyUser(event, `检测到新的sessionToken，将自动更换本地绑定。如果需要删除当前 Bot 本地保存的存档和历史，请使用 ⌈/${Config.getUserCfg('config', 'cmdhead')} unbind⌋。`)
+            notifyUser(event, `检测到新的sessionToken，将自动更换本地绑定。如果需要删除当前 Bot 本地保存的存档和历史，请使用 ⌈/${PHI_COMMAND_HEAD} unbind⌋。`)
         }
 
         const now = new Save(user)
@@ -794,7 +796,7 @@ export class UserCredentials {
         const sessionToken = await this.getSessionToken()
 
         /**API 功能关闭时不做同步，直接使用本地历史记录 */
-        if (!await canUseApi(event)) {
+        if (!await canUseApi(autoSeekApi.config, event)) {
             if (!sessionToken) {
                 notifyUser(event, '请先绑定sessionToken哦！')
                 return null

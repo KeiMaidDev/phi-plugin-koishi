@@ -1,5 +1,6 @@
 // @ts-nocheck
-import Config from '../services/config-store'
+import { PHI_COMMAND_HEAD } from '../constants'
+
 import { UserCredentials } from '../domain/user/user-credentials';
 import Save from "../domain/save/save";
 import logger from "../utils/logger";
@@ -44,7 +45,7 @@ class send {
         let user_save = null
         const credentials = UserCredentials.fromEvent(e)
         let sessionToken = await credentials.getSessionToken()
-        const allowApi = await canUseApi(e)
+        const allowApi = await canUseApi(this.config, e)
         if (allowApi) {
             try {
                 user_save = await credentials.getUpdatedSaveFromApi()
@@ -56,7 +57,7 @@ class send {
 
         if (!sessionToken) {
             if (send) {
-                this.send_with_At(e, `请先绑定sessionToken哦！如果不知道自己的sessionToken可以尝试扫码绑定嗷！\n帮助：/${Config.getUserCfg('config', 'cmdhead')} tk help\n获取二维码：/${Config.getUserCfg('config', 'cmdhead')} bind qrcode\n普通绑定：/${Config.getUserCfg('config', 'cmdhead')} bind <sessionToken>`)
+                this.send_with_At(e, `请先绑定sessionToken哦！如果不知道自己的sessionToken可以尝试扫码绑定嗷！\n帮助：/${PHI_COMMAND_HEAD} tk help\n获取二维码：/${PHI_COMMAND_HEAD} bind qrcode\n普通绑定：/${PHI_COMMAND_HEAD} bind <sessionToken>`)
             }
             return false
         }
@@ -66,7 +67,7 @@ class send {
 
         if (!user_save || (ver && (!user_save.Recordver || user_save.Recordver < ver))) {
             if (send) {
-                this.send_with_At(e, `请先更新数据哦！\n格式：/${Config.getUserCfg('config', 'cmdhead')} update`)
+                this.send_with_At(e, `请先更新数据哦！\n格式：/${PHI_COMMAND_HEAD} update`)
             }
             return false
         }

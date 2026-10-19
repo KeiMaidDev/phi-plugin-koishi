@@ -1,7 +1,9 @@
 // @ts-nocheck
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import { createRequire } from "module";
 import lodash from "lodash";
-import Config from "../config-store";
 import common from "../common";
 import getInfo from "../../domain/game/get-info";
 import { originalIllPath, pluginRoot } from "../../utils/path";
@@ -27,18 +29,20 @@ function shellPath(filePath) {
  * 处理插件更新
  */
 export class phiupdate extends phiPluginBase {
-    constructor() {
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: "phi-plugin更新",
             event: "message",
             priority: 1009,
             rule: [
                 {
-                    reg: `^[/#](pgr|PGR|屁股肉|phi|Phi|(${Config.getUserCfg('config', 'cmdhead')}))(\\s*)(强制|qz)?(更新|gx)$`,
+                    reg: `^[/#](pgr|PGR|屁股肉|phi|Phi|(${PHI_COMMAND_HEAD}))(\\s*)(强制|qz)?(更新|gx)$`,
                     fnc: "update",
                 },
                 {
-                    reg: `^[#/](pgr|PGR|屁股肉|phi|Phi|(${Config.getUserCfg('config', 'cmdhead')}))(\\s*)(下载|更新|gx|down|up)\\s*(曲绘|ill)$`,
+                    reg: `^[#/](pgr|PGR|屁股肉|phi|Phi|(${PHI_COMMAND_HEAD}))(\\s*)(下载|更新|gx|down|up)\\s*(曲绘|ill)$`,
                     fnc: "ill_update",
                 },
             ],
@@ -78,7 +82,7 @@ export class phiupdate extends phiPluginBase {
             console.error(err)
         }
 
-        if (Config.getUserCfg('config', 'autoPullPhiIll')) {
+        if (this.config.autoPullPhiIll) {
             try {
                 await this.ill_update()
             } catch (err) {
@@ -198,7 +202,7 @@ export class phiupdate extends phiPluginBase {
         if (line <= 0) return false;
         log.unshift(`phi-plugin更新日志，共${line}条`);
 
-        if (!Config.getUserCfg('config', 'isGuild')) {
+        if (!this.config.isGuild) {
             log.push("更多详细信息，请前往github查看\nhttps://github.com/Catrong/phi-plugin");
             await this.reply(await common.makeForwardMsg(this.e, log, `phi-plugin更新日志，共${line}条`))
         } else {
@@ -376,7 +380,7 @@ export class phiupdate extends phiPluginBase {
     }
 
     getDownIllUrl() {
-        const downIllUrl = String(Config.getUserCfg('config', 'downIllUrl') || '').trim()
+        const downIllUrl = String(this.config.downIllUrl || '').trim()
         let url
         try {
             url = new URL(downIllUrl)
@@ -387,7 +391,7 @@ export class phiupdate extends phiPluginBase {
             return downIllUrl
         }
 
-        const githubProxy = Config.getUserCfg('config', 'githubProxy')
+        const githubProxy = this.config.githubProxy
         if (githubProxy === false || githubProxy === 'false' || githubProxy === '') {
             return downIllUrl
         }
@@ -426,7 +430,7 @@ export class phiupdate extends phiPluginBase {
             if (str[1].includes("Merge branch")) continue;
             log.push(str[1]);
         }
-        if (!Config.getUserCfg('config', 'isGuild')) {
+        if (!this.config.isGuild) {
             log.push("更多详细信息，请前往github查看\nhttps://github.com/Catrong/phi-plugin-ill");
         }
 

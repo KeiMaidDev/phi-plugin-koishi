@@ -1,7 +1,6 @@
 // @ts-nocheck
 import crypto from 'node:crypto'
 import fs from 'node:fs'
-import Config from '../config-store'
 import makeRequest from '../../providers/phi-api/make-request'
 import { classifyApiConnectionError } from '../../providers/phi-api/phi-api-errors'
 
@@ -106,8 +105,8 @@ function retryableAuthorization(error) {
     return status === 0 || [408, 425, 429].includes(status) || status >= 500
 }
 
-function configuredDownloadOrigin() {
-    const raw = String(Config.getUserCfg('config', 'themeMarketDownloadOrigin') || '').trim()
+function configuredDownloadOrigin(config) {
+    const raw = String(config.themeMarketDownloadOrigin || '').trim()
     let url
     try {
         url = new URL(raw)
@@ -150,7 +149,7 @@ function validateDownload(value, themeId) {
         || !Number.isFinite(Date.parse(download.expiresAt))
         || Date.parse(download.expiresAt) <= Date.now()
         || url.protocol !== 'https:'
-        || url.origin !== configuredDownloadOrigin()
+        || url.origin !== configuredDownloadOrigin(config)
         || url.username
         || url.password
         || url.hash
@@ -174,7 +173,7 @@ function validateDownload(value, themeId) {
  * @param {string} themeId
  * @param {string} [requestId]
  */
-export async function authorizeThemeDownload(themeId, requestId = crypto.randomUUID()) {
+export async function authorizeThemeDownload(config, themeId, requestId = crypto.randomUUID()) {
     for (let attempt = 0; attempt < AUTH_ATTEMPTS; attempt++) {
         try {
             const response = await makeRequest.requestThemeDownload({ requestId, themeId })
@@ -202,7 +201,7 @@ async function writeChunk(handle, chunk, position) {
  * @param {string} targetPath
  * @param {{fetchImpl?:typeof fetch}} [options]
  */
-export async function downloadThemeArchive(download, targetPath, options = {}) {
+export async function downloadThemeArchive(config, download, targetPath, options = {}) {
     const fetchImpl = options.fetchImpl || fetch
     let lastError = null
     for (let attempt = 0; attempt < DOWNLOAD_ATTEMPTS; attempt++) {
@@ -213,7 +212,7 @@ export async function downloadThemeArchive(download, targetPath, options = {}) {
         let handle
         try {
             const url = new URL(download.downloadUrl)
-            if (url.origin !== configuredDownloadOrigin() || url.protocol !== 'https:' || url.username || url.password || url.hash) {
+            if (url.origin !== configuredDownloadOrigin(config) || url.protocol !== 'https:' || url.username || url.password || url.hash) {
                 throw new ThemeMarketClientError('theme_download_url_untrusted')
             }
             let response

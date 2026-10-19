@@ -1,5 +1,7 @@
 // @ts-nocheck
-import { Config, logger, segment } from '../../services/index'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
+import { logger, segment } from '../../services/index'
 import send from '../../render/send'
 import platform from '../../platform/index'
 
@@ -118,8 +120,8 @@ export function buildQuickCommandMarkdown(commands, title = '快捷操作') {
  * @param {{command:string,label:string}[]} commands
  * @param {string} [title]
  */
-export async function sendQuickCommands(e, commands, title = '快捷操作') {
-    if (!isOfficialBot(e) || !Config.getUserCfg('config', 'LetterMarkdown')) return
+export async function sendQuickCommands(e, commands, title = '快捷操作', config) {
+    if (!isOfficialBot(e) || !config?.LetterMarkdown) return
     const markdown = buildQuickCommandMarkdown(commands, title)
     if (!markdown) return
     try {
@@ -146,8 +148,8 @@ export function buildQuickCommandSectionsMarkdown(sections, title = '快捷操�
 }
 
 /** 向 QQ 官方机器人发送分组快捷操作菜单。 */
-export async function sendQuickCommandSections(e, sections, title = '快捷操作') {
-    if (!isOfficialBot(e) || !Config.getUserCfg('config', 'LetterMarkdown')) return
+export async function sendQuickCommandSections(e, sections, title = '快捷操作', config) {
+    if (!isOfficialBot(e) || !config?.LetterMarkdown) return
     const markdown = buildQuickCommandSectionsMarkdown(sections, title)
     if (!markdown) return
     const commands = (sections || []).flatMap(section => section?.commands || [])
@@ -263,16 +265,6 @@ export function apiHelpQuickCommands(commandHead) {
     ]
 }
 
-/** Bot 全局设置页。 */
-export function configQuickCommands(commandHead) {
-    return [
-        { command: pageCommand(commandHead, '设置'), label: '全局设置' },
-        { command: pageCommand(commandHead, 'myset'), label: '用户设置' },
-        { command: pageCommand(commandHead, 'update'), label: '更新插件' },
-        { command: pageCommand(commandHead, 'market'), label: '主题市场' },
-        { command: pageCommand(commandHead, 'help'), label: '帮助' },
-    ]
-}
 
 /** 成绩页通用入口，使用 B27 作为默认成绩概览。 */
 export function scoreQuickCommands(commandHead) {
@@ -399,7 +391,7 @@ export const commonQuickCommands = helpQuickCommands
  */
 export function buildMarketQuickMarkdown(themes, pagination = {}) {
     if (!themes.length) return ''
-    const commandHead = `${Config.getUserCfg('config', 'cmdhead')}`
+    const commandHead = `${PHI_COMMAND_HEAD}`
     const rows = themes.map(theme => [
         escapeMarkdownText(theme.name),
         commandInput(`/${commandHead} market detail ${theme.slug}`, '查看详情'),
@@ -423,7 +415,7 @@ export function buildMarketQuickMarkdown(themes, pagination = {}) {
 
 /** @param {{slug:string,name:string,botDownloadAllowed:boolean|null}[]} themes @param {{page?:number,pageCount?:number}} pagination */
 function marketQuickCommands(themes, pagination = {}) {
-    const commandHead = `${Config.getUserCfg('config', 'cmdhead')}`
+    const commandHead = `${PHI_COMMAND_HEAD}`
     const commands = []
     for (const theme of themes || []) {
         commands.push(
@@ -446,8 +438,8 @@ function marketQuickCommands(themes, pagination = {}) {
  * @param {{slug:string,name:string,botDownloadAllowed:boolean|null}[]} themes
  * @param {{page?:number,pageCount?:number}} [pagination]
  */
-export async function sendMarketQuickCommands(e, themes, pagination = {}) {
-    if (!Config.getUserCfg('config', 'LetterMarkdown')) return
+export async function sendMarketQuickCommands(e, themes, pagination = {}, config) {
+    if (!config?.LetterMarkdown) return
     const markdown = buildMarketQuickMarkdown(themes, pagination)
     if (!markdown) return
     try {

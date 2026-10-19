@@ -7,7 +7,6 @@
   "files": [
     "lib",
     "assets",
-    "config/defaults",
     "LICENSE"
   ],
   "license": "GPL-3.0",

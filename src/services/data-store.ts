@@ -142,22 +142,6 @@ let Data = {
         return await Data.importModule(`components/optional-lib/${name}.js`)
     },
 
-    /**
-     * @param {string} key
-     */
-    async importCfg(key) {
-        let sysCfg = await Data.importModule(`config/system/${key}_system.js`)
-        let diyCfg = await Data.importModule(`config/${key}.js`)
-        if (diyCfg.isSys) {
-            logger.error(`phi-plugin: config/${key}.js无效，已忽略`)
-            logger.error(`如需配置请复制config/${key}_default.js为config/${key}.js，请勿复制config/system下的系统文件`)
-            diyCfg = {}
-        }
-        return {
-            sysCfg,
-            diyCfg
-        }
-    },
 
     /*
     * 返回一个从 target 中选中的属性的对象

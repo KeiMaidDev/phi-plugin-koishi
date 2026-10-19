@@ -1,8 +1,8 @@
 // @ts-nocheck
 import readFile from '../../utils/get-file'
-import { DlcInfoPath, configPath, dataPath, imgPath, infoPath, originalIllPath, ortherIllPath, oldInfoPath, pluginResources } from '../../utils/path'
+import { DlcInfoPath, dataPath, imgPath, infoPath, originalIllPath, ortherIllPath, oldInfoPath, pluginResources } from '../../utils/path'
 import path from 'path'
-import Config from '../../services/config-store'
+import type { PhiRuntime } from '../../runtime-context'
 import SongsInfo from './songs-info'
 import fs from 'fs'
 import { allLevel, Level, MAX_DIFFICULTY } from './const-num'
@@ -217,7 +217,7 @@ class getInfo {
         void this.closeInfoWatchers()
         // 清理旧版整目录监听可能残留的注册
         void fileWatcherRegistry.close('info:directory')
-        if (!Config.getUserCfg('config', 'watchInfoPath')) return
+        if (!this.config.watchInfoPath) return
         /** 文件只关心内容变化；目录额外覆盖增删；两者都跳过 chokidar 初始扫描事件 */
         const fileEvents = ['change']
         const watchOptions = { ignoreInitial: true }
@@ -325,7 +325,8 @@ class getInfo {
     }
 
     /** 全量加载曲目信息（启动与更新曲库后调用） */
-    async init() {
+    async init(runtime?: PhiRuntime) {
+        if (runtime) this.runtime = runtime
         if (!fs.existsSync(path.join(originalIllPath, '.git'))) {
             logger.error(`[phi-plugin] 未下载曲绘文件，建议使用 /phi downill 命令进行下载`)
         }
@@ -477,7 +478,7 @@ class getInfo {
         this.songLimits = null;
 
         /**额外曲库开关：0:原本 1:原本+额外 2:仅额外 */
-        const otherInfoMode = Config.getUserCfg('config', 'otherinfo')
+        const otherInfoMode = this.config.otherinfo
 
         /**
          * @type {Record<idString, SongsInfo>}
@@ -694,7 +695,7 @@ class getInfo {
 
         /**自定义曲目加入抽取列表：1:原本+额外 2:仅额外 */
         if (otherInfoMode) {
-            const user_song = Config.getUserCfg('otherinfo') || {}
+            const user_song = this.data.getSongs() || {}
             for (const i of fCompute.objectKeys(user_song)) {
                 const song = user_song[i]
                 // 曲绘列表消费方通过 getill 取图，实际读取的是 illustration 字段
@@ -877,17 +878,17 @@ class getInfo {
      */
     info(id, original = false) {
         let result
-        switch (original ? 0 : Config.getUserCfg('config', 'otherinfo')) {
+        switch (original ? 0 : this.config.otherinfo) {
             case 0: {
                 result = { ...this.ori_info, ...this.sp_info }
                 break;
             }
             case 1: {
-                result = { ...this.ori_info, ...this.sp_info, ...Config.getUserCfg('otherinfo') }
+                result = { ...this.ori_info, ...this.sp_info, ...this.data.getSongs() }
                 break;
             }
             case 2: {
-                result = Config.getUserCfg('otherinfo')
+                result = this.data.getSongs()
                 break;
             }
         }
@@ -900,15 +901,15 @@ class getInfo {
      * @returns {Record<idString, SongsInfo>} 所有曲目信息对象
      */
     all_info(original = false) {
-        switch (original ? 0 : Config.getUserCfg('config', 'otherinfo')) {
+        switch (original ? 0 : this.config.otherinfo) {
             case 0: {
                 return { ...this.ori_info, ...this.sp_info }
             }
             case 1: {
-                return { ...this.ori_info, ...this.sp_info, ...Config.getUserCfg('otherinfo') }
+                return { ...this.ori_info, ...this.sp_info, ...this.data.getSongs() }
             }
             case 2: {
-                return Config.getUserCfg('otherinfo')
+                return this.data.getSongs()
             }
             default: {
                 return { ...this.ori_info, ...this.sp_info }
@@ -932,7 +933,7 @@ class getInfo {
          */
         let result = []
 
-        const usernick = Config.getUserCfg('nickconfig')
+        const usernick = this.data.getAliases()
         const allinfo = this.all_info(original)
 
         for (let std in this.songnick) {
@@ -995,11 +996,7 @@ class getInfo {
      * @param {string} nick 别名
      */
     async setnick(mic, nick) {
-        if (!Config.getUserCfg('nickconfig', mic)) {
-            Config.modify('nickconfig', nick, [mic])
-        } else {
-            Config.modifyarr('nickconfig', nick, mic, 'add')
-        }
+        await this.data.addAlias(nick, mic)
     }
 
     /**
@@ -1076,7 +1073,7 @@ class getInfo {
             return rawBaseUrl
         }
 
-        const githubProxy = Config.getUserCfg('config', 'githubProxy')
+        const githubProxy = this.config.githubProxy
         if (githubProxy === false || githubProxy === 'false' || githubProxy === '') {
             return rawBaseUrl
         }
@@ -1092,7 +1089,7 @@ class getInfo {
      * @returns {string}
      */
     getOnlinePhiIllUrl(type, ...paths) {
-        const cfg = Config.getUserCfg('config', 'onLinePhiIllUrl')
+        const cfg = this.config.onLinePhiIllUrl
 
         let sourceKey = /**@type {1|2|3|4} */(Number(cfg))
         if (![1, 2, 3, 4].includes(sourceKey)) {

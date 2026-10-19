@@ -1,6 +1,7 @@
 // @ts-nocheck
+import { PHI_COMMAND_HEAD } from '../../../constants'
+
 import common from '../../common'
-import Config from '../../config-store'
 import logger from '../../../utils/logger'
 import getInfo from '../../../domain/game/get-info'
 import send from '../../../render/send'
@@ -94,7 +95,13 @@ function groupKey(e) {
     return String(e.group_id || e.chatId || e.user_id)
 }
 
-export default new class guessIll {
+export default class guessIll {
+    config
+
+    constructor(runtime) {
+        this.config = runtime.config
+    }
+
     /**
      * 猜曲绘
      * @param {botEvent} e
@@ -148,7 +155,7 @@ export default new class guessIll {
         let lvMsg = e.msg.match(/-[lL]\s*(\d+)/)?.[0]?.match(/(\d+)/)?.[0]
 
         // 未通过 -l 指定难度时使用配置的默认难度（-1 为保持原有的加权随机）
-        const defaultLevel = Number(Config.getUserCfg('config', 'GuessTipDefaultLevel'))
+        const defaultLevel = Number(this.config.GuessTipDefaultLevel)
         // 根据难度等级生成干扰组合
         const level = lvMsg
             ? Number(lvMsg)
@@ -182,8 +189,8 @@ export default new class guessIll {
          * @type {remainInfoType}
          */
         const remain_info = /** @type {remainInfoType} */ (['chapter', 'bpm', 'composer', 'length', 'illustrator', 'chart']).filter(tip => {
-            if (tip !== 'chart') return Config.getUserCfg('config', TIP_TOGGLE_KEYS[tip])
-            return getEnabledChartTips().length > 0
+            if (tip !== 'chart') return this.config[TIP_TOGGLE_KEYS[tip]]
+            return getEnabledChartTips(this.config).length > 0
         })
         /**
          * 随机给出提示
@@ -247,17 +254,17 @@ export default new class guessIll {
         logger.info(data)
 
         send.reply(e, 
-            [`下面开始进行猜曲绘哦！回答可以直接发送哦！每过${Config.getUserCfg('config', 'GuessTipCd')}秒后将会给出进一步提示。`,
-            `发送 /${Config.getUserCfg('config', 'cmdhead')} ans 结束游戏`,
+            [`下面开始进行猜曲绘哦！回答可以直接发送哦！每过${this.config.GuessTipCd}秒后将会给出进一步提示。`,
+            `发送 /${PHI_COMMAND_HEAD} ans 结束游戏`,
             `本局难度：${level}，当前干扰类型：${data.chosenInterferences.length ? data.chosenInterferences.join('、') : '无干扰'}`].join('\n')
         )
-        if (Config.getUserCfg('config', 'GuessTipRecall'))
-            await send.reply(e, await picmodle.guess(e, data), false, { recallMsg: Config.getUserCfg('config', 'GuessTipCd') })
+        if (this.config.GuessTipRecall)
+            await send.reply(e, await picmodle.guess(e, data), false, { recallMsg: this.config.GuessTipCd })
         else
             await send.reply(e, await picmodle.guess(e, data))
 
         /**单局时间不超过4分半 */
-        const time = Config.getUserCfg('config', 'GuessTipCd')
+        const time = this.config.GuessTipCd
         for (let i = 0; i < Math.min(270 / time, 30); ++i) {
 
 
@@ -291,7 +298,7 @@ export default new class guessIll {
                     break
                 }
                 case 2: {
-                    gave_a_tip(known_info, remain_info, songs_info, fnc)
+                    gave_a_tip(known_info, remain_info, songs_info, fnc, this.config)
                     tipmsg = `[追加提示!]`
                     break
                 }
@@ -339,8 +346,8 @@ export default new class guessIll {
                 return true
             }
 
-            if (Config.getUserCfg('config', 'GuessTipRecall'))
-                send.reply(e, remsg, false, { recallMsg: Config.getUserCfg('config', 'GuessTipCd') + 1 })
+            if (this.config.GuessTipRecall)
+                send.reply(e, remsg, false, { recallMsg: this.config.GuessTipCd + 1 })
             else
                 send.reply(e, remsg)
 
@@ -458,7 +465,7 @@ export default new class guessIll {
         await send.reply(e, `洗牌成功了www`, true)
         return true
     }
-}()
+}
 
 
 
@@ -563,8 +570,8 @@ const CHART_TIP_TYPES = [
  * 当前配置允许给出的谱面类提示子项
  * @returns {typeof CHART_TIP_TYPES}
  */
-function getEnabledChartTips() {
-    return CHART_TIP_TYPES.filter(t => Config.getUserCfg('config', t.cfg))
+function getEnabledChartTips(config) {
+    return CHART_TIP_TYPES.filter(t => config[t.cfg])
 }
 
 /**
@@ -574,7 +581,7 @@ function getEnabledChartTips() {
  * @param {SongsInfo} songs_info
  * @param {number[]} fnc
  */
-function gave_a_tip(known_info, remain_info, songs_info, fnc) {
+function gave_a_tip(known_info, remain_info, songs_info, fnc, config) {
     if (remain_info.length) {
         const t = randbt(remain_info.length - 1)
         const aim = remain_info[t]
@@ -587,7 +594,7 @@ function gave_a_tip(known_info, remain_info, songs_info, fnc) {
         if (!remain_info.length) fnc.splice(fnc.indexOf(2), 1)
 
         if (aim === 'chart') {
-            const enabledTips = getEnabledChartTips()
+            const enabledTips = getEnabledChartTips(config)
             if (!enabledTips.length) {
                 logger.error('Error: no chart tip enabled')
                 return true

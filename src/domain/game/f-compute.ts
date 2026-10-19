@@ -1,5 +1,6 @@
 // @ts-nocheck
-import Config from '../../services/config-store'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import logger from '../../utils/logger'
 import LevelRecordInfo from './level-record-info'
 import { Level, MAX_DIFFICULTY } from './const-num'
@@ -600,7 +601,7 @@ export default class fCompute {
      * 多别名的返回消息
      * @param {idString[]} idArr 
      */
-    static mutiNick(idArr) {
+    static mutiNick(idArr, config) {
         /**
          * 筛选出重复的别名
          * @type {Record<string, number>}
@@ -644,7 +645,7 @@ export default class fCompute {
                 msg += `${index + 1}. ${id}\n暂无信息\n`;
             }
         })
-        msg += `请在${Config.getUserCfg('config', 'mutiNickWaitTimeOut')}秒内回复序号`;
+        msg += `请在${config.mutiNickWaitTimeOut}秒内回复序号`;
         return msg
     }
 
@@ -811,7 +812,7 @@ export default class fCompute {
      * @param {string} content 
      */
     static getRexWithCmdHead(content) {
-        let rex = new RegExp(`^[#/]\\s*${Config.getUserCfg('config', 'cmdhead')}\\s*(${content})\\s*`, 'i')
+        let rex = new RegExp(`^[#/]\\s*${PHI_COMMAND_HEAD}\\s*(${content})\\s*`, 'i')
         return rex;
     }
 

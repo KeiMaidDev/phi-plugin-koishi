@@ -1,5 +1,7 @@
 // @ts-nocheck
-import Config from '../config-store'
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import send from '../../render/send'
 import makeRequest from '../../providers/phi-api/make-request'
 import ProgressBar from "../../render/progress-bar";
@@ -99,43 +101,45 @@ const API_USER_SETTING_BOOL_ALIAS = {
 }
 
 export class phihelp extends phiPluginBase {
-    constructor() {
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: 'phi-api-set',
             dsc: 'phigrosApi相关指令',
             event: 'message',
             priority: 1000,
             rule: [
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*setApiToken[\\s\\S]*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*setApiToken[\\s\\S]*$`,
                     fnc: 'setApiToken'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*(tkls|lstk)$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*(tkls|lstk)$`,
                     fnc: 'tokenList'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*auth.*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*auth.*$`,
                     fnc: 'auth'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*clearApiData$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*clearApiData$`,
                     fnc: 'clearApiData'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*updateHistory$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*updateHistory$`,
                     fnc: 'updateHistory'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*updateUserToken$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*updateUserToken$`,
                     fnc: 'updateUserToken'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*updateComment$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*updateComment$`,
                     fnc: 'updateComment'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*(apiset)(\\s+.*)?$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*(apiset)(\\s+.*)?$`,
                     fnc: 'apiset'
                 },
             ]
@@ -148,7 +152,7 @@ export class phihelp extends phiPluginBase {
      * @returns {Promise<boolean>}
      */
     async checkApiEnabled(e) {
-        const access = await getApiAccessState(e)
+        const access = await getApiAccessState(this.config, e)
         if (!access.enabled) {
             send.send_with_At(e, access.message)
             return false
@@ -182,7 +186,7 @@ export class phihelp extends phiPluginBase {
 
         let apiToken = e.msg.replace(/^[#/].*?setApiToken\s*\n?/, '')
         if (!apiToken) {
-            send.send_with_At(e, `请输入apiToken！\n格式：\n设置密码：/${Config.getUserCfg('config', 'cmdhead')} setApiToken <新Token> `)
+            send.send_with_At(e, `请输入apiToken！\n格式：\n设置密码：/${PHI_COMMAND_HEAD} setApiToken <新Token> `)
             return true
         }
         if (/[\s\x00-\x1F\x7F'"\\]/.test(apiToken)) {
@@ -481,14 +485,14 @@ export class phihelp extends phiPluginBase {
 
         const usage = [
             '用法：',
-            `/${Config.getUserCfg('config', 'cmdhead')} apiset`,
-            `/${Config.getUserCfg('config', 'cmdhead')} apiset 数据收集 开`,
-            `/${Config.getUserCfg('config', 'cmdhead')} apiset allowLeaderboard false`,
+            `/${PHI_COMMAND_HEAD} apiset`,
+            `/${PHI_COMMAND_HEAD} apiset 数据收集 开`,
+            `/${PHI_COMMAND_HEAD} apiset allowLeaderboard false`,
             '可设置项：allowDataCollection / allowLeaderboard / allowDataAggregation / allowPlayerIdSearch / allowUserIdSearch',
             '可选值：true/false、on/off、开/关、允许/禁止'
         ].join('\n')
 
-        const rawArgs = e.msg.replace(new RegExp(`^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*(NOAPI|noapi|apiset)`, 'i'), '').trim()
+        const rawArgs = e.msg.replace(new RegExp(`^[#/](${PHI_COMMAND_HEAD})\\s*(NOAPI|noapi|apiset)`, 'i'), '').trim()
 
         if (!rawArgs) {
             await this.renderApiUserSetting(e, userSetting)
@@ -582,6 +586,6 @@ export class phihelp extends phiPluginBase {
             background: getInfo.getill(getInfo.illlist[Number((Math.random() * (getInfo.illlist.length - 1)).toFixed(0))]),
             theme: pluginData?.theme || 'default'
         }, 'userSetting'))
-        await sendQuickCommands(e, apiSettingQuickCommands(Config.getUserCfg('config', 'cmdhead')), 'API设置快捷操作')
+        await sendQuickCommands(e, apiSettingQuickCommands(PHI_COMMAND_HEAD), 'API设置快捷操作', this.config)
     }
 }

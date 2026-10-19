@@ -1,5 +1,6 @@
 // @ts-nocheck
-import Config from '../../services/config-store'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 
 export class PhiApiError extends Error {
     /** @param {string} message @param {number} [status] @param {string} [code] @param {any} [data] */
@@ -60,7 +61,7 @@ const USER_ERROR_MESSAGES = {
     bot_user_credential_required: '当前请求缺少 sessionToken 或 API ID，请重新绑定。',
     binding_conflict_requires_sstk: '当前平台已绑定其他查分ID，请使用sessionToken重新绑定。',
     user_id_binding_disabled: () => {
-        const commandHead = `${Config.getUserCfg('config', 'cmdhead')}`
+        const commandHead = `${PHI_COMMAND_HEAD}`
         return `该用户未开启API ID绑定，请使用 /${commandHead} bind <sessionToken> 或 /${commandHead} bind qrcode 扫码重新绑定。`
     },
     user_not_found: '未找到对应的查分ID，请检查后重试。',

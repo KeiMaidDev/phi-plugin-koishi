@@ -1,17 +1,19 @@
 // @ts-nocheck
-import Config from '../config-store'
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import phiPluginBase from '../base-class'
 import send from '../../render/send'
 import getInfo from '../../domain/game/get-info'
 import aliasProposalService from '../../providers/phi-api/alias-proposal-service'
 import botSyncService from '../../providers/phi-api/bot-sync-service'
-import shared from '../../config/shared'
+import { isValidCron, type Config } from '../../config'
 import logger from '../../utils/logger'
 
 /** @import {PlatformEvent} from '../../platform/types' */
 /** @import {AliasProposalRecord, AliasProposalStatus} from '../../types/alias-proposal' */
 
-const getHead = () => Config.getUserCfg('config', 'cmdhead')
+const getHead = () => PHI_COMMAND_HEAD
 const getPrefix = () => `^[#/](${getHead()})(\\s*)(别名|alias)(\\s*)`
 const DEFAULT_TASK_CRON = '0 * * * * ?'
 
@@ -21,16 +23,16 @@ const DEFAULT_TASK_CRON = '0 * * * * ?'
  * cron 由 Yunzai 在注册时固化，修改后重载插件生效。
  * @returns {import('../../platform/types').PlatformTask}
  */
-export function createAliasProposalTask() {
-    const configuredCron = /** @type {string} */ (Config.getUserCfg('config', 'aliasSyncTaskCron')) || DEFAULT_TASK_CRON
-    const cron = shared.isValidCron(configuredCron) ? configuredCron : DEFAULT_TASK_CRON
+export function createAliasProposalTask(config: Config) {
+    const configuredCron = /** @type {string} */ (config.aliasSyncTaskCron) || DEFAULT_TASK_CRON
+    const cron = isValidCron(configuredCron) ? configuredCron : DEFAULT_TASK_CRON
     if (cron !== configuredCron) {
         logger.warn(`[phi-plugin] 同步任务周期配置无效：${configuredCron}，已回退为 ${DEFAULT_TASK_CRON}`)
     }
     return {
         name: 'phi-Bot状态与正式别名同步',
         fnc: async () => {
-            if (!Config.getUserCfg('config', 'enableAliasSyncTask')) return
+            if (!config.enableAliasSyncTask) return
             await botSyncService.scheduledTask()
             await aliasProposalService.scheduledTask()
         },
@@ -38,7 +40,7 @@ export function createAliasProposalTask() {
         interval: 60_000,
         // false 时 Yunzai 会把开始处理/完成日志降级为 debug，仅保留异常输出
         get log() {
-            return Boolean(Config.getUserCfg('config', 'aliasSyncTaskLog'))
+            return Boolean(config.aliasSyncTaskLog)
         },
     }
 }
@@ -85,13 +87,15 @@ function shortList(items, includeVote = false) {
 
 export class aliasProposal extends phiPluginBase {
     /** 初始化命令规则、Bot心跳和正式别名同步任务。 */
-    constructor() {
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: 'phi-别名提案',
             dsc: 'Token 驱动的曲目别名提案与公投',
             event: 'message',
             priority: 1000,
-            task: createAliasProposalTask(),
+            task: createAliasProposalTask(runtime.config),
             rule: [
                 { reg: `${getPrefix()}(提案|submit)(\\s*).*$`, fnc: 'propose' },
                 { reg: `${getPrefix()}(我的|mine)$`, fnc: 'mine' },

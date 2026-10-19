@@ -1,6 +1,5 @@
 // @ts-nocheck
 import crypto from 'node:crypto'
-import Config from '../config-store'
 import themeManager from './manager'
 import themePolicy from './policy'
 import {
@@ -45,7 +44,7 @@ async function waitForThemeRegistration(themeId) {
  * @param {string} themeId
  * @param {{requesterId?:string}} [options]
  */
-export function installLatestMarketTheme(themeId, options = {}) {
+export function installLatestMarketTheme(config, themeId, options = {}) {
     return marketInstallCoordinator.schedule(themeId, () => withMarketInstallLock(async () => {
         const recoveryFailures = await recoverAllMarketInstalls()
         if (recoveryFailures.length) throw new ThemeMarketClientError('theme_install_recovery_failed')
@@ -54,7 +53,7 @@ export function installLatestMarketTheme(themeId, options = {}) {
         let freshInstallPrepared = false
         for (let authorizationCycle = 0; authorizationCycle < 2; authorizationCycle++) {
             const requestId = crypto.randomUUID()
-            const download = await authorizeThemeDownload(themeId, requestId)
+            const download = await authorizeThemeDownload(config, themeId, requestId)
             if (await isMarketThemeCached(themeId, download)) {
                 const theme = await waitForThemeRegistration(themeId)
                 return { cached: true, version: download.version, theme }
@@ -68,7 +67,7 @@ export function installLatestMarketTheme(themeId, options = {}) {
 
             const archivePath = marketWorkPath(`download-${themeId}-${requestId}.zip`)
             try {
-                await downloadThemeArchive(download, archivePath)
+                await downloadThemeArchive(config, download, archivePath)
                 await installMarketArchive(themeId, download, archivePath)
                 const theme = await waitForThemeRegistration(themeId)
                 return { cached: false, version: download.version, theme }
@@ -86,10 +85,18 @@ export class ThemeUseService {
      * @param {{getTheme?:typeof getAvailableMarketTheme, install?:typeof installLatestMarketTheme, marketEnabled?:()=>boolean|Promise<boolean>}} [dependencies]
      */
     constructor(dependencies = {}) {
+        this.dependencies = dependencies
+        this.config = undefined
         this.getTheme = dependencies.getTheme || getAvailableMarketTheme
-        this.install = dependencies.install || installLatestMarketTheme
+        this.install = dependencies.install
         this.marketEnabled = dependencies.marketEnabled
-            || (() => isApiCapabilityAvailable('customTheme'))
+    }
+
+    /** @param {any} config */
+    configure(config) {
+        this.config = config
+        this.install = this.dependencies.install || ((themeId, options) => installLatestMarketTheme(config, themeId, options))
+        this.marketEnabled = this.dependencies.marketEnabled || (() => isApiCapabilityAvailable(config, 'customTheme'))
     }
 
     /** @param {any} theme @param {any} [detail] */

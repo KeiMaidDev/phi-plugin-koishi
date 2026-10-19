@@ -1,4 +1,7 @@
 // @ts-nocheck
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import Save from '../../domain/save/save'
 import fCompute from '../../domain/game/f-compute'
 import getInfo from '../../domain/game/get-info'
@@ -6,7 +9,6 @@ import getRksRank from '../../domain/game/get-rks-rank'
 import getSave from '../../domain/save/get-save'
 import send from '../../render/send'
 import picmodle from '../../render/pic-model'
-import Config from '../config-store'
 import getBanGroup from '../../domain/user/get-ban-group';
 import makeRequest from '../../providers/phi-api/make-request'
 import saveHistory from '../../domain/save/save-history'
@@ -21,23 +23,25 @@ import { sendQuickCommands, rankQuickCommands } from '../../domain/game/markdown
 
 export class phiRankList extends phiPluginBase {
 
-    constructor() {
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: 'phi-rankList',
             event: 'message',
             priority: 1000,
             dsc: 'phigros rks 排行榜',
             rule: [
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(排行榜|ranklist).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(排行榜|ranklist).*$`,
                     fnc: 'rankList'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(查询排名|rankfind).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(查询排名|rankfind).*$`,
                     fnc: 'rankfind'
                 }
                 // {
-                //     reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(封神榜|godlist)$`,
+                //     reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(封神榜|godlist)$`,
                 //     fnc: 'godList'
                 // }
             ]
@@ -59,7 +63,7 @@ export class phiRankList extends phiPluginBase {
 
 
 
-        if (await canUseApi(e)) {
+        if (await canUseApi(this.config, e)) {
             const credentials = UserCredentials.fromEvent(e)
             let data = {
                 Title: "RankingScore排行榜",
@@ -81,7 +85,7 @@ export class phiRankList extends phiPluginBase {
                 }
                 data.me = await makeLargeLine(new Save(api_ranklist.me.save), new saveHistory(api_ranklist.me.history), e)
                 send.send_with_At(e, [await picmodle.common(e, 'rankingList', data), `总数据量：${data.totDataNum}\n`])
-                await sendQuickCommands(e, rankQuickCommands(Config.getUserCfg('config', 'cmdhead')), '排行榜快捷操作')
+                await sendQuickCommands(e, rankQuickCommands(PHI_COMMAND_HEAD), '排行榜快捷操作', this.config)
                 return true
             }
         }
@@ -142,7 +146,7 @@ export class phiRankList extends phiPluginBase {
         }
 
         send.send_with_At(e, [`总数据量：${data.totDataNum}\n`, await picmodle.common(e, 'rankingList', data)])
-        await sendQuickCommands(e, rankQuickCommands(Config.getUserCfg('config', 'cmdhead')), '排行榜快捷操作')
+        await sendQuickCommands(e, rankQuickCommands(PHI_COMMAND_HEAD), '排行榜快捷操作', this.config)
     }
 
     /**
@@ -158,15 +162,15 @@ export class phiRankList extends phiPluginBase {
 
         let rks = Number(e.msg.replace(/^[#/]?.*?rankfind/, '').match(/\d+(.\d+)?/)?.[0])
         if (!rks) {
-            send.send_with_At(e, `请输入要查询的 rks！\n格式： /${Config.getUserCfg('config', 'cmdhead')} rankfind <rks>`)
+            send.send_with_At(e, `请输入要查询的 rks！\n格式： /${PHI_COMMAND_HEAD} rankfind <rks>`)
             return false
         }
 
-        if (await canUseApi(e, 'scoreStatistics')) {
+        if (await canUseApi(this.config, e, 'scoreStatistics')) {
             const res = await makeRequest.getRanklistRks({ request_rks: rks }, { event: e })
             if (res) {
                 send.send_with_At(e, `当前服务器记录中一共有 ${res.rksRank}/${res.totNum} 位玩家的 rks 大于 ${rks}！`)
-                await sendQuickCommands(e, rankQuickCommands(Config.getUserCfg('config', 'cmdhead')), '排行榜快捷操作')
+                await sendQuickCommands(e, rankQuickCommands(PHI_COMMAND_HEAD), '排行榜快捷操作', this.config)
                 return true
             }
         }
@@ -176,7 +180,7 @@ export class phiRankList extends phiPluginBase {
         let rank = await getRksRank.getRankByRks(rks)
 
         send.send_with_At(e, `当前服务器记录中一共有 ${totDataNum - rank + 1}/${totDataNum} 位玩家的 rks 大于等于 ${rks}！`)
-        await sendQuickCommands(e, rankQuickCommands(Config.getUserCfg('config', 'cmdhead')), '排行榜快捷操作')
+        await sendQuickCommands(e, rankQuickCommands(PHI_COMMAND_HEAD), '排行榜快捷操作', this.config)
 
         return true
     }

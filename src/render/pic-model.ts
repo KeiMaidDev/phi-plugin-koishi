@@ -1,7 +1,8 @@
 // @ts-nocheck
 import LazyRenderer, { validateRendererDependencies } from './lazy-renderer'
 import { randomUUID } from 'node:crypto'
-import { Version, Plugin_Name, Display_Plugin_Name, Config } from '../services/index'
+import { Version, Plugin_Name, Display_Plugin_Name } from '../services/index'
+import { DEFAULT_CONFIG, type Config as PhiConfig } from '../config'
 import { _path, pluginResources, imgPath, tempPath } from '../utils/path'
 import fCompute from '../domain/game/f-compute'
 import themeManager from '../services/theme/manager'
@@ -19,6 +20,8 @@ import RenderPressureHistory from './render-pressure-history'
 export class PicModel {
 
     constructor({ registerCleanup = true } = {}) {
+        /** @type {PhiConfig} */
+        this.config = DEFAULT_CONFIG
         /**
          * 空闲渲染器下标
          * @type {number[]}
@@ -69,6 +72,11 @@ export class PicModel {
         if (registerCleanup) registerProcessCleanup(() => this.close(), () => this.forceClose())
     }
 
+    /** @param {PhiConfig} config */
+    configure(config) {
+        this.config = config
+    }
+
     async init() {
         /** 清理临时文件 */
         try {
@@ -86,8 +94,8 @@ export class PicModel {
     /** 每次分配和归还都读取最新配置，兼容 YAML 监听与宿主面板即时更新。 */
     /** @param {Record<string, any>} [patch] */
     getRendererSettings(patch = {}) {
-        const defaults = Config.getdefSet('config')
-        const values = { ...defaults, ...Config.getConfig('config'), ...patch }
+        const defaults = DEFAULT_CONFIG
+        const values = { ...this.config, ...patch }
         const count = Number(values.renderNum)
         const timeout = Number(values.timeout)
         return {
@@ -176,9 +184,9 @@ export class PicModel {
             this.leased?.add(idx)
             return Promise.resolve(idx)
         }
-        const configuredLimit = Number(Config.getUserCfg('config', 'renderQueueLimit'))
+        const configuredLimit = Number(this.config.renderQueueLimit)
         const queueLimit = Number.isSafeInteger(configuredLimit) && configuredLimit >= 0 && configuredLimit <= 1000
-            ? configuredLimit : Config.getdefSet('config').renderQueueLimit
+            ? configuredLimit : DEFAULT_CONFIG.renderQueueLimit
         if (this.waiters.length >= queueLimit) return Promise.resolve(-2)
         /** @type {Promise<number>} */
         const p = new Promise(resolve => {
@@ -241,7 +249,8 @@ export class PicModel {
     }
 
     /** 同一个 ESM 导出在 Koishi 重载后继续使用；只重建槽位，不重载业务模块。 @param {unknown} owner */
-    async beginSession(owner) {
+    async beginSession(owner, config) {
+        if (config) this.config = config
         if (this.sessionOwner === owner && !this.shuttingDown) return
         if (this.sessionOwner !== undefined && !this.shuttingDown) throw new Error('phi-plugin 已有活动的渲染会话')
         if (this.sessionClosePromise) await this.sessionClosePromise
@@ -342,7 +351,7 @@ export class PicModel {
                     ...data,
                 }, {
                     e,
-                    scale: Config.getUserCfg('config', 'renderScale') / 100
+                    scale: this.config.renderScale / 100
                 })
             }
             case 2: {
@@ -350,7 +359,7 @@ export class PicModel {
                     ...data,
                 }, {
                     e,
-                    scale: Config.getUserCfg('config', 'renderScale') / 100
+                    scale: this.config.renderScale / 100
                 })
             }
             default: {
@@ -358,7 +367,7 @@ export class PicModel {
                     ...data,
                 }, {
                     e,
-                    scale: Config.getUserCfg('config', 'renderScale') / 100
+                    scale: this.config.renderScale / 100
                 })
             }
         }
@@ -398,7 +407,7 @@ export class PicModel {
                     ...data,
                 }, {
                     e,
-                    scale: Config.getUserCfg('config', 'renderScale') / 100
+                    scale: this.config.renderScale / 100
                 })
             }
 
@@ -407,7 +416,7 @@ export class PicModel {
                     ...data,
                 }, {
                     e,
-                    scale: Config.getUserCfg('config', 'renderScale') / 100
+                    scale: this.config.renderScale / 100
                 })
             }
         }
@@ -514,7 +523,7 @@ export class PicModel {
             ...data,
         }, {
             e,
-            scale: Config.getUserCfg('config', 'renderScale') / 100,
+            scale: this.config.renderScale / 100,
         })
     }
 
@@ -527,7 +536,7 @@ export class PicModel {
      */
     async render(renderPath, params, cfg) {
         const id = this.tot++
-        const waitingTimeout = Config.getUserCfg('config', 'waitingTimeout')
+        const waitingTimeout = this.config.waitingTimeout
 
         /** 事件驱动地等待一个空闲渲染器，替代原本每 100ms 轮询一次的忙等 */
         const puppeteerNum = await this.acquire(waitingTimeout)
@@ -565,11 +574,11 @@ export class PicModel {
                 if (t?.themeInfo) themeInfo = t.themeInfo
             }
 
-            const quality = Number(params.quality ?? Config.getUserCfg('config', 'randerQuality'))
+            const quality = Number(params.quality ?? this.config.randerQuality)
             let data = {
                 ...params,
                 quality: Number.isFinite(quality) && quality >= 1 && quality <= 100
-                    ? Math.round(quality) : Config.getdefSet('config').randerQuality,
+                    ? Math.round(quality) : DEFAULT_CONFIG.randerQuality,
                 themeInfo,
                 saveId: (params.saveId || params.save_id || tpl),
                 tplFile,
@@ -580,7 +589,7 @@ export class PicModel {
                 defaultLayout: layoutPath + 'default.art',
                 elemLayout: layoutPath + 'elem.art',
                 pageGotoParams: {
-                    timeout: Config.getUserCfg('config', 'timeout'),
+                    timeout: this.config.timeout,
                 },
                 sys: {
                     scale: `style="transform:scale(${cfg.scale || 1})"`,

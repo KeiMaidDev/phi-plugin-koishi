@@ -1,5 +1,7 @@
 // @ts-nocheck
-import Config from '../config-store'
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import send from '../../render/send'
 import picmodle from '../../render/pic-model'
 import getInfo from '../../domain/game/get-info'
@@ -24,35 +26,37 @@ import {
 
 const illList = getInfo.illlist
 export class phiuser extends phiPluginBase {
-    constructor() {
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: 'phi-user',
             dsc: 'phi-plugin数据统计',
             event: 'message',
             priority: 1000,
             rule: [
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(data)$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(data)$`,
                     fnc: 'data'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(info)[1-2]?.*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(info)[1-2]?.*$`,
                     fnc: 'info'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)((lvsco(re)?)|scolv)(.*)$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)((lvsco(re)?)|scolv)(.*)$`,
                     fnc: 'lvscore'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)list(.*)$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)list(.*)$`,
                     fnc: 'list'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(年度总结|2025history)(.*)$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(年度总结|2025history)(.*)$`,
                     fnc: 'analyze2025SaveHistory'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(hisb30)(.*)$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(hisb30)(.*)$`,
                     fnc: 'hisb30'
                 }
             ]
@@ -81,7 +85,7 @@ export class phiuser extends phiPluginBase {
             let data = save.gameProgress.money
             send.send_with_At(e, `您的data数为：${data[4] ? `${data[4]}PB ` : ''}${data[3] ? `${data[3]}TB ` : ''}${data[2] ? `${data[2]}GB ` : ''}${data[1] ? `${data[1]}MB ` : ''}${data[0] ? `${data[0]}KB ` : ''}`)
         } else {
-            send.send_with_At(e, `请先更新数据哦！\n/${Config.getUserCfg('config', 'cmdhead')} update`)
+            send.send_with_At(e, `请先更新数据哦！\n/${PHI_COMMAND_HEAD} update`)
         }
         return true
     }
@@ -148,7 +152,7 @@ export class phiuser extends phiPluginBase {
 
         let user_data;
 
-        if (await canUseApi(e)) {
+        if (await canUseApi(this.config, e)) {
             try {
                 user_data = await credentials.getCloudHistory(['data', 'rks', 'scoreHistory'])
                 if (!user_data) user_data = await credentials.getLocalHistory()
@@ -279,10 +283,10 @@ export class phiuser extends phiPluginBase {
 
         // console.info(acc_rks_AccRange_position)
 
-        const infoVersion = e.msg.match(new RegExp(`^[#/](?:${Config.getUserCfg('config', 'cmdhead')})\\s*info([12])?`, 'i'))?.at(-1)
+        const infoVersion = e.msg.match(new RegExp(`^[#/](?:${PHI_COMMAND_HEAD})\\s*info([12])?`, 'i'))?.at(-1)
         const kind = Number(infoVersion || 0)
         send.send_with_At(e, await picmodle.user_info(e, data, kind))
-        await sendQuickCommands(e, scoreQuickCommands(Config.getUserCfg('config', 'cmdhead')), '成绩页快捷操作')
+        await sendQuickCommands(e, scoreQuickCommands(PHI_COMMAND_HEAD), '成绩页快捷操作', this.config)
     }
 
     /**
@@ -509,7 +513,7 @@ export class phiuser extends phiPluginBase {
 
 
         send.send_with_At(e, await picmodle.lvsco(e, data))
-        await sendQuickCommands(e, scoreQuickCommands(Config.getUserCfg('config', 'cmdhead')), '成绩页快捷操作')
+        await sendQuickCommands(e, scoreQuickCommands(PHI_COMMAND_HEAD), '成绩页快捷操作', this.config)
     }
 
     /**
@@ -620,8 +624,8 @@ export class phiuser extends phiPluginBase {
             }
         }
 
-        if (data.length > Config.getUserCfg('config', 'listScoreMaxNum')) {
-            send.send_with_At(e, `谱面数量过多(${data.length})大于设置的最大值(${Config.getUserCfg('config', 'listScoreMaxNum')})，请缩小搜索范围QAQ！`)
+        if (data.length > this.config.listScoreMaxNum) {
+            send.send_with_At(e, `谱面数量过多(${data.length})大于设置的最大值(${this.config.listScoreMaxNum})，请缩小搜索范围QAQ！`)
             return true
         }
 
@@ -650,7 +654,7 @@ export class phiuser extends phiPluginBase {
             // dan: await get.getDan(e.user_id),
             request: request
         }))
-        await sendQuickCommands(e, userListQuickCommands(Config.getUserCfg('config', 'cmdhead')), '成绩筛选快捷操作')
+        await sendQuickCommands(e, userListQuickCommands(PHI_COMMAND_HEAD), '成绩筛选快捷操作', this.config)
 
     }
 
@@ -687,7 +691,7 @@ export class phiuser extends phiPluginBase {
             stats,
             background: getInfo.getill(getInfo.illlist[fCompute.randInt(0, getInfo.illlist.length - 1)]),
         }));
-        await sendQuickCommands(e, historyQuickCommands(Config.getUserCfg('config', 'cmdhead')), '历史记录快捷操作')
+        await sendQuickCommands(e, historyQuickCommands(PHI_COMMAND_HEAD), '历史记录快捷操作', this.config)
     }
 
     /**
@@ -979,7 +983,7 @@ export class phiuser extends phiPluginBase {
             background: getInfo.getill(illList[fCompute.randInt(0, illList.length - 1)]),
             theme: pluginData?.theme || 'star',
         }))
-        await sendQuickCommands(e, historyQuickCommands(Config.getUserCfg('config', 'cmdhead')), '历史记录快捷操作')
+        await sendQuickCommands(e, historyQuickCommands(PHI_COMMAND_HEAD), '历史记录快捷操作', this.config)
 
     }
 

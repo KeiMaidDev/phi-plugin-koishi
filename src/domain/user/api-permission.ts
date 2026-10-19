@@ -1,7 +1,7 @@
 // @ts-nocheck
 import autoSeekApi from '../../providers/phi-api/auto-seek-api'
 import getNotes from './get-notes'
-import Config from '../../services/config-store'
+import type { Config } from '../../config'
 
 /** @typedef {'customTheme' | 'scoreStatistics' | 'onlineScore'} ApiCapability */
 
@@ -13,10 +13,10 @@ const capabilityConfigKeys = {
 const USER_API_DISABLED_MESSAGE = '你已在本地用户设置中禁用 API 功能，可在 phi myset 中重新开启。'
 
 /** @param {ApiCapability} capability */
-export function isApiCapabilityConfigured(capability) {
+export function isApiCapabilityConfigured(config, capability) {
     return Boolean(
-        Config.getUserCfg('config', 'openPhiPluginApi')
-        && Config.getUserCfg('config', /** @type {configName} */ (capabilityConfigKeys[capability])) !== false
+        config.openPhiPluginApi
+        && config[capabilityConfigKeys[capability]] !== false
     )
 }
 
@@ -25,8 +25,8 @@ export function isApiCapabilityConfigured(capability) {
  * @param {ApiCapability} capability
  * @returns {Promise<boolean>}
  */
-export async function isApiCapabilityAvailable(capability) {
-    if (!isApiCapabilityConfigured(capability)) return false
+export async function isApiCapabilityAvailable(config, capability) {
+    if (!isApiCapabilityConfigured(config, capability)) return false
     return autoSeekApi.waitForProbe()
 }
 
@@ -50,9 +50,9 @@ export async function isUserApiEnabled(userId) {
  * @param {import('../../services/base-class').botEvent} e
  * @param {ApiCapability} [capability]
  */
-export async function getApiAccessState(e, capability = /** @type {ApiCapability} */ ('onlineScore')) {
-    const globalConfigured = Boolean(Config.getUserCfg('config', 'openPhiPluginApi'))
-    const capabilityEnabled = Config.getUserCfg('config', /** @type {configName} */ (capabilityConfigKeys[capability])) !== false
+export async function getApiAccessState(config, e, capability = /** @type {ApiCapability} */ ('onlineScore')) {
+    const globalConfigured = Boolean(config.openPhiPluginApi)
+    const capabilityEnabled = config[capabilityConfigKeys[capability]] !== false
     let userEnabled = true
     let onlineAvailable = autoSeekApi.state === 'available' && autoSeekApi.openPhiPluginApi
     let message = ''
@@ -90,6 +90,6 @@ export async function getApiAccessState(e, capability = /** @type {ApiCapability
  * @param {import('../../services/base-class').botEvent} e
  * @param {ApiCapability} [capability]
  */
-export async function canUseApi(e, capability = /** @type {ApiCapability} */ ('onlineScore')) {
-    return (await getApiAccessState(e, capability)).enabled
+export async function canUseApi(config, e, capability = /** @type {ApiCapability} */ ('onlineScore')) {
+    return (await getApiAccessState(config, e, capability)).enabled
 }

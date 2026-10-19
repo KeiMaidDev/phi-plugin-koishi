@@ -9,7 +9,7 @@ import { UserCredentials } from '../../domain/user/user-credentials'
 import getInfo from '../../domain/game/get-info'
 import { redis } from '../../platform/index'
 import logger from '../../utils/logger'
-import Config from '../../services/config-store'
+import autoSeekApi from './auto-seek-api'
 import makeRequest from './make-request'
 import { isApiVersionBlocked } from './api-version'
 
@@ -133,7 +133,7 @@ class AliasProposalService {
 
     /** @returns {Promise<void>} 完成一次正式别名快照同步任务 */
     async scheduledTask() {
-        if (!Config.getUserCfg('config', 'openPhiPluginApi') || isApiVersionBlocked()) return
+        if (!autoSeekApi.isConfigured() || isApiVersionBlocked()) return
         if (this.runningTask) return
         this.runningTask = true
         try {
@@ -145,7 +145,7 @@ class AliasProposalService {
 
     /** @returns {Promise<void>} 启动时尝试拉取一次正式别名快照 */
     async initialize(signal = undefined) {
-        if (!Config.getUserCfg('config', 'openPhiPluginApi') || isApiVersionBlocked()) return
+        if (!autoSeekApi.isConfigured() || isApiVersionBlocked()) return
         if (this.initialized) return
         this.initialized = true
         try {

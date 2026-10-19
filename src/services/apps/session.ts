@@ -1,5 +1,7 @@
 // @ts-nocheck
-import Config from '../config-store'
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import send from '../../render/send'
 import Save from '../../domain/save/save'
 import ScoreHistory from '../../domain/save/score-history'
@@ -25,31 +27,33 @@ import { sendQuickCommands, sessionQuickCommands, updateQuickCommands } from '..
 /**@import {botEvent} from '../base-class' */
 
 export class phisstk extends phiPluginBase {
-    constructor() {
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: 'phi-sessionToken',
             dsc: 'sessionToken获取',
             event: 'message',
             priority: 1000,
             rule: [
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(cn|gb)?(绑定|bind).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(cn|gb)?(绑定|bind).*$`,
                     fnc: 'bind'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(更新存档|update)$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(更新存档|update)$`,
                     fnc: 'update'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(解绑|unbind)$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(解绑|unbind)$`,
                     fnc: 'unbind'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(clean)$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(clean)$`,
                     fnc: 'clean'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)session[tT]oken$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)session[tT]oken$`,
                     fnc: 'getSstk'
                 }
             ]
@@ -75,12 +79,12 @@ export class phisstk extends phiPluginBase {
         const useWhich = e.msg.match(/[#/](.*?)(cn|gb)?(绑定|bind)(\s*)/)?.[2]
 
         /** @type {boolean} */
-        let isGlobal = useWhich ? useWhich === 'gb' : Config.getUserCfg('config', 'defaultGlobal');
-        const allowApi = await canUseApi(e)
+        let isGlobal = useWhich ? useWhich === 'gb' : this.config.defaultGlobal;
+        const allowApi = await canUseApi(this.config, e)
         let apiBindingSucceeded = false
 
         /**精简回复模式：仅发送二维码、绑定成功提示、成绩更新图与API不可用提示，避免官方Bot被动回复超出条数限制 */
-        const simpleReply = Config.getUserCfg('config', 'SimpleBindReply')
+        const simpleReply = this.config.SimpleBindReply
 
         let localPhigrosToken = await credentials.getSessionToken()
 
@@ -93,12 +97,12 @@ export class phisstk extends phiPluginBase {
                     send.send_with_At(e, resMsg)
                     let updateData = await credentials.getUpdatedSaveFromApi()
                     let history = await credentials.getCloudHistory(['data', 'rks', 'scoreHistory'])
-                    if (updateData && history) await build(e, updateData, history, sessionQuickCommands, '绑定页快捷操作', { simpleReply })
+                    if (updateData && history) await build(this.config, e, updateData, history, sessionQuickCommands, '绑定页快捷操作', { simpleReply })
                     else send.send_with_At(e, '绑定已成功，但暂时无法读取 API 存档，请稍后执行更新。')
                     return true
                 }
                 if (!result) {
-                    send.send_with_At(e, `没有找到${apiId || ''}对应的用户，请先绑定sessionToken哦！如果不知道自己的sessionToken可以尝试扫码绑定嗷！\n帮助：/${Config.getUserCfg('config', 'cmdhead')} tk help\n获取二维码：/${Config.getUserCfg('config', 'cmdhead')} bind qrcode\n普通绑定：/${Config.getUserCfg('config', 'cmdhead')} bind <sessionToken>`)
+                    send.send_with_At(e, `没有找到${apiId || ''}对应的用户，请先绑定sessionToken哦！如果不知道自己的sessionToken可以尝试扫码绑定嗷！\n帮助：/${PHI_COMMAND_HEAD} tk help\n获取二维码：/${PHI_COMMAND_HEAD} bind qrcode\n普通绑定：/${PHI_COMMAND_HEAD} bind <sessionToken>`)
                     return false
                 }
             } else {
@@ -108,7 +112,7 @@ export class phisstk extends phiPluginBase {
                 }
             }
             if (!localPhigrosToken) {
-                send.send_with_At(e, `喂喂喂！你还没输入sessionToken呐，如果不知道自己的sessionToken可以尝试扫码绑定嗷！\n帮助：/${Config.getUserCfg('config', 'cmdhead')} tk help\n获取二维码：/${Config.getUserCfg('config', 'cmdhead')} bind qrcode\n普通绑定：/${Config.getUserCfg('config', 'cmdhead')} bind <sessionToken>`)
+                send.send_with_At(e, `喂喂喂！你还没输入sessionToken呐，如果不知道自己的sessionToken可以尝试扫码绑定嗷！\n帮助：/${PHI_COMMAND_HEAD} tk help\n获取二维码：/${PHI_COMMAND_HEAD} bind qrcode\n普通绑定：/${PHI_COMMAND_HEAD} bind <sessionToken>`)
                 return false
             }
 
@@ -123,7 +127,7 @@ export class phisstk extends phiPluginBase {
                 let qrcodeTimeOut = await redis.ttl(timeOutKey)
                 let recallTime = qrcodeTimeOut
                 if (qrcodeTimeOut >= 60) recallTime = 60
-                if (Config.getUserCfg('config', 'TapTapLoginQRcode')) {
+                if (this.config.TapTapLoginQRcode) {
                     await send.send_with_At(e, [
                         segment.image(await getQRcode.getQRcode(qrcode)),
                         `请识别二维码并按照提示进行登录嗷！请勿错扫他人二维码。请注意，登录TapTap可能造成账号及财产损失，请在信任Bot来源的情况下扫码登录。\n二维码剩余时间:${qrcodeTimeOut}`
@@ -136,7 +140,7 @@ export class phisstk extends phiPluginBase {
 
             let request = await getQRcode.getRequest(isGlobal);
             let qrCodeMsg;
-            if (Config.getUserCfg('config', 'TapTapLoginQRcode')) {
+            if (this.config.TapTapLoginQRcode) {
                 qrCodeMsg = await send.send_with_At(e, [
                     segment.image(await getQRcode.getQRcode(request.data.qrcode_url)),
                     `请识别二维码并按照提示进行登录嗷！请勿错扫他人二维码。请注意，登录TapTap可能造成账号及财产损失，请在信任Bot来源的情况下扫码登录。`
@@ -191,7 +195,7 @@ export class phisstk extends phiPluginBase {
 
         sessionToken = sessionToken || localPhigrosToken
 
-        if (!simpleReply && !Config.getUserCfg('config', 'isGuild')) {
+        if (!simpleReply && !this.config.isGuild) {
 
             send.reply(e, "正在绑定，请稍等一下哦！\n >_<", false, { recallMsg: 5 })
             // return true
@@ -211,7 +215,7 @@ export class phisstk extends phiPluginBase {
                     }
                     let updateData = await credentials.getUpdatedSaveFromApi()
                     let history = await credentials.getCloudHistory(['data', 'rks', 'scoreHistory'])
-                    if (updateData && history) await build(e, updateData, history, sessionQuickCommands, '绑定页快捷操作', { simpleReply })
+                    if (updateData && history) await build(this.config, e, updateData, history, sessionQuickCommands, '绑定页快捷操作', { simpleReply })
                     else send.send_with_At(e, '绑定已成功，但暂时无法读取 API 存档，请稍后执行更新。')
                     return true
                 }
@@ -228,9 +232,9 @@ export class phisstk extends phiPluginBase {
                 ? await credentials.getUpdatedSaveFromLocal(sessionToken, isGlobal)
                 : await credentials.bindLocallyWithSessionToken(sessionToken, isGlobal)
             if (!updateData) return true;
-            send.send_with_At(e, `${apiBindingSucceeded ? '' : 'API绑定不可用，已按当前 Bot 本地状态完成绑定。\n'}请注意保护好自己的sessionToken呐！如果需要获取已绑定的sessionToken可以私聊发送 /${Config.getUserCfg('config', 'cmdhead')} sessionToken 哦！`, false, { recallMsg: 10 })
+            send.send_with_At(e, `${apiBindingSucceeded ? '' : 'API绑定不可用，已按当前 Bot 本地状态完成绑定。\n'}请注意保护好自己的sessionToken呐！如果需要获取已绑定的sessionToken可以私聊发送 /${PHI_COMMAND_HEAD} sessionToken 哦！`, false, { recallMsg: 10 })
             let history = await credentials.getLocalHistory()
-            await build(e, updateData, history, sessionQuickCommands, '绑定页快捷操作', { simpleReply })
+            await build(this.config, e, updateData, history, sessionQuickCommands, '绑定页快捷操作', { simpleReply })
         } catch (error) {
             logger.error(error)
             send.send_with_At(e, `更新失败，请检查你的sessionToken是否正确！\n错误信息：${error}`)
@@ -254,10 +258,10 @@ export class phisstk extends phiPluginBase {
         }
         let updateData;
         let history;
-        if (await canUseApi(e)) {
+        if (await canUseApi(this.config, e)) {
             try {
 
-                if (!Config.getUserCfg('config', 'isGuild') || !e.isGroup) {
+                if (!this.config.isGuild || !e.isGroup) {
                     send.reply(e, "正在更新，请稍等一下哦！\n >_<", true, { recallMsg: 5 })
                 }
 
@@ -278,11 +282,11 @@ export class phisstk extends phiPluginBase {
 
             let session = await credentials.getSessionToken()
             if (!session) {
-                send.reply(e, `没有找到你的存档，请先绑定sessionToken哦！如果不知道自己的sessionToken可以尝试扫码绑定嗷！\n帮助：/${Config.getUserCfg('config', 'cmdhead')} tk help\n获取二维码：/${Config.getUserCfg('config', 'cmdhead')} bind qrcode\n普通绑定：/${Config.getUserCfg('config', 'cmdhead')} bind <sessionToken>`, true)
+                send.reply(e, `没有找到你的存档，请先绑定sessionToken哦！如果不知道自己的sessionToken可以尝试扫码绑定嗷！\n帮助：/${PHI_COMMAND_HEAD} tk help\n获取二维码：/${PHI_COMMAND_HEAD} bind qrcode\n普通绑定：/${PHI_COMMAND_HEAD} bind <sessionToken>`, true)
                 return true
             }
 
-            if (!Config.getUserCfg('config', 'isGuild') || !e.isGroup) {
+            if (!this.config.isGuild || !e.isGroup) {
                 send.reply(e, "正在更新，请稍等一下哦！\n >_<", true, { recallMsg: 5 })
             }
 
@@ -298,7 +302,7 @@ export class phisstk extends phiPluginBase {
         }
 
         try {
-            await build(e, updateData, history, updateQuickCommands, '更新页快捷操作')
+            await build(this.config, e, updateData, history, updateQuickCommands, '更新页快捷操作')
         } catch (error) {
             logger.error(error)
             send.send_with_At(e, `更新失败QAQ！\n错误信息：${error}`)
@@ -484,7 +488,7 @@ function comWidth(num) {
  * @param {{save:Save, added_rks_notes: number[]}} updateData
  * @param {saveHistory} history
  */
-async function build(e, updateData, history, quickCommands = updateQuickCommands, quickCommandsTitle = '更新页快捷操作', { simpleReply = false } = {}) {
+async function build(config, e, updateData, history, quickCommands = updateQuickCommands, quickCommandsTitle = '更新页快捷操作', { simpleReply = false } = {}) {
 
     let { added_rks_notes, save } = updateData
 
@@ -550,11 +554,11 @@ async function build(e, updateData, history, quickCommands = updateQuickCommands
     /**实际显示的数量 */
     let show = 0
     /**每日显示上限 */
-    const DayNum = Math.max(Config.getUserCfg('config', 'HistoryDayNum'), 2)
+    const DayNum = Math.max(config.HistoryDayNum, 2)
     /**显示日期上限 */
-    const DateNum = Config.getUserCfg('config', 'HistoryScoreDate')
+    const DateNum = config.HistoryScoreDate
     /**总显示上限 */
-    const TotNum = Config.getUserCfg('config', 'HistoryScoreNum')
+    const TotNum = config.HistoryScoreNum
 
 
 
@@ -668,7 +672,7 @@ async function build(e, updateData, history, quickCommands = updateQuickCommands
     }
 
     send.send_with_At(e, [await picmodle.update(e, data), `PlayerId: ${fCompute.convertRichText(now.saveInfo.PlayerId, true)}`])
-    if (!simpleReply) await sendQuickCommands(e, quickCommands(Config.getUserCfg('config', 'cmdhead')), quickCommandsTitle)
+    if (!simpleReply) await sendQuickCommands(e, quickCommands(PHI_COMMAND_HEAD), quickCommandsTitle, config)
 
     return false
 }

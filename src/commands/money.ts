@@ -1,12 +1,6 @@
 import type { Context } from 'koishi'
+import type { Config } from '../config'
 import { getNoteBalance, NOTE_CURRENCY } from '../database/index'
-
-export interface MoneyConfig {
-  timezone: string
-  signInRewardMin: number
-  signInRewardMax: number
-  transferFee: number
-}
 
 class UserLocks {
   private tails = new Map<number, Promise<void>>()
@@ -51,7 +45,7 @@ function parseTransferTarget(source: string) {
   return { platform: source.slice(0, index), userId: source.slice(index + 1) }
 }
 
-export function registerMoneyCommands(ctx: Context, config: MoneyConfig) {
+export function registerMoneyCommands(ctx: Context, config: Config) {
   const locks = new UserLocks()
   ctx.command('phi', 'Phi 相关功能', { slash: false })
 

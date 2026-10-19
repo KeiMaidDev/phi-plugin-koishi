@@ -1,10 +1,12 @@
 // @ts-nocheck
-import Config from '../config-store';
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import send from '../../render/send';
-import guessTips from './guess-game/guess-tips';
-import guessLetter from './guess-game/guess-letter';
-import guessIll from './guess-game/guess-ill';
-import frib19 from './guess-game/frib19';
+import GuessTips from './guess-game/guess-tips';
+import GuessLetter from './guess-game/guess-letter';
+import GuessIll from './guess-game/guess-ill';
+import Frib19 from './guess-game/frib19';
 import getBanGroup from '../../domain/user/get-ban-group';
 import phiPluginBase from '../base-class';
 import logger from '../../utils/logger';
@@ -38,15 +40,22 @@ let games = [
 let gameList = {}
 
 export class phiGames extends phiPluginBase {
-    constructor() {
+    guessTips
+    guessLetter
+    guessIll
+    frib19
+
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: 'phi-games',
             dsc: 'phi-plugin 猜曲游戏',
             event: 'message',
             priority: 1000,
             rule: [
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(?:${games})$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(?:${games})$`,
                     fnc: 'start'
                 },
                 {
@@ -59,15 +68,19 @@ export class phiGames extends phiPluginBase {
                     fnc: 'reveal'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(tip|提示)$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(tip|提示)$`,
                     fnc: 'getTip'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(ans|答案|结束)$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(ans|答案|结束)$`,
                     fnc: 'ans'
                 }
             ]
         })
+        this.guessTips = new GuessTips(runtime)
+        this.guessLetter = new GuessLetter(runtime)
+        this.guessIll = new GuessIll(runtime)
+        this.frib19 = new Frib19(runtime)
     }
 
     /** @param {botEvent} e @param {() => Promise<any>} starter */
@@ -92,7 +105,7 @@ export class phiGames extends phiPluginBase {
      * @returns 
      */
     async start(e) {
-        const head = Config.getUserCfg('config', 'cmdhead')
+        const head = PHI_COMMAND_HEAD
         /** games 中每个游戏名都是独立捕获组，取第一个命中的捕获组即为本次游戏名 */
         const matched = String(e.msg ?? '').match(new RegExp(`^[#/](${head})(\\s*)(?:${games})$`))
         const msg = matched?.slice(3).find(value => value !== undefined) ?? ''
@@ -101,7 +114,7 @@ export class phiGames extends phiPluginBase {
             return false
         }
         if (gameList[e.group_id]) {
-            send.send_with_At(e, `当前存在其他未结束的游戏嗷！如果想要开启新游戏请 /${Config.getUserCfg('config', 'cmdhead')} ans 结束进行的游戏嗷！`)
+            send.send_with_At(e, `当前存在其他未结束的游戏嗷！如果想要开启新游戏请 /${PHI_COMMAND_HEAD} ans 结束进行的游戏嗷！`)
             return false
         }
         if (!msg) {
@@ -118,7 +131,7 @@ export class phiGames extends phiPluginBase {
                     return false
                 }
 
-                return await this.startGame(e, () => guessTips.start(e, gameList))
+                return await this.startGame(e, () => this.guessTips.start(e, gameList))
             }
             case "guess":
             case "猜曲绘": {
@@ -128,7 +141,7 @@ export class phiGames extends phiPluginBase {
                     return false
                 }
 
-                return await this.startGame(e, () => guessIll.start(e, gameList))
+                return await this.startGame(e, () => this.guessIll.start(e, gameList))
             }
             case "弗一把":
             case "friberg":
@@ -140,7 +153,7 @@ export class phiGames extends phiPluginBase {
                     return false
                 }
 
-                return await this.startGame(e, () => frib19.start(e, gameList))
+                return await this.startGame(e, () => this.frib19.start(e, gameList))
             }
             default: {
                 if (gameName.startsWith("ltr") || gameName.startsWith("letter") || gameName.startsWith("开字母")) {
@@ -150,7 +163,7 @@ export class phiGames extends phiPluginBase {
                         return false
                     }
 
-                    return await this.startGame(e, () => guessLetter.start(e, gameList))
+                    return await this.startGame(e, () => this.guessLetter.start(e, gameList))
                 }
                 return false
             }
@@ -169,7 +182,7 @@ export class phiGames extends phiPluginBase {
             return false
         }
         if (gameList[e.group_id]?.gameType !== 'guessLetter') return false
-        const result = await guessLetter.reveal(e, gameList)
+        const result = await this.guessLetter.reveal(e, gameList)
         this.finishGame(e)
         return result
     }
@@ -192,19 +205,19 @@ export class phiGames extends phiPluginBase {
             switch (gameList[e.group_id]?.gameType) {
                 case "guessTips": {
                     logger.info(`[phi-games][guess][tips] ${e.msg}`)
-                    return await guessTips.guess(e, gameList)
+                    return await this.guessTips.guess(e, gameList)
                 }
                 case "guessLetter": {
                     logger.info(`[phi-games][guess][letter] ${e.msg}`)
-                    return await guessLetter.guess(e, gameList)
+                    return await this.guessLetter.guess(e, gameList)
                 }
                 case "guessIll": {
                     logger.info(`[phi-games][guess][ill] ${e.msg}`)
-                    return await guessIll.guess(e, gameList)
+                    return await this.guessIll.guess(e, gameList)
                 }
                 case "frib19": {
                     logger.info(`[phi-games][guess][frib] ${e.msg}`)
-                    return await frib19.guess(e, gameList)
+                    return await this.frib19.guess(e, gameList)
                 }
                 default: {
                     return false
@@ -228,10 +241,10 @@ export class phiGames extends phiPluginBase {
         try {
             switch (gameList[e.group_id]?.gameType) {
                 case "guessTips": {
-                    return await guessTips.getTip(e, gameList)
+                    return await this.guessTips.getTip(e, gameList)
                 }
                 case "guessLetter": {
-                    return await guessLetter.getTip(e, gameList)
+                    return await this.guessLetter.getTip(e, gameList)
                 }
                 default: {
                     return false
@@ -255,16 +268,16 @@ export class phiGames extends phiPluginBase {
         try {
             switch (gameList[e.group_id]?.gameType) {
                 case "guessTips": {
-                    return await guessTips.ans(e, gameList)
+                    return await this.guessTips.ans(e, gameList)
                 }
                 case "guessLetter": {
-                    return await guessLetter.ans(e, gameList)
+                    return await this.guessLetter.ans(e, gameList)
                 }
                 case "guessIll": {
-                    return await guessIll.ans(e, gameList)
+                    return await this.guessIll.ans(e, gameList)
                 }
                 case "frib19": {
-                    return await frib19.ans(e, gameList)
+                    return await this.frib19.ans(e, gameList)
                 }
                 default: {
                     send.reply(e, `当前没有进行中的游戏嗷！`)

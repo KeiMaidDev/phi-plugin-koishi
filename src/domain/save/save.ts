@@ -1,5 +1,5 @@
 // @ts-nocheck
-import Config from '../../services/config-store'
+import autoSeekApi from '../../providers/phi-api/auto-seek-api'
 import logger from '../../utils/logger'
 import Version from '../../utils/version'
 import PhigrosUser from '../../vendor/phigros/phigros-user'
@@ -397,7 +397,7 @@ export default class Save {
 
         let com_rks = sum_rks / 30
 
-        if (option.avgType !== 'none' && await canUseApi(e, 'scoreStatistics')) {
+        if (option.avgType !== 'none' && await canUseApi(autoSeekApi.config, e, 'scoreStatistics')) {
             try {
 
                 if (!option.avgType || option.avgType === "all") {

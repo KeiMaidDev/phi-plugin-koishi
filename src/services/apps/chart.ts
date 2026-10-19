@@ -1,5 +1,7 @@
 // @ts-nocheck
-import Config from '../config-store'
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import getInfo from "../../domain/game/get-info";
 import send from "../../render/send";
 import picmodle from '../../render/pic-model'
@@ -345,23 +347,25 @@ function finishContext(host, name, isGroup) {
 }
 
 export class phihelp extends phiPluginBase {
-  constructor() {
+  constructor(runtime: PhiRuntime) {
     super({
+        config: runtime.config,
+        data: runtime.data,
       name: 'phi-chart',
       dsc: 'phigros谱面图片生成',
       event: 'message',
       priority: 1000,
       rule: [
         {
-          reg: `^[#/]((${Config.getUserCfg('config', 'cmdhead')}))(\\s*)(chart).*$`,
+          reg: `^[#/]((${PHI_COMMAND_HEAD}))(\\s*)(chart).*$`,
           fnc: 'chart'
         },
         {
-          reg: `^[#/]((${Config.getUserCfg('config', 'cmdhead')}))(\\s*)(tag).*$`,
+          reg: `^[#/]((${PHI_COMMAND_HEAD}))(\\s*)(tag).*$`,
           fnc: 'tag'
         },
         {
-          reg: `^[#/]((${Config.getUserCfg('config', 'cmdhead')}))(\\s*)(settag).*$`,
+          reg: `^[#/]((${PHI_COMMAND_HEAD}))(\\s*)(settag).*$`,
           fnc: 'settag'
         }
       ]
@@ -399,14 +403,14 @@ export class phihelp extends phiPluginBase {
       return false
     }
 
-    const apiAccess = await getApiAccessState(e, 'scoreStatistics')
+    const apiAccess = await getApiAccessState(this.config, e, 'scoreStatistics')
     if (!apiAccess.enabled) {
       send.send_with_At(e, apiAccess.message)
       return false
     }
 
     this.getMicInfoFromMsg(e, /[#/](.*?)(tag)(\s*)/, ['rank'], {}, async (e, id, optObj) => {
-      await getChartTags(e, id, optObj)
+      await getChartTags(e, id, optObj, this.config)
     })
 
     return true
@@ -424,7 +428,7 @@ export class phihelp extends phiPluginBase {
       return false
     }
 
-    const apiAccess = await getApiAccessState(e)
+    const apiAccess = await getApiAccessState(this.config, e)
     if (!apiAccess.enabled) {
       send.send_with_At(e, apiAccess.message)
       return false
@@ -457,7 +461,7 @@ export class phihelp extends phiPluginBase {
     const categorySelection = findCategorySelection(msg, tagTree)
     if (!categorySelection) {
       this.getMicInfoFromMsg(e, /[#/](.*?)(settag)(\s*)/, ['rank'], { sessionToken, tagTree }, async (e, id, optObj) => {
-        const timeout = Number(Config.getUserCfg('config', 'mutiNickWaitTimeOut')) || 0
+        const timeout = Number(this.config.mutiNickWaitTimeOut) || 0
         setSetTagState(String(e.user_id), { id, rank: optObj.rank, sessionToken, tagTree }, timeout)
         send.send_with_At(e, formatTagCategoryMenu(tagTree), true);
         setContext(this, 'settagCategory', false, timeout, '操作超时已取消，请重新使用 /settag。')
@@ -470,7 +474,7 @@ export class phihelp extends phiPluginBase {
     if (!childSelections.length) {
       const cleanEvent = platform.cloneEvent(e, { msg: removeSelectedTagTokens(e.msg, categorySelection, []) })
       this.getMicInfoFromMsg(cleanEvent, /[#/](.*?)(settag)(\s*)/, ['rank'], { sessionToken }, async (e, id, optObj) => {
-        const timeout = Number(Config.getUserCfg('config', 'mutiNickWaitTimeOut')) || 0
+        const timeout = Number(this.config.mutiNickWaitTimeOut) || 0
         setSetTagState(String(e.user_id), { id, rank: optObj.rank, sessionToken, category: categorySelection.category }, timeout)
         send.send_with_At(e, formatTagChildMenu(categorySelection.category), true);
         setContext(this, 'settagChild', false, timeout, '操作超时已取消，请重新使用 /settag。')
@@ -508,7 +512,7 @@ export class phihelp extends phiPluginBase {
     state.category = categorySelection.category
     send.send_with_At(this.e, formatTagChildMenu(categorySelection.category), true)
     finishContext(this, 'settagCategory', false)
-    const timeout = Number(Config.getUserCfg('config', 'mutiNickWaitTimeOut')) || 0
+    const timeout = Number(this.config.mutiNickWaitTimeOut) || 0
     setSetTagState(userId, state, timeout)
     setContext(this, 'settagChild', false, timeout, '操作超时已取消，请重新使用 /settag。')
     return true
@@ -549,7 +553,7 @@ export class phihelp extends phiPluginBase {
  * @param {ChartCommandOptions} options
  * @returns {Promise<void>}
  */
-async function getChartImg(e, id, options) {
+async function getChartImg(e, id, options, config) {
   const { rank } = options
   const info = getInfo.info(id, true)
   if (!info || !info.chart[rank]) {
@@ -558,13 +562,13 @@ async function getChartImg(e, id, options) {
 
   const chart = info.chart[rank]
 
-  // let allowChartTag = await Config.getUserCfg('config', 'allowChartTag')
+  // let allowChartTag = await this.config.allowChartTag
 
   /** @type {ChartTagWord[]} */
   const words = []
   let wordsMaxValue = 0
 
-  if (await canUseApi(e, 'scoreStatistics')) {
+  if (await canUseApi(config, e, 'scoreStatistics')) {
     /** @type {ChartTagSongRankResponse | null} */
     const apiChartTag = await makeRequest.getChartsTagbySongRankWithTree(
       { song_id: info.id, rank },
@@ -609,12 +613,12 @@ async function getChartImg(e, id, options) {
   });
 
   await send.send_with_At(e, [img, `${info.song} - ${rank}\n谱师：${info.chart[rank].charter}`])
-  const commandHead = Config.getUserCfg('config', 'cmdhead')
+  const commandHead = PHI_COMMAND_HEAD
   await sendQuickCommands(e, [
     { command: `/${commandHead} chart ${info.id} ${rank}`, label: '其他难度' },
     { command: `/${commandHead} tag ${info.id} ${rank}`, label: '查看标签' },
     { command: `/${commandHead} help`, label: '帮助' },
-  ], '谱面操作')
+  ], '谱面操作', config)
   return;
 }
 
@@ -624,7 +628,7 @@ async function getChartImg(e, id, options) {
  * @param {ChartCommandOptions} options
  * @returns {Promise<void>}
  */
-async function getChartTags(e, id, options) {
+async function getChartTags(e, id, options, config) {
   const credentials = UserCredentials.fromEvent(e)
   const { rank } = options
   const info = getInfo.info(id, true)
@@ -634,7 +638,7 @@ async function getChartTags(e, id, options) {
 
   const chart = info.chart[rank]
 
-  // let allowChartTag = await Config.getUserCfg('config', 'allowChartTag')
+  // let allowChartTag = await this.config.allowChartTag
 
   /** @type {ChartTagCategoryWord[]} */
   const words = []
@@ -679,12 +683,12 @@ async function getChartTags(e, id, options) {
   });
 
   await send.send_with_At(e, resMsg.join('\n'));
-  const commandHead = Config.getUserCfg('config', 'cmdhead')
+  const commandHead = PHI_COMMAND_HEAD
   await sendQuickCommands(e, [
     { command: `/${commandHead} chart ${info.id} ${rank}`, label: '查看谱面' },
     { command: `/${commandHead} settag ${info.id} ${rank}`, label: '提交标签' },
     { command: `/${commandHead} help`, label: '帮助' },
-  ], '谱面操作')
+  ], '谱面操作', config)
 }
 
 /**
@@ -693,7 +697,7 @@ async function getChartTags(e, id, options) {
  * @param {SetChartTagOptions} options
  * @returns {Promise<void>}
  */
-async function setChartTags(e, id, options) {
+async function setChartTags(e, id, options, config) {
   const { rank, selectedTags } = options;
   const uniqueSelectedTags = uniqueTagNames(selectedTags);
   const info = getInfo.info(id, true)
@@ -707,5 +711,5 @@ async function setChartTags(e, id, options) {
     return
   }
 
-  getChartTags(e, id, { rank });
+  getChartTags(e, id, { rank }, config);
 }

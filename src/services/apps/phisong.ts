@@ -1,7 +1,9 @@
 // @ts-nocheck
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 // import get from '../model/getdata'
 import common from "../common"
-import Config from '../config-store'
 import send from '../../render/send'
 import getInfo from '../../domain/game/get-info'
 import getPic from '../../render/get-pic'
@@ -34,91 +36,93 @@ let wait_to_del_list
 let wait_to_del_nick
 
 export class phisong extends phiPluginBase {
-    constructor() {
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: 'phi-图鉴',
             dsc: 'phigros图鉴',
             event: 'message',
             priority: 1000,
             rule: [
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(曲|song).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(曲|song).*$`,
                     fnc: 'song'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(查找|检索|search).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(查找|检索|search).*$`,
                     fnc: 'search'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(设置别名|setnic(k?)).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(设置别名|setnic(k?)).*$`,
                     fnc: 'setnick'
                 },
                 // {
-                //     reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(删除别名|delnic(k?)).*$`,
+                //     reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(删除别名|delnic(k?)).*$`,
                 //     fnc: 'delnick'
                 // },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(曲绘|ill|Ill).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(曲绘|ill|Ill).*$`,
                     fnc: 'ill'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)randclg.*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)randclg.*$`,
                     fnc: 'randClg'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(随机|rand(om)?).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(随机|rand(om)?).*$`,
                     fnc: 'randmic'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)alias.*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)alias.*$`,
                     fnc: 'alias'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(com|计算).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(com|计算).*$`,
                     fnc: 'comrks'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)tips$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)tips$`,
                     fnc: 'tips'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)newlog$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)newlog$`,
                     fnc: 'newSong'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)live$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)live$`,
                     fnc: 'live'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(table|定数表)\\s*[0-9]+\\s*(-v\\s*\\S*)?$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(table|定数表)\\s*[0-9]+\\s*(-v\\s*\\S*)?$`,
                     fnc: 'table'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(dif[Hh]is(tory)?|历史定数).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(dif[Hh]is(tory)?|历史定数).*$`,
                     fnc: 'difHis'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(comment|cmt|评论|评价)[\\s\\S]*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(comment|cmt|评论|评价)[\\s\\S]*$`,
                     fnc: 'comment'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(recmt).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(recmt).*$`,
                     fnc: 'recallComment'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(mycmt).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(mycmt).*$`,
                     fnc: 'myComment'
                 },
                 // {
-                //     reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(chart).*$`,
+                //     reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(chart).*$`,
                 //     fnc: 'chart'
                 // },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(addtag|subtag|retag).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(addtag|subtag|retag).*$`,
                     fnc: 'addtag'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)newnotice$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)newnotice$`,
                     fnc: 'newNotice'
                 }
             ]
@@ -144,16 +148,16 @@ export class phisong extends phiPluginBase {
         let page = msg.match(/\s+-p\s+([0-9]+)/)?.[1] ? Number(msg.match(/\s+-p\s+([0-9]+)/)?.[1]) : 0;
         msg = msg.replace(/\s+-p\s+([0-9]+)/, "")
         if (!msg) {
-            send.send_with_At(e, `请指定曲名哦！\n格式：/${Config.getUserCfg('config', 'cmdhead')} song <曲名>`)
+            send.send_with_At(e, `请指定曲名哦！\n格式：/${PHI_COMMAND_HEAD} song <曲名>`)
             return true
         }
         let ids = getInfo.fuzzysongsnick(msg)
         if (ids[0]) {
             if (!ids[1]) {
-                send.send_with_At(e, await songInfo(page, addComment, ids[0], e))
+                send.send_with_At(e, await songInfo(page, addComment, ids[0], e, this.config))
             } else {
                 this.choseMutiNick(e, ids, { page, addComment }, async (e, id, options) => {
-                    send.send_with_At(e, await songInfo(options.page, options.addComment, id, e));
+                    send.send_with_At(e, await songInfo(options.page, options.addComment, id, e, this.config));
                 })
             }
         } else {
@@ -233,7 +237,7 @@ export class phisong extends phiPluginBase {
             }
         }
 
-        if (Config.getUserCfg('config', 'isGuild')) {
+        if (this.config.isGuild) {
             let Resmsg = []
             let tot = 0
             let count = 1
@@ -320,7 +324,7 @@ export class phisong extends phiPluginBase {
                 send.reply(e, `${P0Id} 已经有 ${parts[1]} 这个别名了哦！`)
                 return true
             } else {
-                getInfo.setnick(P0Id, parts[1])
+                await getInfo.setnick(P0Id, parts[1])
                 send.reply(e, "设置完成！")
             }
         } else {
@@ -342,7 +346,7 @@ export class phisong extends phiPluginBase {
 
         let msg = e.msg.replace(/[#/](.*?)(曲绘|ill|Ill)(\s*)/, "")
         if (!msg) {
-            send.send_with_At(e, `请指定曲名哦！\n格式：/${Config.getUserCfg('config', 'cmdhead')} ill <曲名>`)
+            send.send_with_At(e, `请指定曲名哦！\n格式：/${PHI_COMMAND_HEAD} ill <曲名>`)
             return true
         }
         let ids = getInfo.fuzzysongsnick(msg)
@@ -395,7 +399,7 @@ export class phisong extends phiPluginBase {
         if (rank[0]) {
             if (rank[0].includes('+')) {
                 if (rank[1]) {
-                    send.send_with_At(e, `含有 '+' 的难度不支持指定范围哦！\n/${Config.getUserCfg('config', 'cmdhead')} rand <定数>+ <难度(可多选)>`, true)
+                    send.send_with_At(e, `含有 '+' 的难度不支持指定范围哦！\n/${PHI_COMMAND_HEAD} rand <定数>+ <难度(可多选)>`, true)
                     return true
                 } else {
                     bottom = Number(rank[0].replace('+', ''))
@@ -404,7 +408,7 @@ export class phisong extends phiPluginBase {
             } else if (rank[0].includes('-') && !rank[1]) {
                 const tb = Number(rank[0].replace('-', ''))
                 if (isNaN(tb)) {
-                    send.send_with_At(e, `${rank[0]} 不是一个定级哦\n#/${Config.getUserCfg('config', 'cmdhead')} rand <定数>- <难度(可多选)>`, true)
+                    send.send_with_At(e, `${rank[0]} 不是一个定级哦\n#/${PHI_COMMAND_HEAD} rand <定数>- <难度(可多选)>`, true)
                     return true
                 } else {
                     bottom = 0
@@ -415,14 +419,14 @@ export class phisong extends phiPluginBase {
                 if (rank[1]) {
                     const tt = Number(rank[1])
                     if (isNaN(tb) || isNaN(tt)) {
-                        send.send_with_At(e, `${rank[0]} - ${rank[1]} 不是一个定级范围哦\n/${Config.getUserCfg('config', 'cmdhead')} rand <定数1> - <定数2> <难度(可多选)>`, true)
+                        send.send_with_At(e, `${rank[0]} - ${rank[1]} 不是一个定级范围哦\n/${PHI_COMMAND_HEAD} rand <定数1> - <定数2> <难度(可多选)>`, true)
                         return true
                     }
                     top = Math.max(tb, tt)
                     bottom = Math.min(tb, tt)
                 } else {
                     if (isNaN(tb)) {
-                        send.send_with_At(e, `${rank[0]} 不是一个定级哦\n#/${Config.getUserCfg('config', 'cmdhead')} rand <定数> <难度(可多选)>`, true)
+                        send.send_with_At(e, `${rank[0]} 不是一个定级哦\n#/${PHI_COMMAND_HEAD} rand <定数> <难度(可多选)>`, true)
                         return true
                     } else {
                         top = bottom = tb
@@ -489,7 +493,7 @@ export class phisong extends phiPluginBase {
         function makeNickMsg(e, id) {
             let info = getInfo.info(id)
             let nicks = ['======================\n已有别名：']
-            const usernick = Config.getUserCfg('nickconfig')
+            const usernick = this.dataStore.getAliases()
             for (let nick of fCompute.objectKeys(usernick)) {
                 if (usernick[nick].includes(id)) {
                     nicks.push(`${nick}`)
@@ -533,7 +537,7 @@ export class phisong extends phiPluginBase {
             send.send_with_At(e, `dif: ${data0} acc: ${data1}\n计算结果：${fCompute.rks(Number(data1), Number(data0))}`, true)
             return true
         } else {
-            send.send_with_At(e, `格式错误QAQ！\n格式：${Config.getUserCfg('config', 'cmdhead')} com <定数> <acc>`)
+            send.send_with_At(e, `格式错误QAQ！\n格式：${PHI_COMMAND_HEAD} com <定数> <acc>`)
             return false
         }
     }
@@ -774,7 +778,7 @@ export class phisong extends phiPluginBase {
         let dif = Number(difMatch?.[0])
 
         if (!difMatch) {
-            send.send_with_At(e, `请输入定数嗷！\n/格式：${Config.getUserCfg('config', 'cmdhead')} table <定数>`, true)
+            send.send_with_At(e, `请输入定数嗷！\n/格式：${PHI_COMMAND_HEAD} table <定数>`, true)
             return false
         }
 
@@ -939,7 +943,7 @@ export class phisong extends phiPluginBase {
 
         const credentials = UserCredentials.fromEvent(e)
 
-        if (await getBanGroup.get(e, 'comment') || !(await Config.getUserCfg('config', 'allowComment'))) {
+        if (await getBanGroup.get(e, 'comment') || !(await this.config.allowComment)) {
             send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
@@ -959,7 +963,7 @@ export class phisong extends phiPluginBase {
 
         let msg = e.msg.replace(/[#/](.*?)(comment|cmt|评论|评价)(\s*)/, "");
         if (!msg) {
-            send.send_with_At(e, `请指定曲名哦！\n格式：\n/${Config.getUserCfg('config', 'cmdhead')} cmt <曲名> <难度?>(换行)\n<内容>`)
+            send.send_with_At(e, `请指定曲名哦！\n格式：\n/${PHI_COMMAND_HEAD} cmt <曲名> <难度?>(换行)\n<内容>`)
             return true
         }
 
@@ -1029,7 +1033,7 @@ export class phisong extends phiPluginBase {
 
         let songId = songInfo.id;
 
-        if (save.apiId && await canUseApi(e)) {
+        if (save.apiId && await canUseApi(this.config, e)) {
             const apiUserId = save.apiId
             /**@type {import("../../providers/phi-api/make-request").APIUpdateCommentObject} */
             let cmtobj = {
@@ -1142,7 +1146,7 @@ export class phisong extends phiPluginBase {
      */
     async recallComment(e) {
         const credentials = UserCredentials.fromEvent(e)
-        if (await getBanGroup.get(e, 'recallComment') || !(await Config.getUserCfg('config', 'allowComment'))) {
+        if (await getBanGroup.get(e, 'recallComment') || !(await this.config.allowComment)) {
             send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
@@ -1163,13 +1167,13 @@ export class phisong extends phiPluginBase {
         let commentId = e.msg.match(/[0-9]+/)?.[0];
 
         if (!commentId) {
-            send.send_with_At(e, `请输入评论ID嗷！\n格式：/${Config.getUserCfg('config', 'cmdhead')} recmt <评论ID>`);
+            send.send_with_At(e, `请输入评论ID嗷！\n格式：/${PHI_COMMAND_HEAD} recmt <评论ID>`);
             return true;
         }
 
         let comment = getComment.getByCommentId(commentId)
         if (!comment) {
-            if (await canUseApi(e)) {
+            if (await canUseApi(this.config, e)) {
                 const delResult = await credentials.deleteComment(commentId)
                 if (delResult) {
                     send.send_with_At(e, `删除在线评论成功！φ(゜▽゜*)♪`);
@@ -1208,7 +1212,7 @@ export class phisong extends phiPluginBase {
             return true
         }
 
-        if ((save.session || save.apiId) && await canUseApi(e)) {
+        if ((save.session || save.apiId) && await canUseApi(this.config, e)) {
             const comments = await credentials.getCommentsByUserId()
             if (comments) {
 
@@ -1248,7 +1252,7 @@ export class phisong extends phiPluginBase {
  * @param {botEvent} e
  * @returns 
  */
-async function songInfo(page, addComment, id, e) {
+async function songInfo(page, addComment, id, e, config) {
     let infoData = getInfo.info(id);
     /**@type {any} */
     let data = {
@@ -1259,10 +1263,10 @@ async function songInfo(page, addComment, id, e) {
         logger.error(`[phi-plugin] songInfo: 未找到id为${id}的歌曲信息`);
         return `发生未知错误QAQ！请回报管理员！`;
     }
-    if (await Config.getUserCfg('config', 'allowComment') && (addComment || page)) {
+    if (await config.allowComment && (addComment || page)) {
         /** @type {any[]} */
         let commentData = [];
-        if (await canUseApi(e)) {
+        if (await canUseApi(this.config, e)) {
             commentData = (await makeRequest.getCommentsBySongId(
                 { song_id: infoData.id },
                 { event: e },
@@ -1295,13 +1299,13 @@ async function songInfo(page, addComment, id, e) {
             return new Date(b.time).getTime() - new Date(a.time).getTime();
         });
         if (!page) page = 1
-        let commentsAPage = Config.getUserCfg('config', 'commentsAPage') || 1
+        let commentsAPage = config.commentsAPage || 1
         let maxPage = Math.ceil(commentData.length / commentsAPage)
         page = Math.max(Math.min(page, maxPage), 1)
         data = {
             ...infoData,
             comment: {
-                command: `当前共有${commentData.length}条评论，第${Math.min(page, maxPage)}页，共${maxPage}页，发送/${Config.getUserCfg('config', 'cmdhead')} cmt <曲名> <定级?>(换行)<内容> 进行评论，-p <页码> 选择页数`,
+                command: `当前共有${commentData.length}条评论，第${Math.min(page, maxPage)}页，共${maxPage}页，发送/${PHI_COMMAND_HEAD} cmt <曲名> <定级?>(换行)<内容> 进行评论，-p <页码> 选择页数`,
                 // @ts-ignore
                 list: commentData.slice((commentsAPage * (page - 1)), commentsAPage * page - 1)
             }

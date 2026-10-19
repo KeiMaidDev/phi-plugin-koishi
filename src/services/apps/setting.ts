@@ -1,5 +1,7 @@
 // @ts-nocheck
-import Config from '../config-store'
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import picmodle from '../../render/pic-model'
 import getInfo from '../../domain/game/get-info'
 import getNotes from '../../domain/user/get-notes'
@@ -11,187 +13,29 @@ import { getThemeInstallRequesterId } from '../theme/install-guard'
 import getBanGroup from '../../domain/user/get-ban-group'
 import send from '../../render/send'
 import { getApiAccessState } from '../../domain/user/api-permission'
-import { sendQuickCommands, configQuickCommands, sendQuickCommandSections, userSettingQuickCommandSections } from '../../domain/game/markdown'
+import { sendQuickCommandSections, userSettingQuickCommandSections } from '../../domain/game/markdown'
 
 /**@import {botEvent} from '../base-class' */
 
-import { createGuobaConfigInfo } from '../../config/guoba'
-
-// 指令设置页复用集中定义，不再依赖 Guoba 插件入口。
-const configInfo = createGuobaConfigInfo(Config, { includeCredentials: false })
 
 
 export class phihelp extends phiPluginBase {
-    constructor() {
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: 'phi-setting',
             dsc: 'phigros屁股肉设置',
             event: 'message',
             priority: 1001,
             rule: [
                 {
-                    reg: `^[#/](pgr|PGR|屁股肉|phi|Phi|(${Config.getUserCfg('config', 'cmdhead')}))(\\s*)(用户设置|个人设置|mysetting|myset)(\\s*.*)?$`,
+                    reg: `^[#/](pgr|PGR|屁股肉|phi|Phi|(${PHI_COMMAND_HEAD}))(\\s*)(用户设置|个人设置|mysetting|myset)(\\s*.*)?$`,
                     fnc: 'showUserSetting'
-                },
-                {
-                    reg: `^[#/](pgr|PGR|屁股肉|phi|Phi|(${Config.getUserCfg('config', 'cmdhead')}))(\\s*)(设置|set).*$`,
-                    fnc: 'set'
                 }
             ]
         })
 
-    }
-
-    /**
-     * 
-     * @param {botEvent} e 
-     * @returns 
-     */
-    async set(e) {
-        if (!e.isMaster) {
-            return false;
-        }
-        let schemas = configInfo.schemas
-
-        /**修改设置部分 */
-        let msg = e.msg.replace(new RegExp(`^[#/](pgr|PGR|屁股肉|phi|Phi|(${Config.getUserCfg('config', 'cmdhead')}))(\\s*)(设置|set)`), '')
-        for (let i in schemas) {
-            let schema = schemas[i]
-            if (!schema.field) continue
-
-            const field = /**@type {configName} */(schema.field)
-            if (msg.match(schema.label)) {
-                let value = msg.replace(schema.label, '').trim()
-                switch (schema.component) {
-                    case 'Select':
-                        let options = schema.componentProps?.options
-                        if (!options) break;
-                        for (let j = 0; j < options.length; j++) {
-                            if (options[j].label == value) {
-                                Config.modify('config', field, options[j].value)
-                                break;
-                            }
-                        }
-                        break;
-                    case 'Input':
-                        Config.modify('config', field, value)
-                        break;
-                    case 'InputNumber':
-                        Config.modify('config', field, Math.max(Math.min(Number(value), schema.componentProps?.max ?? Infinity), schema.componentProps?.min ?? -Infinity))
-                        break;
-                    case 'Switch':
-                        switch (value) {
-                            case 'true':
-                            case 'ON':
-                            case 'on':
-                            case '开启':
-                            case '开':
-                                Config.modify('config', field, true)
-                                break;
-                            case 'false':
-                            case 'OFF':
-                            case 'off':
-                            case '关闭':
-                            case '关':
-                                Config.modify('config', field, false)
-                                break;
-                            default:
-                                break;
-                        }
-                        break;
-                    case 'RadioGroup': {
-                        let options = schema.componentProps?.options
-                        if (!options) break;
-                        for (let j = 0; j < options.length; j++) {
-                            if (options[j].label == value) {
-                                Config.modify('config', field, options[j].value)
-                                break;
-                            }
-                        }
-                        break;
-                    }
-                    default:
-                        break;
-                }
-            }
-        }
-
-
-        /**渲染图片部分 */
-        let config = configInfo.getConfigData()
-        let data = []
-        for (let i in schemas) {
-            let schema = schemas[i]
-            switch (schema.component) {
-                case 'Divider':
-                    data.push({
-                        label: schema.label,
-                        type: 'divider'
-                    })
-                    break;
-                case 'Select':
-                    if (!schema.field) break;
-                    // @ts-ignore
-                    let value = config[schema.field]
-                    let options = schema.componentProps?.options
-                    if (!options) break;
-                    for (let j = 0; j < options.length; j++) {
-                        if (options[j].value == value) {
-                            value = options[j].label
-                            break;
-                        }
-                    }
-                    data.push({
-                        label: schema.label,
-                        bottomHelpMessage: schema.bottomHelpMessage,
-                        type: 'space',
-                        value,
-                    })
-                    break;
-                case 'Input':
-                case 'InputNumber':
-                    if (!schema.field) break;
-                    data.push({
-                        label: schema.label,
-                        bottomHelpMessage: schema.bottomHelpMessage,
-                        type: 'space',
-                        // @ts-ignore
-                        value: config[schema.field],
-                        // @ts-ignore
-                        drc: schema.componentProps.addonAfter || ''
-                    })
-                    break;
-                case 'Switch':
-                    data.push({
-                        label: schema.label,
-                        bottomHelpMessage: schema.bottomHelpMessage,
-                        type: 'switch',
-                        // @ts-ignore
-                        value: config[schema.field],
-                    })
-                    break;
-                case 'RadioGroup':
-                    if (!schema.field) break;
-                    data.push({
-                        label: schema.label,
-                        bottomHelpMessage: schema.bottomHelpMessage,
-                        type: 'space',
-                        // @ts-ignore
-                        value: schema.componentProps?.options.find(o => o.value == config[schema.field])?.label || '未知',
-                    })
-                    break;
-                default:
-                    break;
-            }
-        }
-        // console.info(data)
-        let plugin_data = await getNotes.getNotesData(e.user_id)
-        send.reply(e, await picmodle.common(e, 'setting', {
-            data,
-            background: getInfo.getill(getInfo.illlist[Number((Math.random() * (getInfo.illlist.length - 1)).toFixed(0))]),
-            theme: plugin_data?.theme || 'star'
-        }))
-        await sendQuickCommands(e, configQuickCommands(Config.getUserCfg('config', 'cmdhead')), '全局设置快捷操作')
     }
 
     /**
@@ -292,16 +136,16 @@ export class phihelp extends phiPluginBase {
 
         const usage = [
             '用法示例：',
-            `/${Config.getUserCfg('config', 'cmdhead')} 用户设置`,
-            `/${Config.getUserCfg('config', 'cmdhead')} 用户设置 主题 star`,
-            `/${Config.getUserCfg('config', 'cmdhead')} 用户设置 主题 3`,
-            `/${Config.getUserCfg('config', 'cmdhead')} 用户设置 均值范围 b30`,
-            `/${Config.getUserCfg('config', 'cmdhead')} 用户设置 配色 gold`,
-            `/${Config.getUserCfg('config', 'cmdhead')} 用户设置 API开关 关闭`,
-            `/${Config.getUserCfg('config', 'cmdhead')} 用户设置 B30分析 关闭`
+            `/${PHI_COMMAND_HEAD} 用户设置`,
+            `/${PHI_COMMAND_HEAD} 用户设置 主题 star`,
+            `/${PHI_COMMAND_HEAD} 用户设置 主题 3`,
+            `/${PHI_COMMAND_HEAD} 用户设置 均值范围 b30`,
+            `/${PHI_COMMAND_HEAD} 用户设置 配色 gold`,
+            `/${PHI_COMMAND_HEAD} 用户设置 API开关 关闭`,
+            `/${PHI_COMMAND_HEAD} 用户设置 B30分析 关闭`
         ].join('\n')
 
-        const rawArgs = e.msg.replace(new RegExp(`^[#/](pgr|PGR|屁股肉|phi|Phi|(${Config.getUserCfg('config', 'cmdhead')}))(\\s*)(用户设置|个人设置|mysetting|myset)`), '').trim()
+        const rawArgs = e.msg.replace(new RegExp(`^[#/](pgr|PGR|屁股肉|phi|Phi|(${PHI_COMMAND_HEAD}))(\\s*)(用户设置|个人设置|mysetting|myset)`), '').trim()
 
         if (rawArgs) {
             const normalized = rawArgs.replace(/[：:=]/g, ' ').replace(/\s+/g, ' ').trim()
@@ -361,7 +205,7 @@ export class phihelp extends phiPluginBase {
                 && (!optionMap[canonicalValue] || selectedTheme?.marketInstalled)
             if (shouldPrepareTheme) {
                 if (!selectedTheme) {
-                    const apiAccess = await getApiAccessState(e, 'customTheme')
+                    const apiAccess = await getApiAccessState(this.config, e, 'customTheme')
                     if (!apiAccess.enabled) {
                         send.send_with_At(e, apiAccess.message)
                         return true
@@ -429,7 +273,7 @@ export class phihelp extends phiPluginBase {
         const buildThemeItem = (current) => {
             const builtins = /** @type {Record<string, {title:string, description:string}>} */ (USER_SETTING_OPTIONS.theme)
             const customTheme = themeManager.isCustomTheme(current) ? themeManager.getTheme(current) : null
-            const commandHead = `${Config.getUserCfg('config', 'cmdhead')}`
+            const commandHead = `${PHI_COMMAND_HEAD}`
             const marketGuide = `/${commandHead} market 查看列表；/${commandHead} market detail <slug> 查看详情；/${commandHead} market <slug> 使用主题，首次使用会自动下载。`
             return {
                 key: 'theme',
@@ -471,7 +315,7 @@ export class phihelp extends phiPluginBase {
             background: getInfo.getill(getInfo.illlist[Number((Math.random() * (getInfo.illlist.length - 1)).toFixed(0))]),
             theme: pluginData?.theme || 'default'
         }, 'userSetting'))
-        await sendQuickCommandSections(e, userSettingQuickCommandSections(Config.getUserCfg('config', 'cmdhead')), '用户设置快捷操作')
+        await sendQuickCommandSections(e, userSettingQuickCommandSections(PHI_COMMAND_HEAD), '用户设置快捷操作', this.config)
         return true
     }
 }

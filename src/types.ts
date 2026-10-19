@@ -103,7 +103,6 @@
  * @typedef {'TapTapLoginQRcode'} TapTapLoginQRcode 绑定二维码
  * @typedef {'WordB19Img'} WordB19Img 文字版B19曲绘图片
  * @typedef {'WordSuggImg'} WordSuggImg Suggest曲绘图片
- * @typedef {'cmdhead'} cmdhead 命令头
  * @typedef {'openPhiPluginApi'} openPhiPluginApi 是否启用Phigros联合查分API地址
  * @typedef {'enableCustomThemeApi'} enableCustomThemeApi 是否启用自定义主题 API
  * @typedef {'enableScoreStatisticsApi'} enableScoreStatisticsApi 是否启用免认证查分统计 API
@@ -115,7 +114,6 @@
  * @typedef {'debug'} debug 输出测试日志
  * @typedef {'otherinfo'} otherinfo 曲库
  * @typedef {'mutiNickWaitTimeOut'} mutiNickWaitTimeOut 多个曲目回复序号等待时长
- * @typedef {'chartPath'} chartPath 谱面路径
  * 猜曲绘设置
  * @typedef {'GuessTipCd'} GuessTipCd 提示间隔
  * @typedef {'GuessTipRecall'} GuessTipRecall 猜曲绘撤回
@@ -180,7 +178,7 @@
  * |TapTapLoginQRcode
  * |WordB19Img
  * |WordSuggImg
- * |cmdhead
+ *
  * |openPhiPluginApi
  * |enableCustomThemeApi
  * |enableScoreStatisticsApi
@@ -192,7 +190,7 @@
  * |debug
  * |otherinfo
  * |mutiNickWaitTimeOut
- * |chartPath
+ *
  * |GuessTipCd
  * |GuessTipRecall
  * |GuessTipDefaultLevel

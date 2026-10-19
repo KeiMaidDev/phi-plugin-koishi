@@ -1,4 +1,6 @@
 // @ts-nocheck
+import type { PhiRuntime } from '../../runtime-context'
+
 import { phiRankList } from './rank-list'
 import { aliasProposal } from './alias-proposal'
 import { phihelp as phiApiSetting } from './api-setting'
@@ -37,6 +39,6 @@ const appClasses = {
     user: phiuser,
 }
 
-export function createApps() {
-    return Object.fromEntries(Object.entries(appClasses).map(([key, Class]) => [key, new Class()]))
+export function createApps(runtime: PhiRuntime) {
+    return Object.fromEntries(Object.entries(appClasses).map(([key, Class]) => [key, new Class(runtime)]))
 }

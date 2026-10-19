@@ -1,5 +1,4 @@
 // @ts-nocheck
-import Config from "../../services/config-store";
 import logger from "../../utils/logger";
 import { redisPath } from "../game/const-num"
 import { UserCredentials } from './user-credentials';
@@ -31,7 +30,7 @@ export default class getBanGroup {
     static async get(e, fnc) {
         const { group_id } = e;
         const credentials = UserCredentials.fromEvent(e)
-        if (await canUseApi(e)) {
+        if (await canUseApi(this.config, e)) {
             if (await credentials.getUserAPIBanStatus({ ignoreUnboundError: true })) {
                 send.send_with_At(e, "当前账户被加入黑名单，详情请联系管理员(1)。")
                 return true;

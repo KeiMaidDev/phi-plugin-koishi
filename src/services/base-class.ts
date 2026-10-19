@@ -1,5 +1,6 @@
 // @ts-nocheck
-import Config from './config-store'
+import type { Config } from '../config'
+import type { BusinessDataStore } from './business-data'
 import send from "../render/send";
 import fCompute from '../domain/game/f-compute'
 import getInfo from '../domain/game/get-info';
@@ -64,6 +65,12 @@ function clearMutiNickState(userId) {
 
 
 export default class phiPluginBase extends HostPlugin {
+  /** 插件实例配置快照。 */
+  config: Config
+
+  /** 运行时业务数据。 */
+  dataStore: BusinessDataStore
+
   /** @type {botEvent} */
   e
 
@@ -79,13 +86,29 @@ export default class phiPluginBase extends HostPlugin {
     event = "message",
     priority = 5000,
     task = undefined,
-    rule = []
+    rule = [],
+    config,
+    data,
+  }: {
+    name?: string
+    dsc?: string
+    handler?: any
+    namespace?: string
+    event?: string
+    priority?: number
+    task?: any
+    rule?: any[]
+    config: Config
+    data: BusinessDataStore
   }) {
     super({
       name, dsc, handler, namespace, event, priority, task,
       // @ts-ignore
       rule
     });
+
+    this.config = config
+    this.dataStore = data
 
     /** @type {botEvent} */
     this.e = platform.wrapEvent({ msg: '', user_id: '', isGroup: false, isPrivate: true }) // 占位用;
@@ -172,9 +195,9 @@ export default class phiPluginBase extends HostPlugin {
       callback(e, idList[0], options);
       return;
     }
-    send.send_with_At(e, fCompute.mutiNick(idList));
+    send.send_with_At(e, fCompute.mutiNick(idList, this.config));
     const userId = String(e.user_id)
-    const timeoutSeconds = Number(Config.getUserCfg('config', 'mutiNickWaitTimeOut')) || 0
+    const timeoutSeconds = Number(this.config.mutiNickWaitTimeOut) || 0
     clearMutiNickState(userId)
     const state = wait_to_chose_song[userId] = {
       ids: idList,

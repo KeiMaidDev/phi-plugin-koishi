@@ -4,7 +4,6 @@ import logger from "../../utils/logger"
 import { APIBASEURL } from "../../domain/game/const-num"
 import https from 'node:https';
 import axios from "axios";
-import { Config } from "../../services/index";
 import Version from "../../utils/version";
 import botApiAuth from "./bot-api-auth";
 import { classifyApiConnectionError, getPhiApiUserMessage, isFatalBotIdentityError, PhiApiError } from "./phi-api-errors";
@@ -75,8 +74,9 @@ export class AutoSeekApi {
    */
   constructor(options = {}) {
     this.options = options
+    this.config = undefined
     this.getConfigured = options.isConfigured
-      ?? (() => Boolean(Config.getUserCfg('config', 'openPhiPluginApi')))
+      ?? (() => Boolean(this.config?.openPhiPluginApi))
     this.requestStatus = options.requestStatus ?? requestApiStatus
     this.logger = options.logger ?? logger
     this.recoverOnlineServices = options.recoverOnlineServices
@@ -110,7 +110,8 @@ export class AutoSeekApi {
    * @param {any} [ctx] Koishi Context，用于绑定生命周期定时器
    * @returns {Promise<boolean>} 本次探测是否可用
    */
-  start(ctx = undefined) {
+  start(ctx = undefined, config = undefined) {
+    if (config) this.config = config
     if (this.started && this.ctx === (ctx ?? null)) {
       return this.probePromise ?? Promise.resolve(this.state === 'available')
     }

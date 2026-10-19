@@ -2,15 +2,17 @@
 import path from 'node:path'
 import fs from 'node:fs'
 import type { Context, h as H } from 'koishi'
+import type { Config } from './config'
+import type { PhiRuntime } from './runtime-context'
 
-export interface EngineRuntime {
+export interface EngineRuntime extends PhiRuntime {
     apps: Record<string, any>
     adapter: any
     picmodle: any
     dispose(): Promise<void>
 }
 
-export async function createEngine(ctx: Context, config: Record<string, any>, h: typeof H): Promise<EngineRuntime> {
+export async function createEngine(ctx: Context, config: Config, h: typeof H): Promise<EngineRuntime> {
     const pluginRoot = path.resolve(__dirname, '..')
     const dataRoot = path.join(ctx.baseDir, 'data', 'phi-plugin')
     fs.mkdirSync(dataRoot, { recursive: true })
@@ -21,36 +23,52 @@ export async function createEngine(ctx: Context, config: Record<string, any>, h:
     const adapter = useKoishiAdapter(ctx, { h, rootPath: ctx.baseDir, botConfig: config })
     ctx.middleware((session, next) => adapter.dispatchContext(session, next), true)
 
-    const { default: Config } = require('./services/config-store.ts')
-    Config.config = {}
-    Config.initCfg()
+    const { BusinessDataStore } = require('./services/business-data.ts')
+    const data = new BusinessDataStore()
+    await data.init()
 
-    const { bindHostSettings } = require('./config/host.ts')
-    const unbind = bindHostSettings(config, values => {
-        if (typeof (ctx.scope as any)?.update === 'function') {
-            ;(ctx.scope as any).update({ ...(ctx.scope as any).config, ...values })
+    const runtime: PhiRuntime = { config, data }
+    const updateConfig = (values: Partial<Config>) => {
+        Object.assign(config, values)
+        const scope = ctx.scope as any
+        if (typeof scope?.update === 'function') {
+            scope.update({ ...scope.config, ...values })
         }
-    })
+    }
+
+    const { default: botApiAuth } = require('./providers/phi-api/bot-api-auth.ts')
+    botApiAuth.configure(config, updateConfig)
 
     // 启动后立即异步探测 Online API；本地初始化继续并行执行。
     const { default: autoSeekApi } = require('./providers/phi-api/auto-seek-api.ts')
-    autoSeekApi.start(ctx)
+    autoSeekApi.start(ctx, config)
 
     const { default: getInfo } = require('./domain/game/get-info.ts')
-    await getInfo.init()
+    await getInfo.init(runtime)
 
     const { default: picmodle } = require('./render/pic-model.ts')
+    picmodle.configure(config)
     picmodle.validateRendererSettings()
-    await picmodle.beginSession(ctx)
+    await picmodle.beginSession(ctx, config)
 
     const { default: themeManager } = require('./services/theme/manager.ts')
     await themeManager.init()
 
+    const { default: themeUseService } = require('./services/theme/use-service.ts')
+    themeUseService.configure(config)
+
+    const { default: send } = require('./render/send.ts')
+    send.configure(config)
+
+    const { default: getBanGroup } = require('./domain/user/get-ban-group.ts')
+    getBanGroup.configure(config)
+
     const { createApps } = require('./services/apps/index.ts')
-    const apps = createApps()
+    const apps = createApps(runtime)
 
     let disposed = false
     return {
+        ...runtime,
         apps,
         adapter,
         picmodle,
@@ -63,7 +81,7 @@ export async function createEngine(ctx: Context, config: Record<string, any>, h:
             } finally {
                 const closers = [
                     () => getInfo.close?.(),
-                    () => Config.close?.(),
+                    () => data.close(),
                     () => autoSeekApi.dispose(),
                     () => adapter.close?.(),
                     async () => require('./utils/file-watcher-registry.ts').default.closeAll(),
@@ -71,9 +89,7 @@ export async function createEngine(ctx: Context, config: Record<string, any>, h:
                 for (const close of closers) {
                     try { await close() } catch (error) { (typeof ctx.logger === 'function' ? ctx.logger('phi-plugin') : ctx.logger).warn(error) }
                 }
-                unbind?.()
             }
         },
     }
 }
-

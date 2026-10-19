@@ -1,5 +1,6 @@
 // @ts-nocheck
-import Config from "../../config-store"
+import { PHI_COMMAND_HEAD } from '../../../constants'
+
 import fCompute from "../../../domain/game/f-compute"
 import getInfo from "../../../domain/game/get-info"
 import { allLevel } from "../../../domain/game/const-num"
@@ -62,7 +63,13 @@ const tipsGameData = {}
  * @import {GameList} from '../guess-game'
  */
 
-export default new class guessTips {
+export default class guessTips {
+    config
+
+    constructor(runtime) {
+        this.config = runtime.config
+    }
+
     /**
      * 开始游戏
      * @param {any} e 事件对象
@@ -116,7 +123,7 @@ export default new class guessTips {
             tips.push(`这首曲目的 ⌈${level}⌋ 难度 ⌈谱师⌋ 为 ${info.chart[level].charter}`)
         }
         tips = fCompute.randArray(tips)
-        tips = tips.splice(0, Config.getUserCfg('config', 'GuessTipsTipNum'))
+        tips = tips.splice(0, this.config.GuessTipsTipNum)
         /**曲绘区域 */
         /**width */
         let width = fCompute.randInt(100, 150)
@@ -128,7 +135,7 @@ export default new class guessTips {
         tipsGameData[group_id] = new GuessTipsGameData(songId, tips, width, height, x, y,)
         const currentGame = tipsGameData[group_id]
         const startTime = currentGame.startTime
-        send.reply(e, `下面开始进行提示猜歌哦！可以直接发送曲名进行回答哦！每过${Config.getUserCfg('config', 'GuessTipsTipCD')}秒后可以请求下一条提示，共有${Config.getUserCfg('config', 'GuessTipsTipNum') + 1}条提示嗷！所有提示发送完毕${Config.getUserCfg('config', 'GuessTipsAnsTime')}秒后会自动结束游戏嗷！发送 /${Config.getUserCfg('config', 'cmdhead')} ans 也可以提前结束游戏呐！`)
+        send.reply(e, `下面开始进行提示猜歌哦！可以直接发送曲名进行回答哦！每过${this.config.GuessTipsTipCD}秒后可以请求下一条提示，共有${this.config.GuessTipsTipNum + 1}条提示嗷！所有提示发送完毕${this.config.GuessTipsAnsTime}秒后会自动结束游戏嗷！发送 /${PHI_COMMAND_HEAD} ans 也可以提前结束游戏呐！`)
         /**@type {string[]} */
         let resMsg = []
         for (let i = 0; i < currentGame.tipNum; i++) {
@@ -140,7 +147,7 @@ export default new class guessTips {
                 send.reply(e, [`呜……很遗憾，没有人答对喵！正确答案是：${info.song}`, currentGame.tipNum > currentGame.tips.length ? await picmodle.guess(e, { ...currentGame.ill, blur: 0, style: 1, }) : false])
                 gameover(group_id, gameList)
             }
-        }, Config.getUserCfg('config', 'GuessTipsTimeout') * 1000, startTime);
+        }, this.config.GuessTipsTimeout * 1000, startTime);
         return true
     }
 
@@ -156,7 +163,7 @@ export default new class guessTips {
         }
         const nowTime = new Date().getTime()
         const currentGame = tipsGameData[group_id]
-        if (nowTime - currentGame.tipTime < Config.getUserCfg('config', 'GuessTipsTipCD') * 1000) {
+        if (nowTime - currentGame.tipTime < this.config.GuessTipsTipCD * 1000) {
             send.send_with_At(e, `提示的冷却时间还有${Math.ceil((nowTime - currentGame.tipTime) / 1000)}秒哦！`)
             return false
         }
@@ -175,7 +182,7 @@ export default new class guessTips {
                     gameover(group_id, gameList)
                 }
             }, 30 * 1000, currentGame.startTime)
-            send.reply(e, `接下来是曲绘提示哦！如果在${Config.getUserCfg('config', 'GuessTipsAnsTime')}秒内没有回答正确的话，将会自动公布答案哦！`)
+            send.reply(e, `接下来是曲绘提示哦！如果在${this.config.GuessTipsAnsTime}秒内没有回答正确的话，将会自动公布答案哦！`)
             rev.push(await picmodle.guess(e, { ...currentGame.ill, blur: 0, style: 0, }))
         } else {
             ++currentGame.tipNum
@@ -245,7 +252,7 @@ export default new class guessTips {
         send.reply(e, await getPic.GetSongsInfoAtlas(e, currentGame.songId))
         gameover(group_id, gameList)
     }
-}()
+}
 
 /**
  * 结束游戏

@@ -1,7 +1,9 @@
 // @ts-nocheck
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import common from '../common'
 import path from 'path'
-import Config from '../config-store'
 import send from '../../render/send'
 import getNotes from '../../domain/user/get-notes'
 import getBanGroup from '../../domain/user/get-ban-group';
@@ -79,35 +81,37 @@ async function loadSentences() {
 }
 
 export class phimoney extends phiPluginBase {
-    constructor() {
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: 'phi-money',
             dsc: 'phi-plugin货币系统',
             event: 'message',
             priority: 1000,
             rule: [
                 {
-                    reg: `^[#/]?(${Config.getUserCfg('config', 'cmdhead')})(\\s*)(sign|sign in|签到|打卡)$`,
+                    reg: `^[#/]?(${PHI_COMMAND_HEAD})(\\s*)(sign|sign in|签到|打卡)$`,
                     fnc: 'sign'
                 },
                 {
-                    reg: `^[#/]?(${Config.getUserCfg('config', 'cmdhead')})(\\s*)(task|我的任务)$`,
+                    reg: `^[#/]?(${PHI_COMMAND_HEAD})(\\s*)(task|我的任务)$`,
                     fnc: 'tasks'
                 },
                 {
-                    reg: `^[#/]?(${Config.getUserCfg('config', 'cmdhead')})(\\s*)(retask|刷新任务)$`,
+                    reg: `^[#/]?(${PHI_COMMAND_HEAD})(\\s*)(retask|刷新任务)$`,
                     fnc: 'retask'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(send|送|转)(.*)$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(send|送|转)(.*)$`,
                     fnc: 'send'
                 },
                 {
-                    reg: `^[#/]?(${Config.getUserCfg('config', 'cmdhead')})(\\s*)(theme)(\\s*)[0-9]+$`,
+                    reg: `^[#/]?(${PHI_COMMAND_HEAD})(\\s*)(theme)(\\s*)[0-9]+$`,
                     fnc: 'theme'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(jrrp|今日人品)$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(jrrp|今日人品)$`,
                     fnc: 'jrrp'
                 },
             ]
@@ -169,7 +173,7 @@ export class phimoney extends phiPluginBase {
             let last_task = new Date(data.task_time)
             if (last_task < request_time) {
                 data.task_time = now_time.toISOString()
-                data.task = await randtask(e, save, [])
+                data.task = await randtask(e, save, [], this.config)
                 getNotes.putNotesData(e.user_id, data)
             }
         }
@@ -229,7 +233,7 @@ export class phimoney extends phiPluginBase {
         }
 
         data.task_time = now_time.toISOString();
-        data.task = await randtask(e, save, oldtask)
+        data.task = await randtask(e, save, oldtask, this.config)
 
         let vis = false
         for (let i in data.task) {
@@ -294,7 +298,7 @@ export class phimoney extends phiPluginBase {
             send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
-        const tmp = `\n格式：/${Config.getUserCfg('config', 'cmdhead')} send <@ or id> <数量>`;
+        const tmp = `\n格式：/${PHI_COMMAND_HEAD} send <@ or id> <数量>`;
         let msg = e.msg.replace(/[#/](.*?)(send|送|转)(\s*)/g, "")
         msg = msg.replace(/[\<\>]/g, "")
         let target = e.at
@@ -387,7 +391,7 @@ export class phimoney extends phiPluginBase {
         let msg = e.msg.replace(/.*?theme\s*/g, '')
         let aim = Number(msg)
         if (!Number.isInteger(aim) || aim < 0 || aim > themeList.length - 1) {
-            send.send_with_At(e, `请输入主题数字嗷！\n格式/${Config.getUserCfg('config', 'cmdhead')} theme 0-${themeList.length - 1}`)
+            send.send_with_At(e, `请输入主题数字嗷！\n格式/${PHI_COMMAND_HEAD} theme 0-${themeList.length - 1}`)
             return false
         }
 
@@ -458,7 +462,7 @@ export class phimoney extends phiPluginBase {
  * @param {import('../../domain/user/plugin-data').taskObj[]} task 
  * @returns 
  */
-async function randtask(e, save, task = []) {
+async function randtask(e, save, task = [], config) {
     let rks = save.saveInfo.summary.rankingScore
     let gameRecord = save.gameRecord
     for (let id of fCompute.objectKeys(gameRecord)) {
@@ -475,7 +479,7 @@ async function randtask(e, save, task = []) {
      */
     let allTaskList = [];
 
-    if (await canUseApi(e, 'scoreStatistics')) {
+    if (await canUseApi(config, e, 'scoreStatistics')) {
 
         const res = await makeRequest.getAllSongAccAvgB30({
                 songIds: fCompute.objectKeys(getInfo.ori_info),

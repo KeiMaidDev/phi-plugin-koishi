@@ -1,5 +1,7 @@
 // @ts-nocheck
-import Config from '../config-store';
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import send from '../../render/send';
 import picmodle from '../../render/pic-model';
 import getBackup from '../../domain/save/get-backup';
@@ -20,47 +22,49 @@ import { redis } from '../../platform/index';
 let banSetting = ["help", "bind", "b19", "wb19", "song", "ranklist", "fnc", "tipgame", "guessgame", "ltrgame", "fribgame", "sign", "setting", "dan", "apiSetting"]
 
 export class phiset extends phiPluginBase {
-    constructor() {
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: 'phi-manage',
             dsc: 'phigros屁股肉管理',
             event: 'message',
             priority: 1000,
             rule: [
                 // {
-                //     reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(禁用|ban).*$`,
+                //     reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(禁用|ban).*$`,
                 //     fnc: 'ban'
                 // },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*repu$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*repu$`,
                     fnc: 'restartpu'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*backup(\\s*back)?$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*backup(\\s*back)?$`,
                     fnc: 'backup'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*restore$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*restore$`,
                     fnc: 'restore'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*get .*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*get .*$`,
                     fnc: 'get'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*del .*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*del .*$`,
                     fnc: 'del'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*allow .*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*allow .*$`,
                     fnc: 'allow'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*ban .*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*ban .*$`,
                     fnc: 'ban'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*unban .*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*unban .*$`,
                     fnc: 'unban'
                 }
             ]

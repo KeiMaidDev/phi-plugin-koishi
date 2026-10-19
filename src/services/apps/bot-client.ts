@@ -1,5 +1,7 @@
 // @ts-nocheck
-import Config from '../config-store';
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import Version from '../../utils/version';
 import phiPluginBase from '../base-class';
 import logger from '../../utils/logger';
@@ -8,19 +10,21 @@ import botApiAuth from '../../providers/phi-api/bot-api-auth';
 import { getPhiApiUserMessage } from '../../providers/phi-api/phi-api-errors';
 
 export class phiBotClient extends phiPluginBase {
-    constructor() {
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: 'phi-api-bot-client',
             dsc: '查分API Bot身份管理',
             event: 'message',
             priority: 1000,
             rule: [
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*(重置API Bot身份|resetApiBot)$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*(重置API Bot身份|resetApiBot)$`,
                     fnc: 'resetApiBot',
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})\\s*(获取Bot认领链接|botClaimLink)$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})\\s*(获取Bot认领链接|botClaimLink)$`,
                     fnc: 'claimLink',
                 },
             ],

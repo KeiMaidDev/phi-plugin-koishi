@@ -1,7 +1,7 @@
 // @ts-nocheck
 import logger from '../../utils/logger'
 import Version from '../../utils/version'
-import Config from '../../services/config-store'
+import autoSeekApi from './auto-seek-api'
 import platform from '../../platform/index'
 import makeRequest from './make-request'
 import { isApiVersionBlocked } from './api-version'
@@ -83,7 +83,7 @@ export class BotSyncService {
 
     /** 启动时立即同步一次；失败由一分钟周期和 API 重连流程继续恢复。 @param {AbortSignal} [signal] */
     async initialize(signal = undefined) {
-        if (!Config.getUserCfg('config', 'openPhiPluginApi') || isApiVersionBlocked()) return
+        if (!autoSeekApi.isConfigured() || isApiVersionBlocked()) return
         if (this.initialized) return
         this.initialized = true
         await this.sync(signal).catch(error => {
@@ -101,7 +101,7 @@ export class BotSyncService {
 
     /** @returns {Promise<void>} 一分钟平台任务入口 */
     async scheduledTask() {
-        if (!Config.getUserCfg('config', 'openPhiPluginApi') || isApiVersionBlocked()) return
+        if (!autoSeekApi.isConfigured() || isApiVersionBlocked()) return
         await this.sync().catch(error => {
             logger.warn('[phi-plugin] Bot状态同步失败', error)
         })

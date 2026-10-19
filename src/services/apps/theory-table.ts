@@ -1,5 +1,7 @@
 // @ts-nocheck
-import Config from '../config-store'
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import Version from '../../utils/version'
 import phiPluginBase from '../base-class'
 import send from '../../render/send'
@@ -17,15 +19,17 @@ import { computeSongLimits } from '../../domain/game/song-limits'
 const NEW_RKS_ALGORITHM_VERSION = 122
 
 export class phiTheoryTable extends phiPluginBase {
-    constructor() {
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: 'phi-theory-table',
             dsc: 'phigros理论rks分表查询',
             event: 'message',
             priority: 1000,
             rule: [
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)理论(分表|rks|RKS).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)理论(分表|rks|RKS).*$`,
                     fnc: 'theoryTable'
                 }
             ]
@@ -92,7 +96,7 @@ export class phiTheoryTable extends phiPluginBase {
 
         const plugin_data = await getNotes.getNotesData(e.user_id)
 
-        if (!Config.getUserCfg('config', 'isGuild'))
+        if (!this.config.isGuild)
             send.reply(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
 
         /**各难度谱面数量，满分模拟下C/FC/Phi与总数一致 */

@@ -1,13 +1,7 @@
 // @ts-nocheck
 import crypto from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
 import axios from 'axios';
-import YAML from 'yaml';
-import Config from '../../services/config-store';
-import { writeHostSettings } from '../../config/host';
 import logger from '../../utils/logger';
-import { configPath } from '../../utils/path';
 import { APIBASEURL } from '../../domain/game/const-num';
 import { classifyApiConnectionError, isFatalBotIdentityError, PhiApiError } from './phi-api-errors';
 import { isApiVersionBlocked } from './api-version';
@@ -15,30 +9,17 @@ import { SUPPORTED_API_VERSION } from './api-version';
 
 const TIMEOUT = 5000;
 
-function configIdentity() {
+function configIdentity(config) {
     return {
-        clientId: String(Config.getUserCfg('config', 'apiBotClientId') || '').trim(),
-        secret: String(Config.getUserCfg('config', 'apiBotClientSecret') || '').trim(),
-        secretVersion: Number(Config.getUserCfg('config', 'apiBotSecretVersion') || 0),
+        clientId: String(config?.apiBotClientId || '').trim(),
+        secret: String(config?.apiBotClientSecret || '').trim(),
+        secretVersion: Number(config?.apiBotSecretVersion || 0),
     };
 }
 
-/** @param {{clientId: string, secret: string, secretVersion: number}} identity */
-function writeIdentityAtomic(identity) {
-    if (writeHostSettings({
-        apiBotClientId: identity.clientId,
-        apiBotClientSecret: identity.secret,
-        apiBotSecretVersion: identity.secretVersion,
-    })) return;
-    const target = path.join(configPath, 'config.yaml');
-    const current = YAML.parse(fs.readFileSync(target, 'utf8')) || {};
-    current.apiBotClientId = identity.clientId;
-    current.apiBotClientSecret = identity.secret;
-    current.apiBotSecretVersion = identity.secretVersion;
-    const temp = `${target}.${process.pid}.${Date.now()}.tmp`;
-    fs.writeFileSync(temp, YAML.stringify(current), { encoding: 'utf8', mode: 0o600 });
-    fs.renameSync(temp, target);
-    delete Config.config['config.config'];
+function writeIdentityAtomic(updateConfig, identity) {
+    if (typeof updateConfig !== 'function') throw new PhiApiError('API Bot身份无法写回配置', 0, 'bot_identity_write_unavailable')
+    updateConfig(identity)
 }
 
 /** @param {any} response */
@@ -58,6 +39,18 @@ function parseResponse(response) {
 
 export class BotApiAuth {
     constructor() {
+        this.config = undefined;
+        this.updateConfig = undefined;
+        this.ready = false;
+        this.initializing = null;
+        this.fatalError = null;
+        this.fatalIdentity = '';
+    }
+
+    /** 绑定插件实例配置与凭据写回函数。 */
+    configure(config, updateConfig) {
+        this.config = config;
+        this.updateConfig = updateConfig;
         this.ready = false;
         this.initializing = null;
         this.fatalError = null;
@@ -66,7 +59,7 @@ export class BotApiAuth {
 
     /** @returns {string} 本地配置中的 API 签发 Bot clientId，不发起网络请求 */
     getClientId() {
-        return configIdentity().clientId;
+        return configIdentity(this.config).clientId;
     }
 
     async initialize(pluginVersion = SUPPORTED_API_VERSION, signal = undefined) {
@@ -77,8 +70,8 @@ export class BotApiAuth {
                 'api_version_incompatible',
             );
         }
-        if (this.ready) return configIdentity();
-        const current = configIdentity();
+        if (this.ready) return configIdentity(this.config);
+        const current = configIdentity(this.config);
         const fingerprint = `${current.clientId}:${current.secretVersion}:${crypto.createHash('sha256').update(current.secret).digest('hex')}`;
         if (this.fatalError && this.fatalIdentity === fingerprint) throw this.fatalError;
         if (this.fatalIdentity !== fingerprint) {
@@ -92,7 +85,7 @@ export class BotApiAuth {
 
     /** @param {string} pluginVersion */
     async initializeOnce(pluginVersion, signal = undefined) {
-        const identity = configIdentity();
+        const identity = configIdentity(this.config);
         if (!identity.clientId || !identity.secret || !Number.isSafeInteger(identity.secretVersion) || identity.secretVersion < 1) {
             return this.register(pluginVersion, signal);
         }
@@ -140,7 +133,7 @@ export class BotApiAuth {
         if (!identity.clientId || !identity.secret || identity.secretVersion < 1) {
             throw new PhiApiError('API returned an invalid Bot credential', 502, 'invalid_registration_response');
         }
-        writeIdentityAtomic(identity);
+        writeIdentityAtomic(this.updateConfig, identity);
         this.ready = true;
         this.fatalError = null;
         this.fatalIdentity = '';
@@ -164,7 +157,7 @@ export class BotApiAuth {
     }
 
     /** @param {string} method @param {string} originalPath @param {string} rawBody @param {{clientId:string, secret:string, secretVersion:number}} [identity] @returns {Record<string, string>} */
-    sign(method, originalPath, rawBody, identity = configIdentity()) {
+    sign(method, originalPath, rawBody, identity = configIdentity(this.config)) {
         if (!identity.clientId || !identity.secret || identity.secretVersion < 1) {
             throw new PhiApiError('API Bot身份尚未初始化', 0, 'bot_identity_missing');
         }
@@ -185,7 +178,7 @@ export class BotApiAuth {
     }
 
     /** @param {string} originalPath @param {any} body @param {string} [method] @param {{clientId:string, secret:string, secretVersion:number}} [identity] @param {Record<string,string>} [extraHeaders] @param {{timeout?:number, signal?:AbortSignal}} [requestOptions] */
-    async signedRequest(originalPath, body, method = 'POST', identity = configIdentity(), extraHeaders = {}, requestOptions = {}) {
+    async signedRequest(originalPath, body, method = 'POST', identity = configIdentity(this.config), extraHeaders = {}, requestOptions = {}) {
         if (isApiVersionBlocked()) {
             throw new PhiApiError(
                 'API协议大版本不兼容，请更新 phi-plugin 后重启',

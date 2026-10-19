@@ -1,5 +1,7 @@
 // @ts-nocheck
-import Config from '../config-store'
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import logger from '../../utils/logger'
 import segment from '../../platform/segment'
 import phiPluginBase from '../base-class'
@@ -61,17 +63,19 @@ function setMarketPageState(e, query, page, pageCount, localOnly) {
 }
 
 export class phiMarket extends phiPluginBase {
-    constructor() {
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: 'phi-theme-market',
             dsc: 'phi-plugin 主题市场查看与使用',
             event: 'message',
             priority: 999,
             rule: [{
-                reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)market(\\s+.*)?$`,
+                reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)market(\\s+.*)?$`,
                 fnc: 'market',
             }, {
-                reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(nx|pr|上一页|下一页)$`,
+                reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(nx|pr|上一页|下一页)$`,
                 fnc: 'marketPage',
             }],
         })
@@ -79,10 +83,10 @@ export class phiMarket extends phiPluginBase {
 
     /** @param {botEvent} e @param {string} query @param {number} page @param {boolean} [forceLocal] */
     async renderMarketCatalog(e, query, page, forceLocal = false) {
-        const commandHead = `${Config.getUserCfg('config', 'cmdhead')}`
+        const commandHead = `${PHI_COMMAND_HEAD}`
         let catalog
         if (!forceLocal) {
-            const apiAccess = await getApiAccessState(e, 'customTheme')
+            const apiAccess = await getApiAccessState(this.config, e, 'customTheme')
             if (apiAccess.enabled) {
                 try {
                     catalog = await fetchThemeCatalog(query, page)
@@ -101,7 +105,7 @@ export class phiMarket extends phiPluginBase {
             commandHead,
         }))
         setMarketPageState(e, query, catalog.page, catalog.pageCount, catalog.localOnly === true)
-        await sendMarketQuickCommands(e, catalog.themes, catalog)
+        await sendMarketQuickCommands(e, catalog.themes, catalog, this.config)
     }
 
     /** @param {botEvent} e */
@@ -110,8 +114,8 @@ export class phiMarket extends phiPluginBase {
             send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
-        const commandHead = `${Config.getUserCfg('config', 'cmdhead')}`
-        const action = e.msg.replace(new RegExp(`^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)`, 'i'), '').trim().toLowerCase()
+        const commandHead = `${PHI_COMMAND_HEAD}`
+        const action = e.msg.replace(new RegExp(`^[#/](${PHI_COMMAND_HEAD})(\\s*)`, 'i'), '').trim().toLowerCase()
         const state = getMarketPageState(e)
         if (!state) {
             send.send_with_At(e, `请先使用 /${commandHead} market 打开主题市场。`)
@@ -138,9 +142,9 @@ export class phiMarket extends phiPluginBase {
             send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
-        const commandHead = `${Config.getUserCfg('config', 'cmdhead')}`
+        const commandHead = `${PHI_COMMAND_HEAD}`
         const raw = e.msg.replace(
-            new RegExp(`^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)market(\\s*)`, 'i'),
+            new RegExp(`^[#/](${PHI_COMMAND_HEAD})(\\s*)market(\\s*)`, 'i'),
             '',
         ).trim()
         const args = raw ? raw.split(/\s+/) : []
@@ -178,7 +182,7 @@ export class phiMarket extends phiPluginBase {
                 const wantsOnlineDetail = isThemeSlug(themeId)
                     && (!localDetail || localTheme?.marketInstalled)
                 const customThemeAccess = wantsOnlineDetail
-                    ? await getApiAccessState(e, 'customTheme')
+                    ? await getApiAccessState(this.config, e, 'customTheme')
                     : null
                 if (customThemeAccess && !customThemeAccess.enabled) {
                     if (customThemeAccess.message) send.send_with_At(e, customThemeAccess.message)
@@ -204,7 +208,7 @@ export class phiMarket extends phiPluginBase {
                 await sendQuickCommands(e, [
                     { command: `/${commandHead} market ${themeId}`, label: '使用主题' },
                     { command: `/${commandHead} market`, label: '返回市场' },
-                ], '主题操作')
+                ], '主题操作', this.config)
             } catch (/** @type {any} */ error) {
                 logger.warn(`[phi-plugin][主题市场] 详情加载失败 ${themeId}：${error?.code || 'unknown'}`)
                 send.send_with_At(e, '未找到该主题，或主题市场暂时不可用。')
@@ -226,7 +230,7 @@ export class phiMarket extends phiPluginBase {
             return true
         }
         if (!localTheme) {
-            const apiAccess = await getApiAccessState(e, 'customTheme')
+            const apiAccess = await getApiAccessState(this.config, e, 'customTheme')
             if (!apiAccess.enabled) {
                 send.send_with_At(e, apiAccess.message)
                 return true

@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { Config } from '../../services/index'
 import logger from '../../utils/logger'
 import autoSeekApi from './auto-seek-api'
 import botApiAuth from './bot-api-auth'
@@ -31,7 +30,7 @@ async function request(originalPath, params = {}, method = 'POST', transportOpti
         await autoSeekApi.ensureAvailable()
         await botApiAuth.initialize()
         const json = await botApiAuth.signedRequest(originalPath, params, method, undefined, {}, transportOptions)
-        if (Config.getUserCfg('config', 'debug') > 3) {
+        if (autoSeekApi.config?.debug > 3) {
             logger.info(`[phi-plugin] API请求成功: ${originalPath}`)
         }
         return json

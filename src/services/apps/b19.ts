@@ -1,6 +1,8 @@
 // @ts-nocheck
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import common from '../common'
-import Config from '../config-store';
 import send from '../../render/send';
 import picmodle from '../../render/pic-model'
 import ScoreHistory from '../../domain/save/score-history';
@@ -39,51 +41,53 @@ import {
 const Level = ['EZ', 'HD', 'IN', 'AT'] //存档的难度映射
 
 export class phib19 extends phiPluginBase {
-    constructor() {
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: 'phi-b19',
             dsc: 'phigros b30查询',
             event: 'message',
             priority: 1000,
             rule: [
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)((b|B)\\s*[0-9]+|rks|pgr|RKS|PGR).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)((b|B)\\s*[0-9]+|rks|pgr|RKS|PGR).*$`,
                     fnc: 'b19'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(p|x|fc|P|X|FC)\\s*[0-9]+.*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(p|x|fc|P|X|FC)\\s*[0-9]+.*$`,
                     fnc: 'p30'
                 },
                 {
-                    reg: `^[#/杠刚钢纲](${Config.getUserCfg('config', 'cmdhead')})(\\s*)[a啊阿批屁劈]\\s*((b|B)[0-9]+|[比必币]([0-9]+|三零))$`,
+                    reg: `^[#/杠刚钢纲](${PHI_COMMAND_HEAD})(\\s*)[a啊阿批屁劈]\\s*((b|B)[0-9]+|[比必币]([0-9]+|三零))$`,
                     fnc: 'arcgrosB19'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)lmtacc.*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)lmtacc.*$`,
                     fnc: 'lmtAcc'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)越级.*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)越级.*$`,
                     fnc: 'overLevelB30'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)best(\\s*)[1-9]?[0-9]?$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)best(\\s*)[1-9]?[0-9]?$`,
                     fnc: 'bestn'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(score|单曲成绩)[1-2]?.*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(score|单曲成绩)[1-2]?.*$`,
                     fnc: 'singlescore'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(suggest|推分(建议)?).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(suggest|推分(建议)?).*$`,
                     fnc: 'suggest'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)chap.*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)chap.*$`,
                     fnc: 'chap'
                 },
                 {
-                    reg: `^[#/](${Config.getUserCfg('config', 'cmdhead')})(\\s*)(achievement|ahv).*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(achievement|ahv).*$`,
                     fnc: 'achievement'
                 }
             ]
@@ -108,7 +112,7 @@ export class phib19 extends phiPluginBase {
         let askOtherId = msg.match(/-id\s+([0-9]+)/i)
         msg = msg.replace(askOtherId?.[0] || '', '')
 
-        if (askOtherId && await canUseApi(e)) {
+        if (askOtherId && await canUseApi(config, e)) {
             let otherId = /** @type {apiUserId} */ (askOtherId[1]);
 
             try {
@@ -141,7 +145,7 @@ export class phib19 extends phiPluginBase {
         }
 
         nnum = Math.max(nnum, 33)
-        nnum = Math.min(nnum, Config.getUserCfg('config', 'B19MaxNum'))
+        nnum = Math.min(nnum, this.config.B19MaxNum)
 
         let bksong = msg.replace(/^.*?(b|rks|pgr)[0-9]*\s*/g, '')
 
@@ -157,7 +161,7 @@ export class phib19 extends phiPluginBase {
 
         let plugin_data = await getNotes.getNotesData(e.user_id)
 
-        if (!Config.getUserCfg('config', 'isGuild')) {
+        if (!this.config.isGuild) {
             send.reply(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
         }
 
@@ -169,7 +173,7 @@ export class phib19 extends phiPluginBase {
         if (plugin_data.showB30Analysis !== false && nnum == 33) {
             const records = getB30AnalysisRecords(save_b19)
             const histogram = buildRksHistogram(records)
-            const apiEnabled = await canUseApi(e, 'scoreStatistics')
+            const apiEnabled = await canUseApi(this.config, e, 'scoreStatistics')
             let tagAnalysis = null
             if (apiEnabled && records.length) {
                 tagAnalysis = askOtherId
@@ -258,7 +262,7 @@ export class phib19 extends phiPluginBase {
         const img = await picmodle.b19(e, data)
         res.unshift(img);
         send.send_with_At(e, res)
-        await sendQuickCommands(e, scoreQuickCommands(Config.getUserCfg('config', 'cmdhead')), '成绩页快捷操作')
+        await sendQuickCommands(e, scoreQuickCommands(PHI_COMMAND_HEAD), '成绩页快捷操作', this.config)
     }
 
     /**
@@ -292,7 +296,7 @@ export class phib19 extends phiPluginBase {
         }
 
         nnum = Math.max(nnum, 33)
-        nnum = Math.min(nnum, Config.getUserCfg('config', 'B19MaxNum'))
+        nnum = Math.min(nnum, this.config.B19MaxNum)
 
         let bksong = e.msg.replace(/^.*?(p|x|fc)\s*[0-9]+\s*/i, '')
 
@@ -309,7 +313,7 @@ export class phib19 extends phiPluginBase {
         let plugin_data = await getNotes.getNotesData(e.user_id)
 
 
-        if (!Config.getUserCfg('config', 'isGuild'))
+        if (!this.config.isGuild)
             send.reply(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
 
         let save_b19;
@@ -380,7 +384,7 @@ export class phib19 extends phiPluginBase {
         let res = [await picmodle.b19(e, data)]
         res.push(`计算rks: ${save_b19.com_rks}\n存档rks: ${save.saveInfo.summary.rankingScore}`)
         send.send_with_At(e, res)
-        await sendQuickCommands(e, scoreQuickCommands(Config.getUserCfg('config', 'cmdhead')), '成绩页快捷操作')
+        await sendQuickCommands(e, scoreQuickCommands(PHI_COMMAND_HEAD), '成绩页快捷操作', this.config)
     }
 
     /**
@@ -413,7 +417,7 @@ export class phib19 extends phiPluginBase {
         if (!nnum) { nnum = 32 }
 
         nnum = Math.max(nnum, 30)
-        nnum = Math.min(nnum, Config.getUserCfg('config', 'B19MaxNum'))
+        nnum = Math.min(nnum, this.config.B19MaxNum)
 
         let save_b19 = await save.getB19(e, nnum)
 
@@ -447,7 +451,7 @@ export class phib19 extends phiPluginBase {
         }
 
         send.send_with_At(e, await picmodle.arcgros_b19(e, data))
-        await sendQuickCommands(e, b19AnalysisQuickCommands(Config.getUserCfg('config', 'cmdhead')), '成绩分析快捷操作')
+        await sendQuickCommands(e, b19AnalysisQuickCommands(PHI_COMMAND_HEAD), '成绩分析快捷操作', this.config)
     }
 
     /**
@@ -476,7 +480,7 @@ export class phib19 extends phiPluginBase {
         let acc = Number(e.msg.replace(/^.*lmtacc\s*/g, ''))
 
         if (!acc || acc < 0 || acc > 100) {
-            send.send_with_At(e, `我听不懂 ${e.msg.replace(/^.*lmtacc\s*/g, '')} 是多少喵！请指定一个0-100的数字喵！\n格式：/${Config.getUserCfg('config', 'cmdhead')} lmtAcc <0-100>`)
+            send.send_with_At(e, `我听不懂 ${e.msg.replace(/^.*lmtacc\s*/g, '')} 是多少喵！请指定一个0-100的数字喵！\n格式：/${PHI_COMMAND_HEAD} lmtAcc <0-100>`)
             return false
         }
 
@@ -486,7 +490,7 @@ export class phib19 extends phiPluginBase {
         let plugin_data = await getNotes.getNotesData(e.user_id)
 
 
-        if (!Config.getUserCfg('config', 'isGuild'))
+        if (!this.config.isGuild)
             send.reply(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
 
         let save_b19 = await save.getBestWithLimit(nnum, [{ type: 'acc', value: [acc, 100] }])
@@ -527,7 +531,7 @@ export class phib19 extends phiPluginBase {
         let res = [await picmodle.b19(e, data)]
         res.push(`计算rks: ${save_b19.com_rks}\n存档rks: ${save.saveInfo.summary.rankingScore}`)
         send.send_with_At(e, res)
-        await sendQuickCommands(e, scoreQuickCommands(Config.getUserCfg('config', 'cmdhead')), '成绩页快捷操作')
+        await sendQuickCommands(e, scoreQuickCommands(PHI_COMMAND_HEAD), '成绩页快捷操作', this.config)
 
     }
 
@@ -561,7 +565,7 @@ export class phib19 extends phiPluginBase {
         if (!nnum) {
             nnum = 30
         }
-        nnum = Math.min(nnum, Config.getUserCfg('config', 'B19MaxNum'))
+        nnum = Math.min(nnum, this.config.B19MaxNum)
 
         /**预先合并曲目信息，避免逐条成绩查找时重复展开 */
         const allCharts = { ...getInfo.ori_info, ...getInfo.sp_info }
@@ -587,7 +591,7 @@ export class phib19 extends phiPluginBase {
 
         let plugin_data = await getNotes.getNotesData(e.user_id)
 
-        if (!Config.getUserCfg('config', 'isGuild'))
+        if (!this.config.isGuild)
             send.reply(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
 
         let stats = await save.getStats()
@@ -642,7 +646,7 @@ export class phib19 extends phiPluginBase {
         let sum_rks = save_b19.b19_list.reduce((sum, x) => sum + Number(x?.rks || 0), 0)
         res.push(`越级成绩均rks: ${(sum_rks / save_b19.b19_list.length).toFixed(4)}\n存档rks: ${save.saveInfo.summary.rankingScore}`)
         send.send_with_At(e, res)
-        await sendQuickCommands(e, scoreQuickCommands(Config.getUserCfg('config', 'cmdhead')), '成绩页快捷操作')
+        await sendQuickCommands(e, scoreQuickCommands(PHI_COMMAND_HEAD), '成绩页快捷操作', this.config)
 
     }
 
@@ -711,7 +715,7 @@ export class phib19 extends phiPluginBase {
         } else {
             send.reply(e, await common.makeForwardMsg(e, Remsg, undefined))
         }
-        await sendQuickCommands(e, scoreQuickCommands(Config.getUserCfg('config', 'cmdhead')), '成绩页快捷操作')
+        await sendQuickCommands(e, scoreQuickCommands(PHI_COMMAND_HEAD), '成绩页快捷操作', this.config)
     }
 
 
@@ -751,7 +755,7 @@ export class phib19 extends phiPluginBase {
         }
 
         if (!song) {
-            send.send_with_At(e, `请指定曲名哦！\n格式：/${Config.getUserCfg('config', 'cmdhead')} score <曲名>`)
+            send.send_with_At(e, `请指定曲名哦！\n格式：/${PHI_COMMAND_HEAD} score <曲名>`)
             return true
         }
         const songIds = getInfo.fuzzysongsnick(song)
@@ -765,7 +769,7 @@ export class phib19 extends phiPluginBase {
                 unRank: unRankArgs,
                 orderBy: orderByArgs
             }
-            this.choseMutiNick(e, songIds, options, (e, songId, options) => { getScore(songId, e, options); })
+            this.choseMutiNick(e, songIds, options, (e, songId, options) => { getScore(songId, e, options, this.config); })
         } else {
             await getScore(songIds[0], e, {
                 dif: difArgs,
@@ -820,7 +824,7 @@ export class phib19 extends phiPluginBase {
          */
         const phiTaskList = [];
 
-        if (await canUseApi(e, 'scoreStatistics')) {
+        if (await canUseApi(this.config, e, 'scoreStatistics')) {
 
             const res = await makeRequest.getAllSongAccAvgB30({
                 songIds: fCompute.objectKeys(getInfo.ori_info),
@@ -937,11 +941,11 @@ export class phib19 extends phiPluginBase {
             }
         }
 
-        if (data.length > Config.getUserCfg('config', 'listScoreMaxNum')) {
-            send.send_with_At(e, `谱面数量过多(${data.length})大于设置的最大值(${Config.getUserCfg('config', 'listScoreMaxNum')})，只显示前${Config.getUserCfg('config', 'listScoreMaxNum')}条！`)
+        if (data.length > this.config.listScoreMaxNum) {
+            send.send_with_At(e, `谱面数量过多(${data.length})大于设置的最大值(${this.config.listScoreMaxNum})，只显示前${this.config.listScoreMaxNum}条！`)
         }
 
-        data.splice(Config.getUserCfg('config', 'listScoreMaxNum'))
+        data.splice(this.config.listScoreMaxNum)
 
         for (let i = 0; i < data.length; ++i) {
             data[i] = data[i].sort(cmpsugg()).slice(0, 3);
@@ -966,7 +970,7 @@ export class phib19 extends phiPluginBase {
             ChallengeModeRank: save.saveInfo.summary.challengeModeRank % 100,
             // dan: await get.getDan(e.user_id)
         }))
-        await sendQuickCommands(e, suggestQuickCommands(Config.getUserCfg('config', 'cmdhead')), '推分建议快捷操作')
+        await sendQuickCommands(e, suggestQuickCommands(PHI_COMMAND_HEAD), '推分建议快捷操作', this.config)
 
     }
 
@@ -995,7 +999,7 @@ export class phib19 extends phiPluginBase {
         let chap = fCompute.fuzzySearch(msg, getInfo.chapNick)[0]?.value
 
         if (!chap && msg != 'ALL') {
-            send.send_with_At(e, `未找到${msg}章节QAQ！可以使用 /${Config.getUserCfg('config', 'cmdhead')} chap help 来查询支持的名称嗷！`)
+            send.send_with_At(e, `未找到${msg}章节QAQ！可以使用 /${PHI_COMMAND_HEAD} chap help 来查询支持的名称嗷！`)
             return false
         }
 
@@ -1096,7 +1100,7 @@ export class phib19 extends phiPluginBase {
             chapName: msg == 'ALL' ? 'AllSong' : chap,
             chapIll: getInfo.getChapIll(msg == 'ALL' ? 'AllSong' : chap),
         }))
-        await sendQuickCommands(e, chapterQuickCommands(Config.getUserCfg('config', 'cmdhead')), '章节成绩快捷操作')
+        await sendQuickCommands(e, chapterQuickCommands(PHI_COMMAND_HEAD), '章节成绩快捷操作', this.config)
 
     }
 
@@ -1119,7 +1123,7 @@ export class phib19 extends phiPluginBase {
         let dif = Number(difMatch?.[0])
 
         if (!difMatch) {
-            send.send_with_At(e, `请输入定数嗷！\n/格式：${Config.getUserCfg('config', 'cmdhead')} table <定数>`, true)
+            send.send_with_At(e, `请输入定数嗷！\n/格式：${PHI_COMMAND_HEAD} table <定数>`, true)
             return false
         }
 
@@ -1200,7 +1204,7 @@ export class phib19 extends phiPluginBase {
         }
 
         send.send_with_At(e, await picmodle.common(e, 'table', data));
-        await sendQuickCommands(e, achievementQuickCommands(Config.getUserCfg('config', 'cmdhead')), '成就页快捷操作')
+        await sendQuickCommands(e, achievementQuickCommands(PHI_COMMAND_HEAD), '成就页快捷操作', this.config)
     }
 }
 
@@ -1211,7 +1215,7 @@ export class phib19 extends phiPluginBase {
  * @param {any} args 
  * @returns 
  */
-async function getScore(songId, e, args = {}) {
+async function getScore(songId, e, args = {}, config) {
 
     const credentials = UserCredentials.fromEvent(e)
 
@@ -1233,7 +1237,7 @@ async function getScore(songId, e, args = {}) {
     let songRecord = Record[songId]
 
     if (!songRecord) {
-        send.send_with_At(e, `我不知道你关于[${info.song}]的成绩哦！可以试试更新成绩哦！\n格式：/${Config.getUserCfg('config', 'cmdhead')} update`)
+        send.send_with_At(e, `我不知道你关于[${info.song}]的成绩哦！可以试试更新成绩哦！\n格式：/${PHI_COMMAND_HEAD} update`)
         return true
     }
 
@@ -1252,7 +1256,7 @@ async function getScore(songId, e, args = {}) {
         if (!historyTimezone) historyTimezone = localHistory?.getTimezone?.()
         return localHistory?.scoreHistory[songId]
     };
-    if (await canUseApi(e)) {
+    if (await canUseApi(config, e)) {
         try {
             const cloudRecord = await credentials.getCloudSongHistory(songId)
             HistoryData = cloudRecord?.data
@@ -1373,7 +1377,7 @@ async function getScore(songId, e, args = {}) {
 
     data.Rks = Number(save.saveInfo.summary.rankingScore).toFixed(4)
 
-    if (!args?.unRank && await canUseApi(e)) {
+    if (!args?.unRank && await canUseApi(config, e)) {
         const credentials = UserCredentials.fromEvent(e)
         const scoreRanklist = await credentials.getScoreRanklistByUser(
             {
@@ -1424,7 +1428,7 @@ async function getScore(songId, e, args = {}) {
 
 
     send.send_with_At(e, await picmodle.score(e, data, 1))
-    await sendQuickCommands(e, singleScoreQuickCommands(Config.getUserCfg('config', 'cmdhead')), '单曲成绩快捷操作')
+    await sendQuickCommands(e, singleScoreQuickCommands(PHI_COMMAND_HEAD), '单曲成绩快捷操作', config)
 
 }
 

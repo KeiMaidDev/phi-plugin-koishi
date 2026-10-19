@@ -1,5 +1,7 @@
 // @ts-nocheck
-import Config from '../config-store'
+import type { PhiRuntime } from '../../runtime-context'
+import { PHI_COMMAND_HEAD } from '../../constants'
+
 import send from '../../render/send'
 import picmodle from '../../render/pic-model'
 import getFile from '../../utils/get-file'
@@ -29,23 +31,25 @@ async function loadHelpData() {
 
 
 export class phihelp extends phiPluginBase {
-    constructor() {
+    constructor(runtime: PhiRuntime) {
         super({
+            config: runtime.config,
+            data: runtime.data,
             name: 'phi-help',
             dsc: 'phigros屁股肉帮助',
             event: 'message',
             priority: 1000,
             rule: [
                 {
-                    reg: `^[#/](pgr|PGR|屁股肉|phi|Phi|(${Config.getUserCfg('config', 'cmdhead')}))(\\s*)(命令|帮助|菜单|help|说明|功能|指令|使用说明)$`,
+                    reg: `^[#/](pgr|PGR|屁股肉|phi|Phi|(${PHI_COMMAND_HEAD}))(\\s*)(命令|帮助|菜单|help|说明|功能|指令|使用说明)$`,
                     fnc: 'help'
                 },
                 {
-                    reg: `^[#/](pgr|PGR|屁股肉|phi|Phi|(${Config.getUserCfg('config', 'cmdhead')}))(\\s*)to?k(en)?(\\s*)(命令|帮助|菜单|help|说明|功能|指令|使用说明)$`,
+                    reg: `^[#/](pgr|PGR|屁股肉|phi|Phi|(${PHI_COMMAND_HEAD}))(\\s*)to?k(en)?(\\s*)(命令|帮助|菜单|help|说明|功能|指令|使用说明)$`,
                     fnc: 'tkhelp'
                 },
                 {
-                    reg: `^[#/](pgr|PGR|屁股肉|phi|Phi|(${Config.getUserCfg('config', 'cmdhead')}))(\\s*)api(\\s*)(命令|帮助|菜单|help|说明|功能|指令|使用说明)$`,
+                    reg: `^[#/](pgr|PGR|屁股肉|phi|Phi|(${PHI_COMMAND_HEAD}))(\\s*)api(\\s*)(命令|帮助|菜单|help|说明|功能|指令|使用说明)$`,
                     fnc: 'apihelp'
                 }
 
@@ -67,7 +71,7 @@ export class phihelp extends phiPluginBase {
         }
 
         const helpData = await loadHelpData()
-        let head = Config.getUserCfg('config', 'cmdhead')
+        let head = PHI_COMMAND_HEAD
         head = head.match(RegExp(head))[0]
         let pluginData = await getNotes.getNotesData(e.user_id)
         send.reply(e, await picmodle.help(e, {
@@ -77,7 +81,7 @@ export class phihelp extends phiPluginBase {
             background: getInfo.getill(getInfo.illlist[Math.floor((Math.random() * (getInfo.illlist.length - 1)))]),
             theme: pluginData?.theme || 'star'
         }), true)
-        await sendQuickCommands(e, helpQuickCommands(head || Config.getUserCfg('config', 'cmdhead')), '帮助页常用操作')
+        await sendQuickCommands(e, helpQuickCommands(head || PHI_COMMAND_HEAD), '帮助页常用操作', this.config)
         return true
     }
 
@@ -93,7 +97,7 @@ export class phihelp extends phiPluginBase {
             return false
         }
 
-        send.send_with_At(e, `sessionToken有关帮助：\n【推荐】：扫码登录TapTap获取token\n指令：/${Config.getUserCfg('config', 'cmdhead')} bind qrcode\n【基础方法】详见《Phigros非官方查分指引》：https://kdocs.cn/l/cvMDjWPTNaz4\n绑定sessionToken指令：\n/${Config.getUserCfg('config', 'cmdhead')} bind <sessionToken>`)
+        send.send_with_At(e, `sessionToken有关帮助：\n【推荐】：扫码登录TapTap获取token\n指令：/${PHI_COMMAND_HEAD} bind qrcode\n【基础方法】详见《Phigros非官方查分指引》：https://kdocs.cn/l/cvMDjWPTNaz4\n绑定sessionToken指令：\n/${PHI_COMMAND_HEAD} bind <sessionToken>`)
     }
 
     /**
@@ -107,7 +111,7 @@ export class phihelp extends phiPluginBase {
         //     send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
         //     return false
         // }
-        const apiAccess = await getApiAccessState(e)
+        const apiAccess = await getApiAccessState(this.config, e)
         if (!apiAccess.enabled) {
             send.send_with_At(e, apiAccess.message)
             return false
@@ -115,7 +119,7 @@ export class phihelp extends phiPluginBase {
         if (apiAccess.warning) send.send_with_At(e, apiAccess.warning)
 
         const helpData = await loadHelpData()
-        let head = Config.getUserCfg('config', 'cmdhead')
+        let head = PHI_COMMAND_HEAD
         head = head.match(RegExp(head))[0]
         let pluginData = await getNotes.getNotesData(e.user_id)
         send.reply(e, await picmodle.help(e, {
@@ -125,6 +129,6 @@ export class phihelp extends phiPluginBase {
             background: getInfo.getill(getInfo.illlist[Math.floor((Math.random() * (getInfo.illlist.length - 1)))]),
             theme: pluginData?.theme || 'star'
         }), true)
-        await sendQuickCommands(e, apiHelpQuickCommands(head || Config.getUserCfg('config', 'cmdhead')), 'API帮助快捷操作')
+        await sendQuickCommands(e, apiHelpQuickCommands(head || PHI_COMMAND_HEAD), 'API帮助快捷操作', this.config)
     }
 }

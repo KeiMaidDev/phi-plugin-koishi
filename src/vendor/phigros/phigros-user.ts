@@ -9,7 +9,6 @@ import GameProgress from './game-progress';
 import GameUser from './game-user';
 import GameSettings from './game-settings';
 import logger from '../../utils/logger';
-// import Config from '../../services/config-store';
 
 
 class PhigrosUser {
