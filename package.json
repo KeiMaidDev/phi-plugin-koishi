@@ -1,0 +1,72 @@
+{
+  "name": "koishi-plugin-phi-plugin-koishi",
+  "description": "A native Koishi port of Phi with the full upstream feature set.",
+  "version": "0.0.1",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "files": [
+    "lib",
+    "assets",
+    "config/defaults",
+    "config/runtime/.gitkeep",
+    "LICENSE"
+  ],
+  "license": "GPL-3.0",
+  "keywords": [
+    "chatbot",
+    "koishi",
+    "plugin"
+  ],
+  "peerDependencies": {
+    "koishi": "^4.18.7"
+  },
+  "author": "Catrong",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KeiMaidDev/phi-plugin-koishi.git"
+  },
+  "bugs": {
+    "url": "https://github.com/KeiMaidDev/phi-plugin-koishi/issues"
+  },
+  "homepage": "https://github.com/KeiMaidDev/phi-plugin-koishi#readme",
+  "koishi": {
+    "description": {
+      "en": "A native Koishi port of Phi with the full upstream feature set.",
+      "zh": "Phi 的原生 Koishi 移植，覆盖上游完整功能。"
+    },
+    "service": {
+      "required": [
+        "database",
+        "monetary",
+        "puppeteer"
+      ]
+    },
+    "locales": [
+      "zh-CN",
+      "en-US"
+    ]
+  },
+  "dependencies": {
+    "art-template": "^4.13.4",
+    "axios": "^1.11.0",
+    "chalk": "^5.6.2",
+    "chokidar": "^4.0.3",
+    "crypto-js": "^4.1.1",
+    "csv": "^6.3.6",
+    "jszip": "^3.10.1",
+    "lodash": "^4.18.1",
+    "node-fetch": "^3.3.2",
+    "pinyin-pro": "^3.15.4",
+    "qrcode": "^1.5.4",
+    "single-line-log": "^1.1.2",
+    "yaml": "^2.8.0"
+  },
+  "devDependencies": {
+    "@types/crypto-js": "^4",
+    "@types/lodash": "^4",
+    "@types/qrcode": "^1.5.5",
+    "@types/single-line-log": "^1",
+    "koishi-plugin-monetary": "^0.1.3",
+    "koishi-plugin-puppeteer": "^3.9.0"
+  }
+}

@@ -1,5 +1,6 @@
 import { Context, Schema, h } from 'koishi'
-import 'koishi-plugin-monetary'
+import type {} from 'koishi-plugin-monetary'
+import type {} from 'koishi-plugin-puppeteer'
 import { installCommunityModels, installCommunityStore, installNotesStore, installPhiModels } from './database'
 import { createEngine } from './runtime'
 import { registerEngineCommands } from './commands'
