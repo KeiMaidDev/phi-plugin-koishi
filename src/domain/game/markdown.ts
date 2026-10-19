@@ -407,7 +407,7 @@ export function buildMarketQuickMarkdown(themes, pagination = {}) {
     const navigation = pageCount > 1 ? [
         '',
         '***',
-        `| ${page > 1 ? commandInput(`/${commandHead}pr`, '上一页') : '已是首页'} | ${page} / ${pageCount} 页 | ${page < pageCount ? commandInput(`/${commandHead}nx`, '下一页') : '已是末页'} |`,
+        `| ${page > 1 ? commandInput(`/${commandHead} pr`, '上一页') : '已是首页'} | ${page} / ${pageCount} 页 | ${page < pageCount ? commandInput(`/${commandHead} nx`, '下一页') : '已是末页'} |`,
         '| :---: | :---: | :---: |',
     ] : []
     return ['***', '本页主题快捷操作：', '', ...table, ...navigation].join('\n')
@@ -426,8 +426,8 @@ function marketQuickCommands(themes, pagination = {}) {
     const page = pagination.page || 1
     const pageCount = pagination.pageCount || 1
     if (pageCount > 1) {
-        if (page > 1) commands.push({ command: `/${commandHead}pr`, label: '上一页' })
-        if (page < pageCount) commands.push({ command: `/${commandHead}nx`, label: '下一页' })
+        if (page > 1) commands.push({ command: `/${commandHead} pr`, label: '上一页' })
+        if (page < pageCount) commands.push({ command: `/${commandHead} nx`, label: '下一页' })
     }
     return commands
 }
