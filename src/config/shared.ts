@@ -85,7 +85,7 @@ function validateSettings(input) {
     return result
 }
 
-export { defaults, editable, readGeneratedSettings, validateSettings }
+export { defaults, editable, isValidCron, readGeneratedSettings, validateSettings }
 
-export default { defaults, editable, fields, readGeneratedSettings, validateSettings }
+export default { defaults, editable, fields, isValidCron, readGeneratedSettings, validateSettings }
 

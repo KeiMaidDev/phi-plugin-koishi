@@ -33,7 +33,7 @@ function trackHandler(instance, key, owner) {
 }
 
 /**
- * @typedef {PlatformAdapter & {fromSession(session: any): PlatformEvent, stop(): void, drain(): Promise<void>, close(): Promise<void>, trackRenderer(renderer: KoishiRenderer): void, trackInstance(instance: any): void, trackTimer(timer: ReturnType<typeof setTimeout>): void, releaseTimer(timer: ReturnType<typeof setTimeout>): void, isStopped(): boolean, runTask(callback: Function, receiver: any, args: any[]): Promise<any>}} KoishiRuntimeAdapter
+ * @typedef {PlatformAdapter & {fromSession(session: any): PlatformEvent, dispatchContext(session: any, next: Function): Promise<any>, stop(): void, drain(): Promise<void>, close(): Promise<void>, trackRenderer(renderer: KoishiRenderer): void, trackInstance(instance: any): void, trackTimer(timer: ReturnType<typeof setTimeout>): void, releaseTimer(timer: ReturnType<typeof setTimeout>): void, isStopped(): boolean, runTask(callback: Function, receiver: any, args: any[]): Promise<any>}} KoishiRuntimeAdapter
  */
 
 /** @param {unknown} data */
@@ -352,6 +352,33 @@ export function createKoishiAdapter(ctx, options = {}) {
     const timers = new Set()
     /** @type {Set<Map<string, any>>} */
     const contextStores = new Set()
+
+    /** @param {PlatformEvent} event */
+    function findContext(event) {
+        const userKey = contextKey(event, false)
+        for (const store of contextStores) {
+            const current = store.get(userKey)
+            if (!current) continue
+            if (current.isActive && !current.isActive()) {
+                if (current.timer) clearTimeout(current.timer)
+                store.delete(userKey)
+                continue
+            }
+            return { store, key: userKey, current }
+        }
+        const groupKey = contextKey(event, true)
+        for (const store of contextStores) {
+            const current = store.get(groupKey)
+            if (!current || (current.isActive && !current.isActive())) {
+                if (current) {
+                    if (current.timer) clearTimeout(current.timer)
+                    store.delete(groupKey)
+                }
+                continue
+            }
+            return { store, key: groupKey, current }
+        }
+    }
     /** @type {Set<KoishiRenderer>} */
     const renderers = new Set()
     /** @type {Set<Promise<any>>} */
@@ -409,8 +436,9 @@ export function createKoishiAdapter(ctx, options = {}) {
              * @param {boolean} [isGroup]
              * @param {number} [timeout]
              * @param {string} [timeoutMsg]
+             * @param {() => boolean} [isActive]
              */
-            setContext(name, isGroup = false, timeout = 0, timeoutMsg = '') {
+            setContext(name, isGroup = false, timeout = 0, timeoutMsg = '', isActive = undefined) {
                 if (!this.e) return false
                 const owner = this[adapterOwnerSymbol]
                 if (owner.isStopped()) return false
@@ -432,7 +460,7 @@ export function createKoishiAdapter(ctx, options = {}) {
                     : null
                 timer?.unref?.()
                 if (timer) owner.trackTimer(timer)
-                store.set(key, { name, isGroup, timer })
+                store.set(key, { instance: this, name, isGroup, timer, isActive })
                 return true
             }
 
@@ -455,8 +483,7 @@ export function createKoishiAdapter(ctx, options = {}) {
              * @param {PlatformEvent} e
              */
             getKoishiContext(e) {
-                const store = /** @type {Map<string, any>} */ (this[contextStoreSymbol])
-                return store.get(contextKey(e, false)) || store.get(contextKey(e, true))
+                return findContext(e)?.current
             }
         })),
         RendererBase: /** @type {import('./types').PlatformRendererBaseConstructor} */ (/** @type {unknown} */ (KoishiRenderer)),
@@ -540,6 +567,32 @@ export function createKoishiAdapter(ctx, options = {}) {
             if (segment.type === 'markdown') return this.segment.markdown(segment.text)
             if (segment.type === 'text') return segment.text
             return message
+        },
+
+        /**
+         * 把尚未结束的多步交互消息交给发起交互的 App 实例。
+         * @param {any} session
+         * @param {Function} next
+         * @returns {Promise<any>}
+         */
+        async dispatchContext(session, next) {
+            const token = session?.argv?.tokens?.[0]?.content
+            if (typeof token === 'string' && ctx.$commander.resolve(token, session)) return next()
+
+            const event = this.fromSession(session)
+            const found = findContext(event)
+            if (!found) return next()
+            const { store, key, current } = found
+            const handler = current.instance?.[current.name]
+            if (typeof handler !== 'function') {
+                if (current.timer) {
+                    clearTimeout(current.timer)
+                    this.releaseTimer(current.timer)
+                }
+                store.delete(key)
+                return next()
+            }
+            return handler.call(current.instance, event)
         },
 
         /**

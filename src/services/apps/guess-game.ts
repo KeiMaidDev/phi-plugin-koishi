@@ -70,6 +70,22 @@ export class phiGames extends phiPluginBase {
         })
     }
 
+    /** @param {botEvent} e @param {() => Promise<any>} starter */
+    async startGame(e, starter) {
+        const groupId = e.group_id
+        this.setContext('guess', true, 0, '', () => Boolean(gameList[groupId]))
+        try {
+            return await starter()
+        } finally {
+            this.finishGame(e)
+        }
+    }
+
+    /** @param {botEvent} e */
+    finishGame(e) {
+        if (!gameList[e.group_id]) this.finish('guess', true)
+    }
+
     /**
      * 开始游戏
      * @param {botEvent} e 
@@ -102,7 +118,7 @@ export class phiGames extends phiPluginBase {
                     return false
                 }
 
-                return await guessTips.start(e, gameList)
+                return await this.startGame(e, () => guessTips.start(e, gameList))
             }
             case "guess":
             case "猜曲绘": {
@@ -112,7 +128,7 @@ export class phiGames extends phiPluginBase {
                     return false
                 }
 
-                return await guessIll.start(e, gameList)
+                return await this.startGame(e, () => guessIll.start(e, gameList))
             }
             case "弗一把":
             case "friberg":
@@ -124,7 +140,7 @@ export class phiGames extends phiPluginBase {
                     return false
                 }
 
-                return await frib19.start(e, gameList)
+                return await this.startGame(e, () => frib19.start(e, gameList))
             }
             default: {
                 if (gameName.startsWith("ltr") || gameName.startsWith("letter") || gameName.startsWith("开字母")) {
@@ -134,7 +150,7 @@ export class phiGames extends phiPluginBase {
                         return false
                     }
 
-                    return await guessLetter.start(e, gameList)
+                    return await this.startGame(e, () => guessLetter.start(e, gameList))
                 }
                 return false
             }
@@ -152,14 +168,10 @@ export class phiGames extends phiPluginBase {
             send.send_with_At(e, '请在群聊中使用这个功能嗷！')
             return false
         }
-        switch (gameList[e.group_id]?.gameType) {
-            case "guessLetter": {
-                return await guessLetter.reveal(e, gameList)
-            }
-            default: {
-                return false
-            }
-        }
+        if (gameList[e.group_id]?.gameType !== 'guessLetter') return false
+        const result = await guessLetter.reveal(e, gameList)
+        this.finishGame(e)
+        return result
     }
 
 
@@ -176,26 +188,30 @@ export class phiGames extends phiPluginBase {
         if (!e.group_id) {
             return false
         }
-        switch (gameList[e.group_id]?.gameType) {
-            case "guessTips": {
-                logger.info(`[phi-games][guess][tips] ${e.msg}`)
-                return await guessTips.guess(e, gameList)
+        try {
+            switch (gameList[e.group_id]?.gameType) {
+                case "guessTips": {
+                    logger.info(`[phi-games][guess][tips] ${e.msg}`)
+                    return await guessTips.guess(e, gameList)
+                }
+                case "guessLetter": {
+                    logger.info(`[phi-games][guess][letter] ${e.msg}`)
+                    return await guessLetter.guess(e, gameList)
+                }
+                case "guessIll": {
+                    logger.info(`[phi-games][guess][ill] ${e.msg}`)
+                    return await guessIll.guess(e, gameList)
+                }
+                case "frib19": {
+                    logger.info(`[phi-games][guess][frib] ${e.msg}`)
+                    return await frib19.guess(e, gameList)
+                }
+                default: {
+                    return false
+                }
             }
-            case "guessLetter": {
-                logger.info(`[phi-games][guess][letter] ${e.msg}`)
-                return await guessLetter.guess(e, gameList)
-            }
-            case "guessIll": {
-                logger.info(`[phi-games][guess][ill] ${e.msg}`)
-                return await guessIll.guess(e, gameList)
-            }
-            case "frib19": {
-                logger.info(`[phi-games][guess][frib] ${e.msg}`)
-                return await frib19.guess(e, gameList)
-            }
-            default: {
-                return false
-            }
+        } finally {
+            this.finishGame(e)
         }
     }
 
@@ -209,16 +225,20 @@ export class phiGames extends phiPluginBase {
         if (!e.group_id) {
             return false
         }
-        switch (gameList[e.group_id]?.gameType) {
-            case "guessTips": {
-                return await guessTips.getTip(e, gameList)
+        try {
+            switch (gameList[e.group_id]?.gameType) {
+                case "guessTips": {
+                    return await guessTips.getTip(e, gameList)
+                }
+                case "guessLetter": {
+                    return await guessLetter.getTip(e, gameList)
+                }
+                default: {
+                    return false
+                }
             }
-            case "guessLetter": {
-                return await guessLetter.getTip(e, gameList)
-            }
-            default: {
-                return false
-            }
+        } finally {
+            this.finishGame(e)
         }
     }
 
@@ -232,23 +252,27 @@ export class phiGames extends phiPluginBase {
         if (!e.group_id) {
             return false
         }
-        switch (gameList[e.group_id]?.gameType) {
-            case "guessTips": {
-                return await guessTips.ans(e, gameList)
+        try {
+            switch (gameList[e.group_id]?.gameType) {
+                case "guessTips": {
+                    return await guessTips.ans(e, gameList)
+                }
+                case "guessLetter": {
+                    return await guessLetter.ans(e, gameList)
+                }
+                case "guessIll": {
+                    return await guessIll.ans(e, gameList)
+                }
+                case "frib19": {
+                    return await frib19.ans(e, gameList)
+                }
+                default: {
+                    send.reply(e, `当前没有进行中的游戏嗷！`)
+                    return false
+                }
             }
-            case "guessLetter": {
-                return await guessLetter.ans(e, gameList)
-            }
-            case "guessIll": {
-                return await guessIll.ans(e, gameList)
-            }
-            case "frib19": {
-                return await frib19.ans(e, gameList)
-            }
-            default: {
-                send.reply(e, `当前没有进行中的游戏嗷！`)
-                return false
-            }
+        } finally {
+            this.finishGame(e)
         }
     }
 }

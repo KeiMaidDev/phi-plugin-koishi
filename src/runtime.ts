@@ -19,6 +19,7 @@ export async function createEngine(ctx: Context, config: Record<string, any>, h:
 
     const { useKoishiAdapter } = require('./platform/koishi.ts')
     const adapter = useKoishiAdapter(ctx, { h, rootPath: ctx.baseDir, botConfig: config })
+    ctx.middleware((session, next) => adapter.dispatchContext(session, next), true)
 
     const { default: Config } = require('./services/config-store.ts')
     Config.config = {}
