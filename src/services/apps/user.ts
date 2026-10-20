@@ -17,7 +17,6 @@ import analyzeSaveHistory from '../../domain/save/analyze-save-history'
 import { canUseApi } from '../../domain/user/api-permission'
 import {
     sendQuickCommands,
-    scoreQuickCommands,
     userListQuickCommands,
     historyQuickCommands,
 } from '../../domain/game/markdown'
@@ -286,7 +285,6 @@ export class phiuser extends phiPluginBase {
         const infoVersion = e.msg.match(new RegExp(`^[#/](?:${PHI_COMMAND_HEAD})\\s*info([12])?`, 'i'))?.at(-1)
         const kind = Number(infoVersion || 0)
         send.send_with_At(e, await picmodle.user_info(e, data, kind))
-        await sendQuickCommands(e, scoreQuickCommands(PHI_COMMAND_HEAD), '成绩页快捷操作', this.config)
     }
 
     /**
@@ -513,7 +511,6 @@ export class phiuser extends phiPluginBase {
 
 
         send.send_with_At(e, await picmodle.lvsco(e, data))
-        await sendQuickCommands(e, scoreQuickCommands(PHI_COMMAND_HEAD), '成绩页快捷操作', this.config)
     }
 
     /**

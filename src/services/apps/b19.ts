@@ -27,9 +27,6 @@ import {
 } from '../../domain/game/b30-analysis';
 import {
     sendQuickCommands,
-    scoreQuickCommands,
-    b19AnalysisQuickCommands,
-    singleScoreQuickCommands,
     suggestQuickCommands,
     chapterQuickCommands,
     achievementQuickCommands,
@@ -262,7 +259,6 @@ export class phib19 extends phiPluginBase {
         const img = await picmodle.b19(e, data)
         res.unshift(img);
         send.send_with_At(e, res)
-        await sendQuickCommands(e, scoreQuickCommands(PHI_COMMAND_HEAD), '成绩页快捷操作', this.config)
     }
 
     /**
@@ -384,7 +380,6 @@ export class phib19 extends phiPluginBase {
         let res = [await picmodle.b19(e, data)]
         res.push(`计算rks: ${save_b19.com_rks}\n存档rks: ${save.saveInfo.summary.rankingScore}`)
         send.send_with_At(e, res)
-        await sendQuickCommands(e, scoreQuickCommands(PHI_COMMAND_HEAD), '成绩页快捷操作', this.config)
     }
 
     /**
@@ -451,7 +446,6 @@ export class phib19 extends phiPluginBase {
         }
 
         send.send_with_At(e, await picmodle.arcgros_b19(e, data))
-        await sendQuickCommands(e, b19AnalysisQuickCommands(PHI_COMMAND_HEAD), '成绩分析快捷操作', this.config)
     }
 
     /**
@@ -531,7 +525,6 @@ export class phib19 extends phiPluginBase {
         let res = [await picmodle.b19(e, data)]
         res.push(`计算rks: ${save_b19.com_rks}\n存档rks: ${save.saveInfo.summary.rankingScore}`)
         send.send_with_At(e, res)
-        await sendQuickCommands(e, scoreQuickCommands(PHI_COMMAND_HEAD), '成绩页快捷操作', this.config)
 
     }
 
@@ -646,7 +639,6 @@ export class phib19 extends phiPluginBase {
         let sum_rks = save_b19.b19_list.reduce((sum, x) => sum + Number(x?.rks || 0), 0)
         res.push(`越级成绩均rks: ${(sum_rks / save_b19.b19_list.length).toFixed(4)}\n存档rks: ${save.saveInfo.summary.rankingScore}`)
         send.send_with_At(e, res)
-        await sendQuickCommands(e, scoreQuickCommands(PHI_COMMAND_HEAD), '成绩页快捷操作', this.config)
 
     }
 
@@ -715,7 +707,6 @@ export class phib19 extends phiPluginBase {
         } else {
             send.reply(e, await common.makeForwardMsg(e, Remsg, undefined))
         }
-        await sendQuickCommands(e, scoreQuickCommands(PHI_COMMAND_HEAD), '成绩页快捷操作', this.config)
     }
 
 
@@ -1428,7 +1419,6 @@ async function getScore(songId, e, args = {}, config) {
 
 
     send.send_with_At(e, await picmodle.score(e, data, 1))
-    await sendQuickCommands(e, singleScoreQuickCommands(PHI_COMMAND_HEAD), '单曲成绩快捷操作', config)
 
 }
 

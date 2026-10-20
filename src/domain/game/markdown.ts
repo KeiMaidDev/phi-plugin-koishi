@@ -265,17 +265,6 @@ export function apiHelpQuickCommands(commandHead) {
     ]
 }
 
-
-/** 成绩页通用入口，使用 B27 作为默认成绩概览。 */
-export function scoreQuickCommands(commandHead) {
-    return [
-        { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
-        { command: pageCommand(commandHead, 'p30'), label: 'P30成绩' },
-        { command: pageCommand(commandHead, 'info'), label: '个人信息' },
-        { command: pageCommand(commandHead, 'update'), label: '更新存档' },
-    ]
-}
-
 /** 更新存档结果页。 */
 export function updateQuickCommands(commandHead) {
     return [
@@ -302,27 +291,6 @@ export function historyQuickCommands(commandHead) {
     return [
         { command: pageCommand(commandHead, '2025history'), label: '年度总结' },
         { command: pageCommand(commandHead, 'hisb30'), label: 'B30历史' },
-        { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
-        { command: pageCommand(commandHead, 'info'), label: '个人信息' },
-        { command: pageCommand(commandHead, 'help'), label: '帮助' },
-    ]
-}
-
-/** B19 衍生分析页。 */
-export function b19AnalysisQuickCommands(commandHead) {
-    return [
-        { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
-        { command: pageCommand(commandHead, 'p30'), label: 'P30成绩' },
-        { command: pageCommand(commandHead, 'lmtacc 90'), label: 'ACC限制' },
-        { command: pageCommand(commandHead, 'suggest'), label: '推分建议' },
-        { command: pageCommand(commandHead, 'help'), label: '帮助' },
-    ]
-}
-
-/** 单曲成绩页。 */
-export function singleScoreQuickCommands(commandHead) {
-    return [
-        { command: pageCommand(commandHead, 'list'), label: '成绩筛选' },
         { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
         { command: pageCommand(commandHead, 'info'), label: '个人信息' },
         { command: pageCommand(commandHead, 'help'), label: '帮助' },
