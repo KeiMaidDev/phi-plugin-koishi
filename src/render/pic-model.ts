@@ -15,6 +15,9 @@ import platform from '../platform/index'
 import { registerProcessCleanup } from '../utils/process-cleanup'
 import RenderPressureHistory from './render-pressure-history'
 
+/** 图片展示使用的 Koishi 版本标签；不改变 API 上报的真实插件版本。 */
+const RENDER_VERSION_LABEL = 'koishi'
+
 /**@import {botEvent} from '../services/base-class' */
 
 export class PicModel {
@@ -593,9 +596,9 @@ export class PicModel {
                 },
                 sys: {
                     scale: `style="transform:scale(${cfg.scale || 1})"`,
-                    copyright: `Created By ${platform.name}<span class="version">${Version.yunzai}</span> & phi-Plugin<span class="version">${Version.ver}</span>`
+                    copyright: `Created By ${platform.name}<span class="version">${Version.yunzai}</span> & Phi-Plugin<span class="version">${RENDER_VERSION_LABEL}</span>`
                 },
-                Version: { ...Version },
+                Version: { ...Version, ver: RENDER_VERSION_LABEL },
                 _plugin: Display_Plugin_Name,
                 Math,
                 fCompute,
