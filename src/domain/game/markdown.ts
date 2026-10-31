@@ -1,7 +1,11 @@
 // @ts-nocheck
+import { performance } from 'node:perf_hooks'
+import { h } from 'koishi'
+
 import { PHI_COMMAND_HEAD } from '../../constants'
 
 import send from '../../render/send'
+import { escapePromptText } from '../../render/prompt'
 import { isQqMarkdownPlatform } from '../../platform/qq-markdown'
 
 
@@ -121,6 +125,97 @@ function pageCommand(commandHead, command) {
 function pageRoot(commandHead) {
     const head = normalizeCommandHead(commandHead)
     return head ? `/${head}` : ''
+}
+
+/** @param {string} value */
+function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * 把当前消息改写成可再次执行的本插件指令，并去掉代查他人的 `-id` 参数。
+ * @param {string} commandHead
+ * @param {string} currentCommand
+ */
+export function replayableScoreCommand(commandHead, currentCommand) {
+    const head = normalizeCommandHead(commandHead)
+    if (!head) return ''
+    let rest = String(currentCommand ?? '')
+        .replace(/\r\n?/g, '\n')
+        .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+    rest = rest.replace(new RegExp(`^(?:[#/杠刚钢纲]\\s*)?${escapeRegExp(head)}\\s*`, 'i'), '')
+    rest = rest.replace(/(?:^|\s)-id\s+\d+\b/gi, ' ').replace(/\s+/g, ' ').trim()
+    return rest ? `/${head} ${rest}` : `/${head}`
+}
+
+/** 成绩图底部的三个快捷动作。 */
+export function scoreImageQuickCommands(commandHead = PHI_COMMAND_HEAD, currentCommand = '') {
+    return [
+        { command: replayableScoreCommand(commandHead, currentCommand), label: '我也要查' },
+        { command: pageCommand(commandHead, 'list'), label: '成绩筛选' },
+        { command: pageCommand(commandHead, 'myset'), label: '查分设置' },
+    ]
+}
+
+/** 统计从调用渲染入口到拿到图片的完整耗时。 */
+export async function timeScoreImageRender(render) {
+    const start = performance.now()
+    const image = await render()
+    return {
+        image,
+        elapsedMs: Math.max(0, Math.round(performance.now() - start)),
+    }
+}
+
+/** @param {unknown} value */
+function isScoreImageElement(value) {
+    return Boolean(
+        value
+        && typeof value === 'object'
+        && value.attrs
+        && ['img', 'image'].includes(String(value.type)),
+    )
+}
+
+/** @param {any} image @param {string} alt */
+function scoreImageElement(image, alt) {
+    if (!isScoreImageElement(image)) return image
+    return h('img', { ...image.attrs, alt: String(alt || '成绩图') })
+}
+
+/**
+ * 发送 mai-plugin 风格的查询结果图：标题、图片、渲染耗时和 Keyboard 同条发送。
+ * Markdown 不可用时回退为原始图片消息。
+ * @param {botEvent} e
+ * @param {unknown} image
+ * @param {number} elapsedMs
+ * @param {{alt?: string, extra?: string|(string|false|null|undefined)[], command?: string, config?: any}} [options]
+ */
+export async function sendScoreImage(e, image, elapsedMs, options = {}) {
+    const rawExtra = (Array.isArray(options.extra) ? options.extra : options.extra ? [options.extra] : [])
+        .filter(value => value !== false && value != null)
+    if (!isScoreImageElement(image)) {
+        return await send.promptWithAt(e, [image, ...rawExtra], { config: options.config })
+    }
+
+    const extra = rawExtra.map(value => escapePromptText(value).trim()).filter(Boolean)
+    const content = [
+        '**查询结果**\n\n',
+        scoreImageElement(image, options.alt || '成绩图'),
+        `\n\n> 生成时间：${Math.max(0, Math.round(Number(elapsedMs) || 0))}ms`,
+    ]
+    for (const line of extra) content.push(`\n\n${line}`)
+
+    return await send.promptWithAt(e, content, {
+        config: options.config,
+        label: false,
+        markdown: true,
+        actions: scoreImageQuickCommands(PHI_COMMAND_HEAD, options.command || e.msg),
+        buttonsPerRow: 3,
+        fallback: [image, ...rawExtra],
+    })
 }
 
 /** 帮助页：按功能类别提供最常用的入口。 */

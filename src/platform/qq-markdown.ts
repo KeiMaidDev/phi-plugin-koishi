@@ -81,14 +81,16 @@ function normalizeKeyboardCommands(commands: QqKeyboardCommand[]) {
     return result
 }
 
-/** 构建 QQ 指令/链接键盘；固定每行 2 个，超过 5 行时按调用方顺序截断。 */
+/** 构建 QQ 指令/链接键盘；默认每行 2 个，超过 5 行时按调用方顺序截断。 */
 export function buildQqKeyboard(
     commands: QqKeyboardCommand[],
     onOverflow?: (count: number) => void,
-    _buttonsPerRow = DEFAULT_KEYBOARD_BUTTONS_PER_ROW,
+    buttonsPerRow = DEFAULT_KEYBOARD_BUTTONS_PER_ROW,
 ) {
-    // 快捷按钮统一为每行 2 个；保留第三个参数仅兼容既有调用方。
-    const columns = DEFAULT_KEYBOARD_BUTTONS_PER_ROW
+    const requestedColumns = Math.floor(Number(buttonsPerRow))
+    const columns = Number.isFinite(requestedColumns) && requestedColumns >= 1 && requestedColumns <= 5
+        ? requestedColumns
+        : DEFAULT_KEYBOARD_BUTTONS_PER_ROW
     const maxButtons = MAX_KEYBOARD_ROWS * columns
     let normalized = normalizeKeyboardCommands(commands)
     if (normalized.length > maxButtons) {

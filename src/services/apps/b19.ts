@@ -30,6 +30,8 @@ import {
     suggestQuickCommands,
     chapterQuickCommands,
     achievementQuickCommands,
+    sendScoreImage,
+    timeScoreImageRender,
 } from '../../domain/game/markdown'
 
 /**@import {botEvent} from '../base-class' */
@@ -129,11 +131,6 @@ export class phib19 extends phiPluginBase {
 
         let err = save.checkNoInfo()
 
-        if (err.length) {
-            send.promptWithAt(e, "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n'))
-        }
-
-
         let numMsg = e.msg.match(/^.*?(b|rks|pgr)[0-9]*/i)?.[0]
 
         let nnum = Number(numMsg?.replace(/^.*?(b|rks|pgr)/i, '') ?? 33)
@@ -157,11 +154,6 @@ export class phib19 extends phiPluginBase {
         }
 
         let plugin_data = await getNotes.getNotesData(e.user_id)
-
-        if (!this.config.isGuild) {
-            send.prompt(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
-        }
-
 
         let save_b19 = await save.getB19(e, nnum, { avgType: plugin_data.b30AvgKind, color: plugin_data.b30AvgColor })
         let stats = await save.getStats()
@@ -256,9 +248,13 @@ export class phib19 extends phiPluginBase {
             spInfo,
             b30Analysis,
         }
-        const img = await picmodle.b19(e, data)
-        res.unshift(img);
-        send.promptWithAt(e, res)
+        const rendered = await timeScoreImageRender(() => picmodle.b19(e, data))
+        await sendScoreImage(e, rendered.image, rendered.elapsedMs, {
+            alt: `B${nnum}`,
+            extra: [err.length ? "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n') : null, ...res],
+            command: e.msg,
+            config: this.config,
+        })
     }
 
     /**
@@ -279,11 +275,6 @@ export class phib19 extends phiPluginBase {
         }
 
         let err = save.checkNoInfo()
-
-        if (err.length) {
-            send.promptWithAt(e, "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n'))
-        }
-
 
         let match = e.msg.match(/^.*?(p|x|fc)\s*([0-9]+)/i)
         let nnum = Number(match?.[2] || 33)
@@ -308,9 +299,6 @@ export class phib19 extends phiPluginBase {
 
         let plugin_data = await getNotes.getNotesData(e.user_id)
 
-
-        if (!this.config.isGuild)
-            send.prompt(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
 
         let save_b19;
         let spInfo = [];
@@ -377,9 +365,16 @@ export class phib19 extends phiPluginBase {
             spInfo,
         }
 
-        let res = [await picmodle.b19(e, data)]
-        res.push(`计算rks: ${save_b19.com_rks}\n存档rks: ${save.saveInfo.summary.rankingScore}`)
-        send.promptWithAt(e, res)
+        const rendered = await timeScoreImageRender(() => picmodle.b19(e, data))
+        await sendScoreImage(e, rendered.image, rendered.elapsedMs, {
+            alt: `P${nnum}`,
+            extra: [
+                err.length ? "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n') : null,
+                `计算rks: ${save_b19.com_rks}\n存档rks: ${save.saveInfo.summary.rankingScore}`,
+            ],
+            command: e.msg,
+            config: this.config,
+        })
     }
 
     /**
@@ -401,11 +396,6 @@ export class phib19 extends phiPluginBase {
 
 
         let err = save.checkNoInfo()
-
-        if (err.length) {
-            send.promptWithAt(e, "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n'))
-        }
-
 
         let numMsg = e.msg.match(/(b|B)[0-9]*/g)
         let nnum = numMsg ? Number(numMsg[0].replace(/(b|B)/g, '')) - 1 : 32
@@ -445,7 +435,13 @@ export class phib19 extends phiPluginBase {
             nnum: nnum,
         }
 
-        send.promptWithAt(e, await picmodle.arcgros_b19(e, data))
+        const rendered = await timeScoreImageRender(() => picmodle.arcgros_b19(e, data))
+        await sendScoreImage(e, rendered.image, rendered.elapsedMs, {
+            alt: 'arcgios',
+            extra: [err.length ? "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n') : null],
+            command: e.msg,
+            config: this.config,
+        })
     }
 
     /**
@@ -466,11 +462,6 @@ export class phib19 extends phiPluginBase {
 
         let err = save.checkNoInfo()
 
-        if (err.length) {
-            send.promptWithAt(e, "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n'))
-        }
-
-
         let acc = Number(e.msg.replace(/^.*lmtacc\s*/g, ''))
 
         if (!acc || acc < 0 || acc > 100) {
@@ -483,9 +474,6 @@ export class phib19 extends phiPluginBase {
 
         let plugin_data = await getNotes.getNotesData(e.user_id)
 
-
-        if (!this.config.isGuild)
-            send.prompt(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
 
         let save_b19 = await save.getBestWithLimit(nnum, [{ type: 'acc', value: [acc, 100] }])
         let stats = await save.getStats()
@@ -522,9 +510,16 @@ export class phib19 extends phiPluginBase {
             spInfo: [`ACC is limited to ${acc}%`],
         }
 
-        let res = [await picmodle.b19(e, data)]
-        res.push(`计算rks: ${save_b19.com_rks}\n存档rks: ${save.saveInfo.summary.rankingScore}`)
-        send.promptWithAt(e, res)
+        const rendered = await timeScoreImageRender(() => picmodle.b19(e, data))
+        await sendScoreImage(e, rendered.image, rendered.elapsedMs, {
+            alt: `lmtAcc ${acc}%`,
+            extra: [
+                err.length ? "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n') : null,
+                `计算rks: ${save_b19.com_rks}\n存档rks: ${save.saveInfo.summary.rankingScore}`,
+            ],
+            command: e.msg,
+            config: this.config,
+        })
 
     }
 
@@ -545,10 +540,6 @@ export class phib19 extends phiPluginBase {
         }
 
         let err = save.checkNoInfo()
-
-        if (err.length) {
-            send.promptWithAt(e, "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n'))
-        }
 
         /**是否计入Flick */
         let withFlick = /(?:越级\s*(?:b\s*)?[0-9]*\s*)(flick|fl|fk|划键|划)\s*$/i.test(e.msg)
@@ -583,9 +574,6 @@ export class phib19 extends phiPluginBase {
         }
 
         let plugin_data = await getNotes.getNotesData(e.user_id)
-
-        if (!this.config.isGuild)
-            send.prompt(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
 
         let stats = await save.getStats()
 
@@ -635,10 +623,17 @@ export class phib19 extends phiPluginBase {
             spInfo: [`越级线=98.5+1.5×${withFlick ? '(Dr+Fk)' : 'Dr'}占比`],
         }
 
-        let res = [await picmodle.b19(e, data)]
+        const rendered = await timeScoreImageRender(() => picmodle.b19(e, data))
         let sum_rks = save_b19.b19_list.reduce((sum, x) => sum + Number(x?.rks || 0), 0)
-        res.push(`越级成绩均rks: ${(sum_rks / save_b19.b19_list.length).toFixed(4)}\n存档rks: ${save.saveInfo.summary.rankingScore}`)
-        send.promptWithAt(e, res)
+        await sendScoreImage(e, rendered.image, rendered.elapsedMs, {
+            alt: `越级B${nnum}`,
+            extra: [
+                err.length ? "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n') : null,
+                `越级成绩均rks: ${(sum_rks / save_b19.b19_list.length).toFixed(4)}\n存档rks: ${save.saveInfo.summary.rankingScore}`,
+            ],
+            command: e.msg,
+            config: this.config,
+        })
 
     }
 
@@ -1418,7 +1413,12 @@ async function getScore(songId, e, args = {}, config) {
     }
 
 
-    send.promptWithAt(e, await picmodle.score(e, data, 1))
+    const rendered = await timeScoreImageRender(() => picmodle.score(e, data, 1))
+    await sendScoreImage(e, rendered.image, rendered.elapsedMs, {
+        alt: '单曲成绩',
+        command: e.msg,
+        config,
+    })
 
 }
 
