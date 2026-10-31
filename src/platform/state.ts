@@ -37,11 +37,11 @@ export function setPlatformAdapter(adapter = {}) {
 
 export const platform = /** @type {PlatformAdapter} */ (new Proxy({}, {
     get(_target, prop) {
-        if (typeof prop === 'symbol') return undefined
+        if (typeof prop === 'symbol' || !currentAdapter) return undefined
         return bindValue(currentAdapter[prop])
     },
     set(_target, prop, value) {
-        if (typeof prop === 'symbol') return false
+        if (typeof prop === 'symbol' || !currentAdapter) return false
         currentAdapter[prop] = value
         return true
     },
@@ -50,11 +50,11 @@ export const platform = /** @type {PlatformAdapter} */ (new Proxy({}, {
 export const redis = /** @type {PlatformRedis} */ (new Proxy({}, {
     get(_target, prop) {
         if (typeof prop === 'symbol') return undefined
-        const value = /** @type {Record<string, any>} */ (currentAdapter.redis)?.[prop]
-        return typeof value === 'function' ? value.bind(currentAdapter.redis) : value
+        const value = /** @type {Record<string, any>} */ (currentAdapter?.redis)?.[prop]
+        return typeof value === 'function' ? value.bind(currentAdapter?.redis) : value
     },
     set(_target, prop, value) {
-        if (typeof prop === 'symbol') return false
+        if (typeof prop === 'symbol' || !currentAdapter?.redis) return false
         const redisTarget = /** @type {Record<string, any>} */ (currentAdapter.redis)
         redisTarget[prop] = value
         return true
@@ -64,7 +64,7 @@ export const redis = /** @type {PlatformRedis} */ (new Proxy({}, {
 export const segment = /** @type {PlatformSegment} */ (new Proxy({}, {
     get(_target, prop) {
         if (typeof prop === 'symbol') return undefined
-        const value = currentAdapter.segment?.[prop]
+        const value = currentAdapter?.segment?.[prop]
         return typeof value === 'function' ? value.bind(currentAdapter.segment) : value
     },
 }))

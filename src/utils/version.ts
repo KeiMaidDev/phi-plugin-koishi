@@ -6,7 +6,7 @@ import logger from './logger'
 import fileWatcherRegistry from './file-watcher-registry'
 import platform from '../platform/index'
 const README_path = `${pluginRoot}/README.md`
-const yunzai_ver = `v${platform.getPackageVersion()}`
+const yunzai_ver = `v${platform.getPackageVersion?.() ?? 'unknown'}`
 
 let currentVersion = ''
 let phigrosVer = ''
@@ -58,7 +58,7 @@ Object.defineProperty(Version, 'close', {
 
 Object.defineProperty(Version, 'reopen', {
     value: () => {
-        Version.yunzai = `v${platform.getPackageVersion()}`
+        Version.yunzai = `v${platform.getPackageVersion?.() ?? 'unknown'}`
         updateVersion()
         versionWatcher = fileWatcherRegistry.watch('version:readme', README_path, updateVersion)
     },
