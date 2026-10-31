@@ -5,6 +5,7 @@ import type { Context, h as H } from 'koishi'
 import type { Config } from './config'
 import type { PhiRuntime } from './runtime-context'
 import YAML from 'yaml'
+import { PHI_DATA_NAME } from './constants'
 
 export interface EngineRuntime extends PhiRuntime {
     apps: Record<string, any>
@@ -80,7 +81,7 @@ function restoreLegacyBotIdentity(ctx: Context, config: Config, configRoot: stri
 
 export async function createEngine(ctx: Context, config: Config, h: typeof H): Promise<EngineRuntime> {
     const pluginRoot = path.resolve(__dirname, '..')
-    const dataRoot = path.join(ctx.baseDir, 'data', 'phi-plugin')
+    const dataRoot = path.join(ctx.baseDir, 'data', PHI_DATA_NAME)
     fs.mkdirSync(dataRoot, { recursive: true })
     ;(globalThis as any).__PHI_PLUGIN_ROOT = pluginRoot
     ;(globalThis as any).__PHI_DATA_ROOT = dataRoot

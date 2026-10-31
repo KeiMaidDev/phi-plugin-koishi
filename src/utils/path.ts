@@ -1,5 +1,6 @@
 // @ts-nocheck
 import path from 'path'
+import { PHI_DATA_NAME } from '../constants'
 
 /**宿主进程根目录 */
 export const _path = process.cwd()
@@ -11,7 +12,7 @@ export const pluginRoot = runtime.__PHI_PLUGIN_ROOT || (path.basename(bundleDir)
 /**插件名 */
 export const pluginName = path.basename(pluginRoot)
 /**数据路径 */
-export const dataPath = runtime.__PHI_DATA_ROOT || path.join(process.cwd(), 'data', pluginName)
+export const dataPath = runtime.__PHI_DATA_ROOT || path.join(process.cwd(), 'data', PHI_DATA_NAME)
 /**插件临时文件目录 */
 export const tempPath = path.join(dataPath, 'temp')
 /**插件资源目录 */
