@@ -45,7 +45,7 @@ async function invokeRootHelp(runtime: EngineRuntime, session: any) {
 }
 
 export function registerEngineCommands(ctx: Context, runtime: EngineRuntime) {
-  const root = ctx.command('phi', 'Phi 相关功能', { slash: false })
+  const root = ctx.command('phi', 'Phi 相关功能', { slash: false, checkArgCount: true })
 
   const register = (spec: EngineCommandSpec) => {
     const command = ctx.command(`phi.${spec.path} [...args]`, spec.description, {
@@ -68,11 +68,6 @@ export function registerEngineCommands(ctx: Context, runtime: EngineRuntime) {
   for (const spec of aliasProposalCommands) register(spec)
 
   root.action(async (argv) => {
-    const extraArgs = Array.isArray((argv as any).args) ? (argv as any).args : []
-    const hasExtraInput = extraArgs.some((value: any) => String(value ?? '').trim())
-      || (Array.isArray((argv as any).tokens)
-        && (argv as any).tokens.some((token: any) => String(token?.content ?? '').trim()))
-    if (hasExtraInput) return '请发送 phi 查看用法。'
     try {
       return await invokeRootHelp(runtime, argv.session)
     } catch (error) {
