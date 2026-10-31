@@ -15,7 +15,7 @@ import getPic from '../../../render/get-pic'
 import fCompute from '../../../domain/game/f-compute'
 import picmodle from '../../../render/pic-model'
 import logger from '../../../utils/logger'
-import segment from '../../../platform/segment'
+import { buildQqKeyboard, createQqMarkdownElement } from '../../../platform/qq-markdown'
 import { isOfficialBot } from '../../../domain/game/markdown'
 import {
     LETTER_HIDDEN_CHAR,
@@ -257,7 +257,7 @@ export default class guessLetter {
         // 延时1s
         await timeout(1 * 1000)
 
-        await tryToSendMd(e, (t) => ['开字母进行中：', getPuzzle(currentGame, t)].join('\n'), this.config);
+        await tryToSendMd(e, (t) => ['开字母进行中：', getPuzzle(currentGame, t)].join('\n'), this.config, buildPuzzleKeyboard(currentGame));
 
         /**如果过长时间没人回答则结束 */
         while (timeCount[group_id]?.startTime == nowTime && Date.now() < timeCount[group_id].newTime) {
@@ -272,7 +272,7 @@ export default class guessLetter {
             await send.reply(e, '呜，怎么还没有人答对啊QAQ！只能说答案了喵……')
             const result = finishGame(group_id, gameList)
             if (result) {
-                await tryToSendMd(e, (t) => formatGameover(result, t), this.config);
+                await tryToSendMd(e, (t) => formatGameover(result, t), this.config, buildGameoverKeyboard());
             }
 
             return true
@@ -366,11 +366,11 @@ export default class guessLetter {
 
             const isEmpty = allGuessed(currentGame);
             if (!isEmpty) {
-                await tryToSendMd(e, (t) => [...output, '开字母进行中：', getPuzzle(currentGame, t)].join('\n'), this.config);
+                await tryToSendMd(e, (t) => [...output, '开字母进行中：', getPuzzle(currentGame, t)].join('\n'), this.config, buildPuzzleKeyboard(currentGame));
             } else {
                 const result = finishGame(group_id, gameList)
                 if (result) {
-                    await tryToSendMd(e, (t) => ['所有字母已翻开，答案如下：', ...output, formatGameover(result, t)].join('\n'), this.config);
+                    await tryToSendMd(e, (t) => ['所有字母已翻开，答案如下：', ...output, formatGameover(result, t)].join('\n'), this.config, buildGameoverKeyboard());
                 }
             }
 
@@ -491,13 +491,13 @@ export default class guessLetter {
                 if (!isEmpty) {
                     output.push('开字母进行中：')
                     output.push(opened)
-                    await tryToSendMd(e, (t) => [...output, getPuzzle(currentGame, t)].join('\n'), this.config);
+                    await tryToSendMd(e, (t) => [...output, getPuzzle(currentGame, t)].join('\n'), this.config, buildPuzzleKeyboard(currentGame));
                     return true
                 } else {
                     output.push('所有曲目均已被猜出，答案如下：');
                     const result = finishGame(group_id, gameList)
                     if (result) {
-                        await tryToSendMd(e, (t) => [...output, formatGameover(result, t)].join('\n'), this.config);
+                        await tryToSendMd(e, (t) => [...output, formatGameover(result, t)].join('\n'), this.config, buildGameoverKeyboard());
                     }
                     return true
                 }
@@ -534,7 +534,7 @@ export default class guessLetter {
         await send.reply(e, '好吧好吧，既然你执着要放弃，那就公布答案好啦。', true)
         const result = finishGame(group_id, gameList)
         if (result) {
-            await tryToSendMd(e, (t) => formatGameover(result, t), this.config);
+            await tryToSendMd(e, (t) => formatGameover(result, t), this.config, buildGameoverKeyboard());
         }
         return true
     }
@@ -616,12 +616,12 @@ export default class guessLetter {
         const isEmpty = allGuessed(currentGame)
         if (!isEmpty) {
             output.push('开字母进行中：')
-            await tryToSendMd(e, (t) => [...output, getPuzzle(currentGame, t)].join('\n'), this.config);
+            await tryToSendMd(e, (t) => [...output, getPuzzle(currentGame, t)].join('\n'), this.config, buildPuzzleKeyboard(currentGame));
         } else {
             output.unshift('所有字母已翻开，答案如下：');
             const result = finishGame(group_id, gameList)
             if (result) {
-                await tryToSendMd(e, (t) => [...output, formatGameover(result, t)].join('\n'), this.config);
+                await tryToSendMd(e, (t) => [...output, formatGameover(result, t)].join('\n'), this.config, buildGameoverKeyboard());
             }
         }
         return true
@@ -757,13 +757,7 @@ function formatGameover(result, letterMarkdown) {
         const winner_card = result.winnerlist[index]
         output.push(`${index + 1}. ${correct_name}` + (winner_card ? ` @${winner_card}` : ''))
     });
-    if (letterMarkdown) {
-        const cmdhead = PHI_COMMAND_HEAD
-        output.push(`\n***\n\n` +
-            // '| - | - | - |\n' +
-            `| ${cmdInpt(`/${cmdhead} letter `, '再来一局')} | ${cmdInpt(`/${cmdhead} guess`, '猜个曲绘')} | ${cmdInpt(`/${cmdhead} tipgame`, '提示猜歌')} |` +
-            '\n| :---: | :---: | :---: |\n');
-    }
+    if (letterMarkdown) output.push('\n请使用下方键盘按钮继续。')
 
     return output.join('\n');
 }
@@ -781,9 +775,7 @@ function getPuzzle(currentGame, letterMarkdown) {
     currentGame.ansList.forEach((song, index) => {
         if (currentGame.blurlist[index]) {
             const visibleBlurName = currentGame.blurlist[index].replaceAll(LETTER_HIDDEN_CHAR, '*')
-            const str = letterMarkdown
-                ? cmdInpt(`/n${index + 1}. `, visibleBlurName.replace(/\*/g, '\\*'))
-                : visibleBlurName
+            const str = letterMarkdown ? visibleBlurName.replace(/\*/g, '\\*') : visibleBlurName
             output.push(`${index + 1}. ${str}`);
         } else {
             output.push(`${index + 1}. ${song} ✅`)
@@ -792,24 +784,35 @@ function getPuzzle(currentGame, letterMarkdown) {
             }
         }
     })
-    if (letterMarkdown) {
-        const cmdhead = PHI_COMMAND_HEAD
-        output.push(`\n***\n` +
-            // '| - | - | - |\n' +
-            `| ${cmdInpt(`/开 `, '开个字母')} | ${cmdInpt(`/${cmdhead} tip`, '看看提示')} | ${cmdInpt(`/${cmdhead} ans`, '公布答案')} |` +
-            '\n| :---: | :---: | :---: |\n');
-        output.push('\n*点击蓝色字体可以快速填写指令哦~')
-    }
+    if (letterMarkdown) output.push('\n请使用下方键盘按钮填写曲名或执行操作。')
     return output.join('\n');
 }
 
-/**
- * @param {string} text 指令内容
- * @param {string} show
- * @param {boolean} reference
- */
-function cmdInpt(text, show, reference = false) {
-    return `<qqbot-cmd-input text="${text}" show="${show}" reference="${reference}" />`
+/** @param {letterGameDataObject} currentGame */
+function buildPuzzleKeyboard(currentGame) {
+    const commands = [
+        { command: `/${PHI_COMMAND_HEAD} open `, label: '开个字母', enter: false, reply: false },
+        { command: `/${PHI_COMMAND_HEAD} tip`, label: '看看提示' },
+        { command: `/${PHI_COMMAND_HEAD} ans`, label: '公布答案' },
+    ]
+    currentGame.ansList.forEach((_, index) => {
+        if (!currentGame.blurlist[index]) return
+        commands.push({
+            command: `/n${index + 1}. `,
+            label: `${index + 1}号`,
+            enter: false,
+            reply: false,
+        })
+    })
+    return buildQqKeyboard(commands)
+}
+
+function buildGameoverKeyboard() {
+    return buildQqKeyboard([
+        { command: `/${PHI_COMMAND_HEAD} ltr`, label: '再来一局' },
+        { command: `/${PHI_COMMAND_HEAD} guess`, label: '猜个曲绘' },
+        { command: `/${PHI_COMMAND_HEAD} tipgame`, label: '提示猜歌' },
+    ])
 }
 
 /**@import {botEvent} from '../../base-class' */
@@ -817,8 +820,9 @@ function cmdInpt(text, show, reference = false) {
 /**
  * @param {botEvent} e
  * @param {(arg0: boolean) => string} fnc
+ * @param {ReturnType<typeof buildQqKeyboard>} [keyboard]
  */
-async function tryToSendMd(e, fnc, config) {
+async function tryToSendMd(e, fnc, config, keyboard) {
     const letterMarkdown = config.LetterMarkdown
     if (!letterMarkdown || ((e?.bot || e?.platform) && !isOfficialBot(e))) {
         await send.reply(e, fnc(false))
@@ -827,7 +831,8 @@ async function tryToSendMd(e, fnc, config) {
 
     let sent
     try {
-        sent = /** @type {{error?: unknown[]}|undefined} */ (await send.reply(e, segment.markdown(fnc(true))))
+        const message = await createQqMarkdownElement(fnc(true), keyboard, send.getAssets?.(), logger)
+        sent = /** @type {{error?: unknown[]}|undefined} */ (await send.reply(e, message))
     } catch (error) {
         logger.warn(`[phi-plugin][letter]Markdown发送失败，改用普通消息`, error)
         await send.reply(e, fnc(false))

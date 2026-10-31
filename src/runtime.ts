@@ -121,7 +121,7 @@ export async function createEngine(ctx: Context, config: Config, h: typeof H): P
     themeUseService.configure(config)
 
     const { default: send } = require('./render/send.ts')
-    send.configure(config)
+    send.configure(config, () => ctx.assets)
 
     const { default: getBanGroup } = require('./domain/user/get-ban-group.ts')
     getBanGroup.configure(config)

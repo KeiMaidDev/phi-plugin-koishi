@@ -1,9 +1,9 @@
 // @ts-nocheck
 import { PHI_COMMAND_HEAD } from '../../constants'
 
-import { logger, segment } from '../../services/index'
+import { logger } from '../../services/index'
 import send from '../../render/send'
-import platform from '../../platform/index'
+import { buildQqKeyboard, createQqMarkdownElement, isQqMarkdownPlatform } from '../../platform/qq-markdown'
 
 
 /** @import {botEvent} from '../../services/base-class' */
@@ -20,69 +20,18 @@ export function escapeMarkdownText(value) {
         .replace(/>/g, '&gt;')
 }
 
-/** @param {unknown} value */
-export function escapeCommandAttribute(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-}
-
-/** @param {string} text @param {string} show */
-export function commandInput(text, show) {
-    return `<qqbot-cmd-input text="${escapeCommandAttribute(text)}" show="${escapeCommandAttribute(show)}" reference="false" />`
-}
-
-/**
- * 构建 QQ 官方消息接口的指令键盘，作为旧客户端不识别 qqbot-cmd-input 时的兼容入口。
- * @param {{command:string,label:string}[]} commands
- */
-function buildQuickCommandKeyboard(commands) {
-    const unique = []
-    const seen = new Set()
-    for (const item of commands || []) {
-        if (!item?.command || !item?.label) continue
-        const command = String(item.command).trim()
-        const label = Array.from(String(item.label).trim()).slice(0, 10).join('')
-        if (!command || !label || seen.has(command)) continue
-        seen.add(command)
-        unique.push({ command, label })
-    }
-    if (!unique.length) return undefined
-    const rows = []
-    for (let index = 0; index < unique.length && rows.length < 5; index += 3) {
-        rows.push({
-            buttons: unique.slice(index, index + 3).map((item, offset) => ({
-                id: `phi-quick-${index + offset}`,
-                render_data: { label: item.label, style: 1 },
-                action: {
-                    type: 2,
-                    permission: { type: 2 },
-                    data: item.command,
-                    unsupport_tips: '当前 QQ 版本不支持指令按钮，请手动发送指令。',
-                },
-            })),
-        })
-    }
-    return { content: { rows } }
-}
-
 /** @param {botEvent} e @param {{command:string,label:string}[]} commands */
-function quickCommandReplyData(e, commands) {
-    if (!isOfficialBot(e)) return {}
-    const keyboard = buildQuickCommandKeyboard(commands)
-    return keyboard ? { keyboard } : {}
+function quickCommandKeyboard(e, commands) {
+    if (!isQqMarkdownPlatform(e)) return undefined
+    return buildQqKeyboard(commands, count => logger.warn(`[phi-plugin] 快捷菜单按钮超过 25 个（${count}），已截断`))
 }
 
 /**
- * 判断当前事件是否来自 QQ 官方机器人。
- * QQ 官方机器人使用 QQBot 适配器，只有它支持 qqbot-cmd-input 快捷输入标签。
+ * 判断当前事件是否来自 adapter-qq-crack 管理的 QQ 原生消息平台。
  * @param {botEvent} e
  */
 export function isOfficialBot(e) {
-    const adapter = platform.getAdapterName(e)
-    return typeof adapter === 'string' && /^(qq|qqbot|qq[-_ ]?official[-_ ]?bot)$/i.test(adapter.trim())
+    return isQqMarkdownPlatform(e)
 }
 
 /**
@@ -91,27 +40,12 @@ export function isOfficialBot(e) {
  * @param {string} [title]
  */
 export function buildQuickCommandMarkdown(commands, title = '快捷操作') {
-    const unique = []
-    const seen = new Set()
-    for (const item of commands || []) {
-        if (!item?.command || !item?.label) continue
-        const command = String(item.command).trim()
-        const label = String(item.label).trim()
-        if (!command || !label || seen.has(command)) continue
-        seen.add(command)
-        unique.push({ command, label })
-    }
-    if (!unique.length) return ''
-    // QQ 官方 Markdown 的旧解析器按主题市场的三列表格处理，固定三列最稳定。
-    const columns = 3
-    const rows = []
-    for (let index = 0; index < unique.length; index += columns) {
-        const row = unique.slice(index, index + columns)
-        while (row.length < columns) row.push({ command: '', label: '' })
-        rows.push(`| ${row.map(item => item.command ? commandInput(item.command, item.label) : '\u200b').join(' | ')} |`)
-    }
-    const separator = `| ${Array.from({ length: columns }, () => ':---:').join(' | ')} |`
-    return ['***', `${escapeMarkdownText(title)}：`, '', rows[0], separator, ...rows.slice(1)].join('\n')
+    if (!(commands || []).some(item => item?.command && item?.label)) return ''
+    return [
+        `### ${escapeMarkdownText(title)}`,
+        '',
+        '请使用下方键盘按钮执行快捷操作。',
+    ].join('\n')
 }
 
 /**
@@ -125,7 +59,8 @@ export async function sendQuickCommands(e, commands, title = '快捷操作', con
     const markdown = buildQuickCommandMarkdown(commands, title)
     if (!markdown) return
     try {
-        const sent = /** @type {{error?: unknown[]}|undefined} */ (await send.reply(e, segment.markdown(markdown), false, quickCommandReplyData(e, commands)))
+        const message = await createQqMarkdownElement(markdown, quickCommandKeyboard(e, commands), send.getAssets?.(), logger)
+        const sent = /** @type {{error?: unknown[]}|undefined} */ (await send.reply(e, message))
         if (sent?.error?.length) logger.warn('[phi-plugin] 快捷操作 Markdown 发送失败')
     } catch (error) {
         logger.warn('[phi-plugin] 快捷操作 Markdown 发送失败', error)
@@ -133,18 +68,22 @@ export async function sendQuickCommands(e, commands, title = '快捷操作', con
 }
 
 /**
- * 构建分组快捷操作菜单。每个分组独立渲染为一张标准 Markdown 表格。
+ * 构建分组快捷操作菜单。分组只提供说明，具体操作由 Keyboard 承载。
  * @param {{title:string,commands:{command:string,label:string}[]}[]} sections
  * @param {string} [title]
  */
 export function buildQuickCommandSectionsMarkdown(sections, title = '快捷操作') {
-    const blocks = []
-    for (const section of sections || []) {
-        const sectionCommands = section?.commands || []
-        const table = buildQuickCommandMarkdown(sectionCommands, section?.title || title)
-        if (table) blocks.push(table)
+    const visible = (sections || []).filter(section => (section?.commands || []).some(item => item?.command && item?.label))
+    if (!visible.length) return ''
+    const lines = [
+        `### ${escapeMarkdownText(title)}`,
+        '',
+        '请使用下方键盘按钮执行快捷操作。',
+    ]
+    for (const section of visible) {
+        lines.push('', `#### ${escapeMarkdownText(section?.title || title)}`)
     }
-    return blocks.join('\n\n')
+    return lines.join('\n')
 }
 
 /** 向 QQ 官方机器人发送分组快捷操作菜单。 */
@@ -154,7 +93,8 @@ export async function sendQuickCommandSections(e, sections, title = '快捷操�
     if (!markdown) return
     const commands = (sections || []).flatMap(section => section?.commands || [])
     try {
-        const sent = /** @type {{error?: unknown[]}|undefined} */ (await send.reply(e, segment.markdown(markdown), false, quickCommandReplyData(e, commands)))
+        const message = await createQqMarkdownElement(markdown, quickCommandKeyboard(e, commands), send.getAssets?.(), logger)
+        const sent = /** @type {{error?: unknown[]}|undefined} */ (await send.reply(e, message))
         if (sent?.error?.length) logger.warn('[phi-plugin] 快捷操作 Markdown 发送失败')
     } catch (error) {
         logger.warn('[phi-plugin] 快捷操作 Markdown 发送失败', error)
@@ -170,6 +110,12 @@ function normalizeCommandHead(commandHead) {
 function pageCommand(commandHead, command) {
     const head = normalizeCommandHead(commandHead)
     return head && command ? `/${head} ${command}` : ''
+}
+
+/** @param {string} commandHead */
+function pageRoot(commandHead) {
+    const head = normalizeCommandHead(commandHead)
+    return head ? `/${head}` : ''
 }
 
 /** 帮助页：按功能类别提供最常用的入口。 */
@@ -250,7 +196,7 @@ export function apiSettingQuickCommands(commandHead) {
         { command: pageCommand(commandHead, 'apiset'), label: '刷新设置' },
         { command: pageCommand(commandHead, 'tkls'), label: 'Token列表' },
         { command: pageCommand(commandHead, 'myset'), label: '用户设置' },
-        { command: pageCommand(commandHead, 'help'), label: '帮助' },
+        { command: pageRoot(commandHead), label: '帮助' },
     ]
 }
 
@@ -261,7 +207,7 @@ export function apiHelpQuickCommands(commandHead) {
         { command: pageCommand(commandHead, 'tkls'), label: 'Token列表' },
         { command: pageCommand(commandHead, 'apiset'), label: 'API设置' },
         { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
-        { command: pageCommand(commandHead, 'help'), label: '全部帮助' },
+        { command: pageRoot(commandHead), label: '全部帮助' },
     ]
 }
 
@@ -282,7 +228,7 @@ export function userListQuickCommands(commandHead) {
         { command: pageCommand(commandHead, 'list'), label: '全部成绩' },
         { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
         { command: pageCommand(commandHead, 'info'), label: '个人信息' },
-        { command: pageCommand(commandHead, 'help'), label: '帮助' },
+        { command: pageRoot(commandHead), label: '帮助' },
     ]
 }
 
@@ -293,7 +239,7 @@ export function historyQuickCommands(commandHead) {
         { command: pageCommand(commandHead, 'hisb30'), label: 'B30历史' },
         { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
         { command: pageCommand(commandHead, 'info'), label: '个人信息' },
-        { command: pageCommand(commandHead, 'help'), label: '帮助' },
+        { command: pageRoot(commandHead), label: '帮助' },
     ]
 }
 
@@ -303,7 +249,7 @@ export function suggestQuickCommands(commandHead) {
         { command: pageCommand(commandHead, 'suggest'), label: '刷新建议' },
         { command: pageCommand(commandHead, 'list'), label: '成绩筛选' },
         { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
-        { command: pageCommand(commandHead, 'help'), label: '帮助' },
+        { command: pageRoot(commandHead), label: '帮助' },
     ]
 }
 
@@ -314,7 +260,7 @@ export function chapterQuickCommands(commandHead) {
         { command: pageCommand(commandHead, 'chap help'), label: '章节帮助' },
         { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
         { command: pageCommand(commandHead, 'list'), label: '成绩筛选' },
-        { command: pageCommand(commandHead, 'help'), label: '帮助' },
+        { command: pageRoot(commandHead), label: '帮助' },
     ]
 }
 
@@ -325,7 +271,7 @@ export function achievementQuickCommands(commandHead) {
         { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
         { command: pageCommand(commandHead, 'list'), label: '成绩筛选' },
         { command: pageCommand(commandHead, 'chap ALL'), label: '章节成绩' },
-        { command: pageCommand(commandHead, 'help'), label: '帮助' },
+        { command: pageRoot(commandHead), label: '帮助' },
     ]
 }
 
@@ -346,7 +292,7 @@ export function rankQuickCommands(commandHead) {
         { command: pageCommand(commandHead, 'ranklist'), label: '排行榜' },
         { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
         { command: pageCommand(commandHead, 'info'), label: '个人信息' },
-        { command: pageCommand(commandHead, 'help'), label: '帮助' },
+        { command: pageRoot(commandHead), label: '帮助' },
     ]
 }
 
@@ -359,26 +305,13 @@ export const commonQuickCommands = helpQuickCommands
  */
 export function buildMarketQuickMarkdown(themes, pagination = {}) {
     if (!themes.length) return ''
-    const commandHead = `${PHI_COMMAND_HEAD}`
-    const rows = themes.map(theme => [
-        escapeMarkdownText(theme.name),
-        commandInput(`/${commandHead} market detail ${theme.slug}`, '查看详情'),
-        commandInput(`/${commandHead} market ${theme.slug}`, '使用主题'),
-    ])
-    const table = [
-        `| 名称 | 查看详情 | 使用主题 |`,
-        '| :---: | :---: | :---: |',
-        ...rows.map(row => `| ${row.join(' | ')} |`),
-    ]
     const page = pagination.page || 1
     const pageCount = pagination.pageCount || 1
-    const navigation = pageCount > 1 ? [
+    return [
+        `### 主题市场（第 ${page} / ${pageCount} 页）`,
         '',
-        '***',
-        `| ${page > 1 ? commandInput(`/${commandHead} pr`, '上一页') : '已是首页'} | ${page} / ${pageCount} 页 | ${page < pageCount ? commandInput(`/${commandHead} nx`, '下一页') : '已是末页'} |`,
-        '| :---: | :---: | :---: |',
-    ] : []
-    return ['***', '本页主题快捷操作：', '', ...table, ...navigation].join('\n')
+        `本页共 ${themes.length} 个主题，请使用下方键盘按钮查看详情或切换主题。`,
+    ].join('\n')
 }
 
 /** @param {{slug:string,name:string,botDownloadAllowed:boolean|null}[]} themes @param {{page?:number,pageCount?:number}} pagination */
@@ -386,9 +319,10 @@ function marketQuickCommands(themes, pagination = {}) {
     const commandHead = `${PHI_COMMAND_HEAD}`
     const commands = []
     for (const theme of themes || []) {
+        const name = escapeMarkdownText(theme.name)
         commands.push(
-            { command: `/${commandHead} market detail ${theme.slug}`, label: '查看详情' },
-            { command: `/${commandHead} market ${theme.slug}`, label: '使用主题' },
+            { command: `/${commandHead} market detail ${theme.slug}`, label: `详情：${name}` },
+            { command: `/${commandHead} market ${theme.slug}`, label: `使用：${name}` },
         )
     }
     const page = pagination.page || 1
@@ -407,11 +341,12 @@ function marketQuickCommands(themes, pagination = {}) {
  * @param {{page?:number,pageCount?:number}} [pagination]
  */
 export async function sendMarketQuickCommands(e, themes, pagination = {}, config) {
-    if (!config?.LetterMarkdown) return
+    if (!isOfficialBot(e) || !config?.LetterMarkdown) return
     const markdown = buildMarketQuickMarkdown(themes, pagination)
     if (!markdown) return
     try {
-        const sent = /** @type {{error?: unknown[]}|undefined} */ (await send.reply(e, segment.markdown(markdown), false, quickCommandReplyData(e, marketQuickCommands(themes, pagination))))
+        const message = await createQqMarkdownElement(markdown, quickCommandKeyboard(e, marketQuickCommands(themes, pagination)), send.getAssets?.(), logger)
+        const sent = /** @type {{error?: unknown[]}|undefined} */ (await send.reply(e, message))
         if (sent?.error?.length) logger.warn('[phi-plugin][主题市场] Markdown 发送失败')
     } catch (error) {
         logger.warn('[phi-plugin][主题市场] Markdown 发送失败', error)

@@ -9,8 +9,9 @@ import platform from "../platform/index";
 
 class send {
 
-    static configure(config) {
+    static configure(config, getAssets) {
         this.config = config
+        this.getAssets = getAssets
     }
 
     /**

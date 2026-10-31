@@ -9,7 +9,6 @@ export interface EngineCommandSpec {
 }
 
 export const engineCommands: EngineCommandSpec[] = [
-  { path: 'help', legacy: 'help', app: 'help', method: 'help', description: '查看 Phi 帮助', aliases: ['帮助', '菜单', '命令', '说明', '功能', '指令', '使用说明'] },
   { path: 'tkhelp', legacy: 'tkhelp', app: 'help', method: 'tkhelp', description: '查看 sessionToken 帮助' },
   { path: 'apihelp', legacy: 'api help', app: 'help', method: 'apihelp', description: '查看 API 帮助' },
   { path: 'bind', legacy: 'bind', app: 'session', method: 'bind', description: '绑定 Phi 账号', aliases: ['绑定'] },
