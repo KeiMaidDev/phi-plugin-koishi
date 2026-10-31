@@ -1,7 +1,7 @@
 import { h } from 'koishi'
 import platform from '../platform'
 import { buildQqKeyboard, createQqMarkdownElement, isQqMarkdownPlatform, type QqKeyboard, type QqKeyboardCommand } from '../platform/qq-markdown'
-import { isMarkdownImageUrl, type MarkdownImageAssets, type MarkdownImageLogger } from '../platform/markdown-images'
+import { formatMarkdownImage, getMarkdownImageDimensions, isPublicHttpUrl, type MarkdownImageAssets, type MarkdownImageLogger } from '../platform/markdown-images'
 import logger from '../utils/logger'
 
 const platformApi = platform as any
@@ -86,6 +86,11 @@ export function escapePromptText(value: unknown) {
     .join('\n')
 }
 
+function escapeMarkdownUrl(value: unknown) {
+  return String(value ?? '')
+    .replace(/\s/g, '%20')
+    .replace(/\)/g, '\\)')
+}
 function escapeMarkdownAttribute(value: unknown) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -94,27 +99,18 @@ function escapeMarkdownAttribute(value: unknown) {
     .replace(/>/g, '&gt;')
 }
 
-function escapeMarkdownUrl(value: unknown) {
-  return String(value ?? '')
-    .replace(/\s/g, '%20')
-    .replace(/\)/g, '\\)')
-}
-
-function escapeImageAlt(value: unknown) {
-  return String(value ?? '图片').replace(/\\/g, '\\\\').replace(/\]/g, '\\]').replace(/\r?\n/g, ' ')
-}
 
 function isElement(value: any) {
   return value && typeof value === 'object' && typeof value.type === 'string' && value.attrs && Array.isArray(value.children)
 }
 
 async function resolveImageSource(source: unknown, assets?: MarkdownImageAssets) {
-  if (isMarkdownImageUrl(source)) return source
+  if (isPublicHttpUrl(source)) return source
   if (!assets?.transform) throw new Error('assets service is unavailable')
   const transformed = await assets.transform(String(h.image(source as any)))
   const image = h.parse(transformed).find(element => element.type === 'img')
   const resolved = image?.attrs?.src
-  if (!isMarkdownImageUrl(resolved)) throw new Error('assets transform did not return a public HTTP(S) or qqbot-media URL')
+  if (!isPublicHttpUrl(resolved)) throw new Error('assets transform did not return a public HTTP(S) URL')
   return resolved
 }
 
@@ -140,7 +136,12 @@ async function elementToMarkdown(element: any, assets?: MarkdownImageAssets): Pr
       if (!source) throw new Error('image source is missing')
       const resolved = await resolveImageSource(source, assets)
       const alt = element.attrs?.alt ?? element.attrs?.title ?? '图片'
-      return `![${escapeImageAlt(alt)}](${escapeMarkdownUrl(resolved)})`
+      const width = Number(element.attrs?.width)
+      const height = Number(element.attrs?.height)
+      const dimensions = Number.isInteger(width) && width > 0 && Number.isInteger(height) && height > 0
+        ? { width, height }
+        : await getMarkdownImageDimensions(String(source))
+      return formatMarkdownImage(alt, resolved, dimensions)
     }
     case 'a': {
       const href = element.attrs?.href
