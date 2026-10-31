@@ -40,7 +40,7 @@ export interface QqKeyboard {
 
 const QQ_MARKDOWN_PLATFORMS = new Set(['qq', 'qqguild'])
 const MAX_KEYBOARD_ROWS = 5
-const MAX_KEYBOARD_BUTTONS_PER_ROW = 5
+const DEFAULT_KEYBOARD_BUTTONS_PER_ROW = 2
 
 /** 返回事件所在的 QQ 原生命令平台。 */
 export function getQqPlatform(event: any) {
@@ -81,13 +81,14 @@ function normalizeKeyboardCommands(commands: QqKeyboardCommand[]) {
     return result
 }
 
-/** 构建 QQ 指令/链接键盘；超过 5×5 时按调用方顺序截断。 */
+/** 构建 QQ 指令/链接键盘；固定每行 2 个，超过 5 行时按调用方顺序截断。 */
 export function buildQqKeyboard(
     commands: QqKeyboardCommand[],
     onOverflow?: (count: number) => void,
-    buttonsPerRow = MAX_KEYBOARD_BUTTONS_PER_ROW,
+    _buttonsPerRow = DEFAULT_KEYBOARD_BUTTONS_PER_ROW,
 ) {
-    const columns = Math.max(1, Math.min(MAX_KEYBOARD_BUTTONS_PER_ROW, Math.trunc(buttonsPerRow)))
+    // 快捷按钮统一为每行 2 个；保留第三个参数仅兼容既有调用方。
+    const columns = DEFAULT_KEYBOARD_BUTTONS_PER_ROW
     const maxButtons = MAX_KEYBOARD_ROWS * columns
     let normalized = normalizeKeyboardCommands(commands)
     if (normalized.length > maxButtons) {
