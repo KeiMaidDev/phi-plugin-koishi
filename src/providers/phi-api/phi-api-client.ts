@@ -5,6 +5,7 @@ import botApiAuth from './bot-api-auth'
 import {
     classifyApiConnectionError,
     isApiConnectionError,
+    isRetryableBotRegistrationError,
     PhiApiError,
 } from './phi-api-errors'
 import { isApiVersionBlocked } from './api-version'
@@ -37,7 +38,7 @@ async function request(originalPath, params = {}, method = 'POST', transportOpti
     } catch (/** @type {any} */ error) {
         if (error instanceof PhiApiError) {
             logger.warn(`[phi-plugin] API请求失败 ${originalPath}: ${error.code} (${error.status})`)
-            if (isApiConnectionError(error)) autoSeekApi.seekApi(error)
+            if (isApiConnectionError(error) || isRetryableBotRegistrationError(error)) autoSeekApi.seekApi(error)
             if (error.code === 'binding_disabled') {
                 // 账号所有者禁用了该绑定：内容访问已被拒绝，立即触发一次同步以拉取解绑信号并清除本地数据。
                 Promise.resolve()

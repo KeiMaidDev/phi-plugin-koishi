@@ -13,6 +13,40 @@ export interface EngineRuntime extends PhiRuntime {
     dispose(): Promise<void>
 }
 
+/** 同步更新 Koishi 插件配置，并等待同一个 loader 写盘任务完成。 */
+export async function persistPluginConfig(ctx: Context, config: Config, values: Partial<Config>, signal?: AbortSignal) {
+    if (signal?.aborted) throw new Error('Koishi 配置写回已取消')
+    // 让同一轮事件中的 dispose 有机会先取消，避免在卸载后启动写盘。
+    await new Promise(resolve => setTimeout(resolve, 0))
+    if (signal?.aborted) throw new Error('Koishi 配置写回已取消')
+    Object.assign(config, values)
+    if (signal?.aborted) throw new Error('Koishi 配置写回已取消')
+    const scope = ctx.scope as any
+    if (typeof scope?.update !== 'function') {
+        throw new Error('Koishi 配置作用域不可用')
+    }
+    scope.update({ ...scope.config, ...values }, false)
+    if (signal?.aborted) throw new Error('Koishi 配置写回已取消')
+    // scope.update 只同步更新内存并排入写盘任务；等待同一个任务以确认真实落盘。
+    if (typeof ctx.loader?.writeConfig !== 'function') {
+        throw new Error('Koishi 配置写盘接口不可用')
+    }
+    let lastError: unknown
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        if (signal?.aborted) throw new Error('Koishi 配置写回已取消')
+        try {
+            await ctx.loader.writeConfig()
+            return
+        } catch (error: any) {
+            lastError = error
+            // Windows 上杀毒软件或短生命周期文件句柄可能暂时阻止 rename。
+            if (!['EPERM', 'EBUSY'].includes(String(error?.code || '')) || attempt === 2) throw error
+            await new Promise(resolve => setTimeout(resolve, 25 * (attempt + 1)))
+        }
+    }
+    throw lastError
+}
+
 /** 从旧配置存储恢复已签发的 Bot 身份，避免升级后重复申请并触发注册限流。 */
 function restoreLegacyBotIdentity(ctx: Context, config: Config, configRoot: string) {
     const hasAnyIdentity = Boolean(config.apiBotClientId || config.apiBotClientSecret)
@@ -61,12 +95,8 @@ export async function createEngine(ctx: Context, config: Config, h: typeof H): P
     restoreLegacyBotIdentity(ctx, config, dataRoot)
 
     const runtime: PhiRuntime = { config, data }
-    const updateConfig = (values: Partial<Config>) => {
-        Object.assign(config, values)
-        const scope = ctx.scope as any
-        if (typeof scope?.update === 'function') {
-            scope.update({ ...scope.config, ...values }, false)
-        }
+    const updateConfig = async (values: Partial<Config>, signal?: AbortSignal) => {
+        await persistPluginConfig(ctx, config, values, signal)
     }
 
     const { default: botApiAuth } = require('./providers/phi-api/bot-api-auth.ts')
@@ -117,6 +147,7 @@ export async function createEngine(ctx: Context, config: Config, h: typeof H): P
                 const closers = [
                     () => getInfo.close?.(),
                     () => data.close(),
+                    () => botApiAuth.dispose(),
                     () => autoSeekApi.dispose(),
                     () => adapter.close?.(),
                     async () => require('./utils/file-watcher-registry.ts').default.closeAll(),

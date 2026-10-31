@@ -14,6 +14,7 @@ export class PhiApiError extends Error {
 }
 
 const FATAL_IDENTITY_ERROR_CODES = new Set([
+    'bot_identity_missing',
     'bot_client_unknown',
     'bot_client_revoked',
     'bot_key_version_invalid',
@@ -27,6 +28,11 @@ const CONNECTION_ERROR_CODES = new Set([
     'api_tls_error',
     'api_network_error',
     'api_offline',
+])
+
+const RETRYABLE_BOT_REGISTRATION_ERROR_CODES = new Set([
+    'bot_registration_rate_limited',
+    'invalid_registration_response',
 ])
 
 /** @type {Record<string, string | (() => string)>} */
@@ -46,6 +52,8 @@ const USER_ERROR_MESSAGES = {
     bot_client_revoked: '该Bot身份已被撤销，请Bot主人执行“重置API Bot身份”。',
     bot_key_version_invalid: 'Bot密钥版本已失效，请Bot主人执行“重置API Bot身份”。',
     bot_signature_invalid: 'Bot凭证签名校验失败，请Bot主人执行“重置API Bot身份”。',
+    bot_identity_aborted: 'Bot身份操作已中止，请稍后重试。',
+    bot_identity_recovery_failed: 'Bot身份自动恢复失败，请稍后重试或在私聊执行“重置API Bot身份”。',
     bot_registration_rate_limited: 'Bot身份申请过于频繁，插件稍后会自动重试。',
     invalid_registration_response: 'API返回的Bot身份数据无效，插件稍后会自动重试。',
     theme_store_bot_not_whitelisted: '当前 Bot 未被主题商店授权安装该主题。',
@@ -105,6 +113,11 @@ export function classifyApiConnectionError(error) {
 /** @param {any} error */
 export function isApiConnectionError(error) {
     return CONNECTION_ERROR_CODES.has(String(error?.code || ''))
+}
+
+/** @param {any} error */
+export function isRetryableBotRegistrationError(error) {
+    return RETRYABLE_BOT_REGISTRATION_ERROR_CODES.has(String(error?.code || ''))
 }
 
 /** @param {any} error */

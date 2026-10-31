@@ -6,7 +6,7 @@ import https from 'node:https';
 import axios from "axios";
 import Version from "../../utils/version";
 import botApiAuth from "./bot-api-auth";
-import { classifyApiConnectionError, getPhiApiUserMessage, isFatalBotIdentityError, PhiApiError } from "./phi-api-errors";
+import { classifyApiConnectionError, getPhiApiUserMessage, isApiConnectionError, isFatalBotIdentityError, isRetryableBotRegistrationError, PhiApiError } from "./phi-api-errors";
 import {
   compareApiVersion,
   isApiVersionBlocked,
@@ -303,7 +303,6 @@ export class AutoSeekApi {
       this.state = 'available'
       this.error = null
       this.openPhiPluginApi = true
-      this.retryIndex = 0
       this.cancelRetry()
       this.logger.mark(chalk.green(`API地址测试成功！${data?.id || 'phi-plugin-api'} ${data.version}`))
 
@@ -340,14 +339,26 @@ export class AutoSeekApi {
     this.recoveryGeneration = generation
     this.recoveryAbortController = controller
     const task = Promise.resolve()
-      .then(() => (this.disposed || generation !== this.probeGeneration)
-        ? false
-        : this.recoverOnlineServices(controller?.signal))
+      .then(async () => {
+        if (this.disposed || generation !== this.probeGeneration) return false
+        const result = await this.recoverOnlineServices(controller?.signal)
+        if (!this.disposed && generation === this.probeGeneration && !controller?.signal.aborted) {
+          this.retryIndex = 0
+        }
+        return result
+      })
       .catch(error => {
         if (this.disposed || controller?.signal.aborted) return
         this.logger[isFatalBotIdentityError(error) ? 'error' : 'warn'](
           `[phi-plugin] API已恢复，但Bot身份恢复失败：${error?.code || getPhiApiUserMessage(error)}`
         )
+        const retryable = isApiConnectionError(error) || isRetryableBotRegistrationError(error)
+        if (retryable) {
+          this.state = 'unavailable'
+          this.openPhiPluginApi = false
+          this.error = error
+          this.scheduleRetrySafely()
+        }
       })
       .finally(() => {
         if (this.recoveryAbortController === controller) this.recoveryAbortController = null
