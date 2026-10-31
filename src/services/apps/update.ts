@@ -35,9 +35,12 @@ function createProgressReporter(label) {
     const report = line => {
         const text = line.trim()
         if (!text || !/(\d+%|Receiving objects|Resolving deltas|Counting objects|Compressing objects|remote:)/i.test(text)) return
-        const phase = text.split(":")[0].trim()
+        const phase = text.replace(/^remote:\s*/, "").split(":")[0].trim()
         const percent = text.match(/(\d+)%/)?.[1]
-        const key = percent ? `${phase}:${percent}` : text
+        // 每 10% 区间只保留首次出现的真实进度，避免 Git 每个百分比都刷日志。
+        const bucket = percent ? Math.floor(Number(percent) / 10) : null
+        if (bucket === 0) return
+        const key = bucket ? `${phase}:${bucket}` : text
         if (seen.has(key)) return
         seen.add(key)
         logger.info(`[phi-plugin][曲绘] ${label} ${text}`)
