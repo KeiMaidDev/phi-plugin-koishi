@@ -94,12 +94,12 @@ export class phiMarket extends phiPluginBase {
                     logger.warn(`[phi-plugin][主题市场] 在线目录不可用，已切换本地目录：${error?.code || 'unknown'}`)
                 }
             } else if (apiAccess.message) {
-                send.send_with_At(e, apiAccess.message)
+                send.promptWithAt(e, apiAccess.message)
             }
         }
         catalog ||= getLocalThemeCatalog(query, page)
         const pluginData = await getNotes.getNotesData(e.user_id)
-        await send.send_with_At(e, await picmodle.market(e, {
+        await send.promptWithAt(e, await picmodle.market(e, {
             ...catalog,
             currentTheme: pluginData?.theme || 'default',
             commandHead,
@@ -111,27 +111,27 @@ export class phiMarket extends phiPluginBase {
     /** @param {botEvent} e */
     async marketPage(e) {
         if (await getBanGroup.get(e, 'theme')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
         const commandHead = `${PHI_COMMAND_HEAD}`
         const action = e.msg.replace(new RegExp(`^[#/](${PHI_COMMAND_HEAD})(\\s*)`, 'i'), '').trim().toLowerCase()
         const state = getMarketPageState(e)
         if (!state) {
-            send.send_with_At(e, `请先使用 /${commandHead} market 打开主题市场。`)
+            send.promptWithAt(e, `请先使用 /${commandHead} market 打开主题市场。`)
             return true
         }
         const next = ['nx', '下一页'].includes(action)
         const targetPage = state.page + (next ? 1 : -1)
         if (targetPage < 1 || targetPage > state.pageCount) {
-            send.send_with_At(e, targetPage < 1 ? '已经是主题市场第一页了。' : '已经是主题市场最后一页了。')
+            send.promptWithAt(e, targetPage < 1 ? '已经是主题市场第一页了。' : '已经是主题市场最后一页了。')
             return true
         }
         try {
             await this.renderMarketCatalog(e, state.query, targetPage, state.localOnly)
         } catch (/** @type {any} */ error) {
             logger.warn(`[phi-plugin][主题市场] 翻页加载失败：${error?.code || 'unknown'}`)
-            send.send_with_At(e, '主题市场目录暂时不可用，请稍后重试。')
+            send.promptWithAt(e, '主题市场目录暂时不可用，请稍后重试。')
         }
         return true
     }
@@ -139,7 +139,7 @@ export class phiMarket extends phiPluginBase {
     /** @param {botEvent} e */
     async market(e) {
         if (await getBanGroup.get(e, 'theme')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
         const commandHead = `${PHI_COMMAND_HEAD}`
@@ -161,7 +161,7 @@ export class phiMarket extends phiPluginBase {
                 await this.renderMarketCatalog(e, query, page)
             } catch (/** @type {any} */ error) {
                 logger.warn(`[phi-plugin][主题市场] 目录加载失败：${error?.code || 'unknown'}`)
-                send.send_with_At(e, '主题市场目录暂时不可用，请稍后重试。')
+                send.promptWithAt(e, '主题市场目录暂时不可用，请稍后重试。')
             }
             return true
         }
@@ -173,7 +173,7 @@ export class phiMarket extends phiPluginBase {
             const themeId = exactLocalDetail ? requestedThemeId : requestedThemeId.toLowerCase()
             const localDetail = exactLocalDetail || getLocalThemeDetail(themeId)
             if (!localDetail && !isThemeSlug(themeId)) {
-                send.send_with_At(e, `用法：/${commandHead} market detail <主题slug>`)
+                send.promptWithAt(e, `用法：/${commandHead} market detail <主题slug>`)
                 return true
             }
             try {
@@ -185,7 +185,7 @@ export class phiMarket extends phiPluginBase {
                     ? await getApiAccessState(this.config, e, 'customTheme')
                     : null
                 if (customThemeAccess && !customThemeAccess.enabled) {
-                    if (customThemeAccess.message) send.send_with_At(e, customThemeAccess.message)
+                    if (customThemeAccess.message) send.promptWithAt(e, customThemeAccess.message)
                     if (!localDetail) return true
                 }
                 const shouldFetchOnline = customThemeAccess?.enabled === true && wantsOnlineDetail
@@ -200,7 +200,7 @@ export class phiMarket extends phiPluginBase {
                 }
                 if (!detail) throw new Error('local_theme_not_found')
                 const pluginData = await getNotes.getNotesData(e.user_id)
-                send.send_with_At(e, await picmodle.marketDetail(e, {
+                send.promptWithAt(e, await picmodle.marketDetail(e, {
                     theme: pluginData?.theme || 'default',
                     detail,
                     commandHead,
@@ -211,13 +211,13 @@ export class phiMarket extends phiPluginBase {
                 ], '主题操作', this.config)
             } catch (/** @type {any} */ error) {
                 logger.warn(`[phi-plugin][主题市场] 详情加载失败 ${themeId}：${error?.code || 'unknown'}`)
-                send.send_with_At(e, '未找到该主题，或主题市场暂时不可用。')
+                send.promptWithAt(e, '未找到该主题，或主题市场暂时不可用。')
             }
             return true
         }
 
         if (args.length !== 1 || /\s/.test(raw)) {
-            send.send_with_At(e, `用法：/${commandHead} market [list [关键词] [页码] | detail <主题slug> | <主题slug>]`)
+            send.promptWithAt(e, `用法：/${commandHead} market [list [关键词] [页码] | detail <主题slug> | <主题slug>]`)
             return true
         }
         const requestedThemeId = args[0]
@@ -226,19 +226,19 @@ export class phiMarket extends phiPluginBase {
             : null
         const themeId = localTheme ? requestedThemeId : requestedThemeId.toLowerCase()
         if (!localTheme && !SLUG_RE.test(themeId)) {
-            send.send_with_At(e, '主题 slug 格式无效。')
+            send.promptWithAt(e, '主题 slug 格式无效。')
             return true
         }
         if (!localTheme) {
             const apiAccess = await getApiAccessState(this.config, e, 'customTheme')
             if (!apiAccess.enabled) {
-                send.send_with_At(e, apiAccess.message)
+                send.promptWithAt(e, apiAccess.message)
                 return true
             }
         }
 
         try {
-            send.send_with_At(e, localTheme && !localTheme.marketInstalled
+            send.promptWithAt(e, localTheme && !localTheme.marketInstalled
                 ? `正在启用本地主题 ${themeId}，请稍候。`
                 : `正在校验并启用主题 ${themeId}，首次使用时会自动下载，请稍候。`)
             const result = await themeUseService.use(themeId, { requesterId: getThemeInstallRequesterId(e) })
@@ -246,21 +246,21 @@ export class phiMarket extends phiPluginBase {
             if (typeof pluginData.setThemePreference === 'function') pluginData.setThemePreference(themeId)
             else pluginData.theme = themeId
             if (!getNotes.putNotesData(e.user_id, pluginData)) {
-                send.send_with_At(e, '主题已准备完成，但你的主题设置保存失败，请稍后重试。')
+                send.promptWithAt(e, '主题已准备完成，但你的主题设置保存失败，请稍后重试。')
                 return true
             }
             const actionText = result.local
                 ? '已使用本地主题'
                 : result.cached ? '已使用本地安全缓存' : '已自动下载并完成安全校验'
             const versionText = result.version ? ` ${result.version}` : ''
-            send.send_with_At(e, `主题已启用：${result.theme.name}${versionText}（${actionText}）`)
+            send.promptWithAt(e, `主题已启用：${result.theme.name}${versionText}（${actionText}）`)
             return true
         } catch (error) {
             const caught = /** @type {any} */ (error)
             const code = typeof caught?.code === 'string' && /^[a-z0-9_]{1,80}$/.test(caught.code)
                 ? caught.code : 'theme_install_failed'
             logger.warn(`[phi-plugin][主题市场] ${themeId} 启用失败：${code}`)
-            send.send_with_At(e, marketThemeErrorMessage(error))
+            send.promptWithAt(e, marketThemeErrorMessage(error))
             return true
         }
     }

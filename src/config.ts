@@ -164,7 +164,7 @@ export const Config: Schema<Config> = Schema.intersect([
     allowComment: Schema.boolean().default(true).description("曲目评论"),
     autoPullPhiIll: Schema.boolean().default(false).description("自动更新曲绘"),
     isGuild: Schema.boolean().default(false).description("频道模式"),
-    TapTapLoginQRcode: Schema.boolean().default(true).description("发送绑定二维码"),
+    TapTapLoginQRcode: Schema.boolean().default(true).description("发送 TapTap 登录链接按钮；关闭时发送普通登录链接"),
     SimpleBindReply: Schema.boolean().default(false).description("绑定精简回复(QQ官方bot推荐开启)"),
     LetterMarkdown: Schema.boolean().default(true).description("交互式Markdown消息"),
     mutiNickWaitTimeOut: Schema.number().min(5).max(999).default(10).description("多个曲目回复序号等待时长，单位：秒"),

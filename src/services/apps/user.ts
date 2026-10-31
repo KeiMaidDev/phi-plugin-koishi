@@ -70,7 +70,7 @@ export class phiuser extends phiPluginBase {
     async data(e) {
 
         if (await getBanGroup.get(e, 'data')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -82,9 +82,9 @@ export class phiuser extends phiPluginBase {
         }
         if (save.gameProgress) {
             let data = save.gameProgress.money
-            send.send_with_At(e, `您的data数为：${data[4] ? `${data[4]}PB ` : ''}${data[3] ? `${data[3]}TB ` : ''}${data[2] ? `${data[2]}GB ` : ''}${data[1] ? `${data[1]}MB ` : ''}${data[0] ? `${data[0]}KB ` : ''}`)
+            send.promptWithAt(e, `您的data数为：${data[4] ? `${data[4]}PB ` : ''}${data[3] ? `${data[3]}TB ` : ''}${data[2] ? `${data[2]}GB ` : ''}${data[1] ? `${data[1]}MB ` : ''}${data[0] ? `${data[0]}KB ` : ''}`)
         } else {
-            send.send_with_At(e, `请先更新数据哦！\n/${PHI_COMMAND_HEAD} update`)
+            send.promptWithAt(e, `请先更新数据哦！\n/${PHI_COMMAND_HEAD} update`)
         }
         return true
     }
@@ -97,7 +97,7 @@ export class phiuser extends phiPluginBase {
         const credentials = UserCredentials.fromEvent(e)
 
         if (await getBanGroup.get(e, 'info')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
         /**背景 */
@@ -130,7 +130,7 @@ export class phiuser extends phiPluginBase {
         let userbackground = await fCompute.getBackground(save.gameuser.background)
 
         if (!userbackground) {
-            send.reply(e, `ERROR: 未找到[${save.gameuser.background}]的有关信息！`)
+            send.prompt(e, `ERROR: 未找到[${save.gameuser.background}]的有关信息！`)
             logger.error(`未找到${save.gameuser.background}对应的曲绘！`)
         }
 
@@ -164,7 +164,7 @@ export class phiuser extends phiPluginBase {
         }
 
         if (!user_data) {
-            send.send_with_At(e, '没有找到可用的历史记录，请先更新存档。')
+            send.promptWithAt(e, '没有找到可用的历史记录，请先更新存档。')
             return true
         }
         let { rks_history, data_history, rks_range, data_range, rks_date, data_date } = user_data.getRksAndDataLine()
@@ -284,7 +284,7 @@ export class phiuser extends phiPluginBase {
 
         const infoVersion = e.msg.match(new RegExp(`^[#/](?:${PHI_COMMAND_HEAD})\\s*info([12])?`, 'i'))?.at(-1)
         const kind = Number(infoVersion || 0)
-        send.send_with_At(e, await picmodle.user_info(e, data, kind))
+        send.promptWithAt(e, await picmodle.user_info(e, data, kind))
     }
 
     /**
@@ -294,7 +294,7 @@ export class phiuser extends phiPluginBase {
     async lvscore(e) {
 
         if (await getBanGroup.get(e, 'lvscore')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -449,7 +449,7 @@ export class phiuser extends phiPluginBase {
         let illustration = await fCompute.getBackground(save.gameuser.background)
 
         if (!illustration) {
-            send.reply(e, `ERROR: 未找到[${save.gameuser.background}]背景的有关信息！`)
+            send.prompt(e, `ERROR: 未找到[${save.gameuser.background}]背景的有关信息！`)
             logger.error(`未找到${save.gameuser.background}的曲绘！`)
         }
 
@@ -510,7 +510,7 @@ export class phiuser extends phiPluginBase {
         // remsg += `φ:${totRating['phi']} FC:${totRating['FC']} V:${totRating['V']} S:${totRating['S']} A:${totRating['A']} B:${totRating['B']} C:${totRating['C']} F:${totRating['F']}`
 
 
-        send.send_with_At(e, await picmodle.lvsco(e, data))
+        send.promptWithAt(e, await picmodle.lvsco(e, data))
     }
 
     /**
@@ -520,7 +520,7 @@ export class phiuser extends phiPluginBase {
     async list(e) {
 
         if (await getBanGroup.get(e, 'list')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -622,7 +622,7 @@ export class phiuser extends phiPluginBase {
         }
 
         if (data.length > this.config.listScoreMaxNum) {
-            send.send_with_At(e, `谱面数量过多(${data.length})大于设置的最大值(${this.config.listScoreMaxNum})，请缩小搜索范围QAQ！`)
+            send.promptWithAt(e, `谱面数量过多(${data.length})大于设置的最大值(${this.config.listScoreMaxNum})，请缩小搜索范围QAQ！`)
             return true
         }
 
@@ -638,7 +638,7 @@ export class phiuser extends phiPluginBase {
         request.push(`ACC ${acc_range[0]}-${acc_range[1]}`);
 
 
-        send.send_with_At(e, await picmodle.list(e, {
+        send.promptWithAt(e, await picmodle.list(e, {
             head_title: "成绩筛选",
             song: data,
             background: getInfo.getill(illList[fCompute.randInt(0, illList.length - 1)]),
@@ -665,7 +665,7 @@ export class phiuser extends phiPluginBase {
 
 
         if (await getBanGroup.get(e, 'analyze2025SaveHistory')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -684,7 +684,7 @@ export class phiuser extends phiPluginBase {
 
         const stats = analyzeSaveHistory(history);
 
-        send.send_with_At(e, await picmodle.analyzeSaveHistory(e, {
+        send.promptWithAt(e, await picmodle.analyzeSaveHistory(e, {
             stats,
             background: getInfo.getill(getInfo.illlist[fCompute.randInt(0, getInfo.illlist.length - 1)]),
         }));
@@ -699,7 +699,7 @@ export class phiuser extends phiPluginBase {
     async hisb30(e) {
         const credentials = UserCredentials.fromEvent(e)
         if (await getBanGroup.get(e, 'hisb30')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -974,7 +974,7 @@ export class phiuser extends phiPluginBase {
             // dan: dan,
         }
 
-        send.send_with_At(e, await picmodle.common(e, 'historyB30', {
+        send.promptWithAt(e, await picmodle.common(e, 'historyB30', {
             gameuser,
             rows,
             background: getInfo.getill(illList[fCompute.randInt(0, illList.length - 1)]),
@@ -1017,5 +1017,3 @@ function Rate(real_score, tot_score, fc) {
         return 'F'
     }
 }
-
-

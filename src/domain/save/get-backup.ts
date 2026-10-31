@@ -169,10 +169,10 @@ export default class getBackup {
         let bar = undefined
         let list = fs.readdirSync(savePath)
         if (list.length >= MaxNum) {
-            send.send_with_At(e, `存档数量过多，请手动备份 /data/saveData/ 目录！`)
+            send.promptWithAt(e, `存档数量过多，请手动备份 /data/saveData/ 目录！`)
             console.error('[phi-plugin] 存档数量过多，请手动备份 /data/saveData/ 目录！')
         } else {
-            send.send_with_At(e, '开始备份存档，请稍等...')
+            send.promptWithAt(e, '开始备份存档，请稍等...')
             console.info('[phi-plugin][backup] 开始备份存档...')
             bar = new ProgressBar('[phi-plugin] 存档备份中', 20)
             list.forEach((folderName, index, array) => {
@@ -192,10 +192,10 @@ export default class getBackup {
         /**data目录下plugin数据 */
         list = fs.readdirSync(pluginDataPath)
         if (list.length >= MaxNum) {
-            send.send_with_At(e, `插件数据数量过多，请手动备份 /data/pluginData/ 目录！`)
+            send.promptWithAt(e, `插件数据数量过多，请手动备份 /data/pluginData/ 目录！`)
             console.error('[phi-plugin] 插件数据数量过多，请手动备份 /data/pluginData/ 目录！')
         } else {
-            send.send_with_At(e, '开始备份插件数据，请稍等...')
+            send.promptWithAt(e, '开始备份插件数据，请稍等...')
             console.info('\n[phi-plugin][backup] 开始备份插件数据...')
             bar = new ProgressBar('[phi-plugin] 插件数据备份中', 20)
             list.forEach((fileName, index, array) => { //遍历检测目录中的文件
@@ -210,7 +210,7 @@ export default class getBackup {
             });
         }
         /**提取redis中user_id数据 */
-        send.send_with_At(e, '开始备份user_token，请稍等...')
+        send.promptWithAt(e, '开始备份user_token，请稍等...')
         console.info('\n[phi-plugin][backup] 开始备份user_token数据...')
         /**
          * 获取user_token
@@ -228,14 +228,14 @@ export default class getBackup {
             // 递归创建目录
             fs.mkdirSync(backupPath, { recursive: true });
         }
-        send.send_with_At(e, '开始压缩备份数据，请稍等...')
+        send.promptWithAt(e, '开始压缩备份数据，请稍等...')
         console.info('\n[phi-plugin][backup] 开始压缩备份数据...')
         const outputPath = path.join(backupPath, zipName)
         try {
             await withMarketInstallLock(async () => {
                 const themeBackup = addThemesToBackup(zip)
                 if (themeBackup.themes) {
-                    send.send_with_At(e, `已加入 ${themeBackup.themes} 个主题到备份`)
+                    send.promptWithAt(e, `已加入 ${themeBackup.themes} 个主题到备份`)
                     logger.info(`[phi-plugin][backup] 已加入 ${themeBackup.themes} 个主题、${themeBackup.files} 个文件`)
                 }
                 await new Promise((resolve, reject) => {
@@ -252,7 +252,7 @@ export default class getBackup {
             throw error
         }
         console.info('[phi-plugin]备份完成' + outputPath)
-        send.send_with_At(e, `${zipName.replace(".zip", '')} 成功备份到 ./backup 目录下`)
+        send.promptWithAt(e, `${zipName.replace(".zip", '')} 成功备份到 ./backup 目录下`)
         if (e.msg.replace(/^[#/].*backup/, '').includes('back')) {
             await fCompute.sendFile(e, outputPath, zipName)
         }

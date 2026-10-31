@@ -43,7 +43,7 @@ export class phiTheoryTable extends phiPluginBase {
      */
     async theoryTable(e) {
         if (await getBanGroup.get(e, 'b19')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -57,7 +57,7 @@ export class phiTheoryTable extends phiPluginBase {
                 verCode = Number(matchVersion)
             }
             if (!verCode || !getInfo.versionInfoByCode[`${verCode}`]) {
-                send.send_with_At(e, `未找到版本 ${matchVersion} 的相关信息QAQ！`)
+                send.promptWithAt(e, `未找到版本 ${matchVersion} 的相关信息QAQ！`)
                 return true
             }
         } else {
@@ -67,13 +67,13 @@ export class phiTheoryTable extends phiPluginBase {
         const versionInfo = getInfo.versionInfoByCode[`${verCode}`]
         if (!versionInfo) {
             console.error(`[phi-plugin] 版本信息获取失败，versionCode: ${verCode}`)
-            send.send_with_At(e, `发生未知错误QAQ！请回报管理员！`)
+            send.promptWithAt(e, `发生未知错误QAQ！请回报管理员！`)
             return true
         }
 
         const charts = getVersionCharts(verCode)
         if (!charts.length) {
-            send.send_with_At(e, `未能获取版本 ${versionInfo.version_label} 的定数表QAQ！`)
+            send.promptWithAt(e, `未能获取版本 ${versionInfo.version_label} 的定数表QAQ！`)
             return true
         }
 
@@ -97,7 +97,7 @@ export class phiTheoryTable extends phiPluginBase {
         const plugin_data = await getNotes.getNotesData(e.user_id)
 
         if (!this.config.isGuild)
-            send.reply(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
+            send.prompt(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
 
         /**各难度谱面数量，满分模拟下C/FC/Phi与总数一致 */
         const stats = Level.map(lv => {
@@ -141,7 +141,7 @@ export class phiTheoryTable extends phiPluginBase {
             spInfo,
         }
 
-        send.send_with_At(e, await picmodle.b19(e, data))
+        send.promptWithAt(e, await picmodle.b19(e, data))
         return true
     }
 }

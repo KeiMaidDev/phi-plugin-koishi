@@ -83,9 +83,9 @@ export class phiset extends phiPluginBase {
         }
         try {
             await picmodle.restart()
-            send.send_with_At(e, 'Koishi 模式下 Puppeteer 由共享服务托管，请在控制台重启 koishi-plugin-puppeteer。')
+            send.promptWithAt(e, 'Koishi 模式下 Puppeteer 由共享服务托管，请在控制台重启 koishi-plugin-puppeteer。')
         } catch (err) {
-            send.send_with_At(e, err)
+            send.promptWithAt(e, err)
         }
     }
 
@@ -98,13 +98,13 @@ export class phiset extends phiPluginBase {
         if (!e.isMaster) {
             return false
         }
-        send.send_with_At(e, '开始备份，请稍等...')
+        send.promptWithAt(e, '开始备份，请稍等...')
         setTimeout(async () => {
             try {
                 await getBackup.backup(e)
             } catch (err) {
                 logger.info(err)
-                send.send_with_At(e, err)
+                send.promptWithAt(e, err)
             }
         }, 100);
         return true
@@ -124,11 +124,11 @@ export class phiset extends phiPluginBase {
             for (let i in fs.readdirSync(backupPath)) {
                 msg += `[${i}]${fs.readdirSync(backupPath)[i]}\n`
             }
-            send.send_with_At(e, '请选择需要恢复的备份文件：\n' + msg)
+            send.promptWithAt(e, '请选择需要恢复的备份文件：\n' + msg)
             this.setContext('doRestore', false, 30, '超时已取消，请注意 @Bot 进行回复哦！')
         } catch (err) {
             logger.info(err)
-            send.send_with_At(e, err)
+            send.promptWithAt(e, err)
         }
 
     }
@@ -143,10 +143,10 @@ export class phiset extends phiPluginBase {
             let fileName = fs.readdirSync(backupPath)[Number(e.msg.replace(/\s*/g, ''))]
             let filePath = path.join(backupPath, fileName)
             await getBackup.restore(filePath)
-            send.send_with_At(e, `[${e.msg}] ${fs.readdirSync(backupPath).reverse()[Number(e.msg.replace(/\s*/g, ''))]} 恢复成功`)
+            send.promptWithAt(e, `[${e.msg}] ${fs.readdirSync(backupPath).reverse()[Number(e.msg.replace(/\s*/g, ''))]} 恢复成功`)
         } catch (err) {
             logger.info(err)
-            send.send_with_At(e, [`第[${e.msg}]项不存在QAQ！`, err])
+            send.promptWithAt(e, [`第[${e.msg}]项不存在QAQ！`, err])
         }
         this.finish('doRestore', false)
     }
@@ -162,11 +162,11 @@ export class phiset extends phiPluginBase {
         }
         let msg = Number(e.msg.match(/[0-9]*$/)?.[0])
         if (!msg || msg < 1) {
-            send.send_with_At(e, '请输入正确的序号哦！')
+            send.promptWithAt(e, '请输入正确的序号哦！')
             return false
         }
         let token = await getRksRank.getRankUser(msg - 1, msg)
-        send.send_with_At(e, token)
+        send.promptWithAt(e, token)
     }
 
     /**
@@ -180,14 +180,14 @@ export class phiset extends phiPluginBase {
         }
         let msg = e.msg.match(/[0-9a-zA-Z]{25}$/)?.[0]
         if (!msg) {
-            send.send_with_At(e, '请输入正确的sessionToken哦！')
+            send.promptWithAt(e, '请输入正确的sessionToken哦！')
             return false
         }
         /**@type {phigrosToken} */
         const sessionToken = /** @type {any} */ (msg);
         await getSave.deleteSaveBySessionToken(sessionToken)
         await userCredentialStore.banSessionToken(sessionToken)
-        send.send_with_At(e, '成功')
+        send.promptWithAt(e, '成功')
     }
 
     /**
@@ -201,13 +201,13 @@ export class phiset extends phiPluginBase {
         }
         let msg = e.msg.match(/[0-9a-zA-Z]{25}$/)?.[0]
         if (!msg) {
-            send.send_with_At(e, '请输入正确的sessionToken哦！')
+            send.promptWithAt(e, '请输入正确的sessionToken哦！')
             return false
         }
         /**@type {phigrosToken} */
         const sessionToken = /** @type {any} */ (msg);
         await userCredentialStore.allowSessionToken(sessionToken)
-        send.send_with_At(e, '成功')
+        send.promptWithAt(e, '成功')
     }
 
     /**
@@ -220,7 +220,7 @@ export class phiset extends phiPluginBase {
             return false
         }
         if (!e.group_id) {
-            send.send_with_At(e, '请在群聊中使用呐！')
+            send.promptWithAt(e, '请在群聊中使用呐！')
             return false
         }
 
@@ -245,7 +245,7 @@ export class phiset extends phiPluginBase {
             }
         }
         // console.info(await redis.keys(`${redisPath}:banGroup:*`))
-        send.send_with_At(e, `当前: ${e.group_id}\n已禁用:\n${(
+        send.promptWithAt(e, `当前: ${e.group_id}\n已禁用:\n${(
             // @ts-ignore
             await redis.keys(`${redisPath}:banGroup:${e.group_id}:*`)
         ).join('\n').replace(new RegExp(`${redisPath}:banGroup:${e.group_id}:`, 'g'), '')}`)
@@ -261,7 +261,7 @@ export class phiset extends phiPluginBase {
             return false
         }
         if (!e.group_id) {
-            send.send_with_At(e, '请在群聊中使用呐！')
+            send.promptWithAt(e, '请在群聊中使用呐！')
             return false
         }
         let msg = e.msg.replace(/^.*unban\s*/, '');
@@ -285,7 +285,7 @@ export class phiset extends phiPluginBase {
             }
         }
         // console.info(await redis.keys(`${redisPath}:banGroup:*`))
-        send.send_with_At(e, `当前: ${e.group_id}\n已禁用:\n${(
+        send.promptWithAt(e, `当前: ${e.group_id}\n已禁用:\n${(
             // @ts-ignore
             await redis.keys(`${redisPath}:banGroup:${e.group_id}:*`)
         ).join('\n').replace(new RegExp(`${redisPath}:banGroup:${e.group_id}:`, 'g'), '')}`)

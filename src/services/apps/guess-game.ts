@@ -110,11 +110,11 @@ export class phiGames extends phiPluginBase {
         const matched = String(e.msg ?? '').match(new RegExp(`^[#/](${head})(\\s*)(?:${games})$`))
         const msg = matched?.slice(3).find(value => value !== undefined) ?? ''
         if (!e.group_id) {
-            send.send_with_At(e, '请在群聊中使用这个功能嗷！')
+            send.promptWithAt(e, '请在群聊中使用这个功能嗷！')
             return false
         }
         if (gameList[e.group_id]) {
-            send.send_with_At(e, `当前存在其他未结束的游戏嗷！如果想要开启新游戏请 /${PHI_COMMAND_HEAD} ans 结束进行的游戏嗷！`)
+            send.promptWithAt(e, `当前存在其他未结束的游戏嗷！如果想要开启新游戏请 /${PHI_COMMAND_HEAD} ans 结束进行的游戏嗷！`)
             return false
         }
         if (!msg) {
@@ -127,7 +127,7 @@ export class phiGames extends phiPluginBase {
             case "提示猜曲": {
 
                 if (await getBanGroup.get(e, 'tipgame')) {
-                    send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+                    send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
                     return false
                 }
 
@@ -137,7 +137,7 @@ export class phiGames extends phiPluginBase {
             case "猜曲绘": {
 
                 if (await getBanGroup.get(e, 'guessgame')) {
-                    send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+                    send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
                     return false
                 }
 
@@ -149,7 +149,7 @@ export class phiGames extends phiPluginBase {
             case "fri": {
 
                 if (await getBanGroup.get(e, 'fribgame')) {
-                    send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+                    send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
                     return false
                 }
 
@@ -159,7 +159,7 @@ export class phiGames extends phiPluginBase {
                 if (gameName.startsWith("ltr") || gameName.startsWith("letter") || gameName.startsWith("开字母")) {
 
                     if (await getBanGroup.get(e, 'ltrgame')) {
-                        send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+                        send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
                         return false
                     }
 
@@ -178,7 +178,7 @@ export class phiGames extends phiPluginBase {
      */
     async reveal(e) {
         if (!e.isGroup || !e.group_id) {
-            send.send_with_At(e, '请在群聊中使用这个功能嗷！')
+            send.promptWithAt(e, '请在群聊中使用这个功能嗷！')
             return false
         }
         if (gameList[e.group_id]?.gameType !== 'guessLetter') return false
@@ -280,7 +280,7 @@ export class phiGames extends phiPluginBase {
                     return await this.frib19.ans(e, gameList)
                 }
                 default: {
-                    send.reply(e, `当前没有进行中的游戏嗷！`)
+                    send.prompt(e, `当前没有进行中的游戏嗷！`)
                     return false
                 }
             }

@@ -12,7 +12,7 @@ import phiPluginBase from '../base-class';
 import getNotes from '../../domain/user/get-notes'
 import getInfo from '../../domain/game/get-info'
 import { getApiAccessState } from '../../domain/user/api-permission'
-import { sendQuickCommands, helpQuickCommands, apiHelpQuickCommands } from '../../domain/game/markdown'
+import { buildHelpMenuMarkdown, helpQuickCommands, apiHelpQuickCommands, isOfficialBot, sendQuickCommandMarkdown } from '../../domain/game/markdown'
 
 /**@import {botEvent} from '../base-class' */
 
@@ -66,22 +66,26 @@ export class phihelp extends phiPluginBase {
     async help(e) {
 
         if (await getBanGroup.get(e, 'help')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
-        const helpData = await loadHelpData()
         let head = PHI_COMMAND_HEAD
         head = head.match(RegExp(head))[0]
+        if (this.config.LetterMarkdown && isOfficialBot(e)) {
+            const markdown = buildHelpMenuMarkdown('Phi-plugin', '这是一个查询 Phigros 成绩及相关信息的功能。')
+            await sendQuickCommandMarkdown(e, markdown, helpQuickCommands(head || PHI_COMMAND_HEAD), this.config, 2)
+            return true
+        }
+        const helpData = await loadHelpData()
         let pluginData = await getNotes.getNotesData(e.user_id)
-        send.reply(e, await picmodle.help(e, {
+        send.prompt(e, await picmodle.help(e, {
             helpGroup: helpData.helpGroup,
             cmdHead: head || null,
             isMaster: e.isMaster,
             background: getInfo.getill(getInfo.illlist[Math.floor((Math.random() * (getInfo.illlist.length - 1)))]),
             theme: pluginData?.theme || 'star'
         }), true)
-        await sendQuickCommands(e, helpQuickCommands(head || PHI_COMMAND_HEAD), '帮助页常用操作', this.config)
         return true
     }
 
@@ -93,11 +97,11 @@ export class phihelp extends phiPluginBase {
     async tkhelp(e) {
 
         if (await getBanGroup.get(e, 'tkhelp')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
-        send.send_with_At(e, `sessionToken有关帮助：\n【推荐】：扫码登录TapTap获取token\n指令：/${PHI_COMMAND_HEAD} bind qrcode\n【基础方法】详见《Phigros非官方查分指引》：https://kdocs.cn/l/cvMDjWPTNaz4\n绑定sessionToken指令：\n/${PHI_COMMAND_HEAD} bind <sessionToken>`)
+        send.promptWithAt(e, `sessionToken有关帮助：\n【推荐】：点击登录链接绑定 TapTap 获取token\n指令：/${PHI_COMMAND_HEAD} bind qrcode\n【基础方法】详见《Phigros非官方查分指引》：https://kdocs.cn/l/cvMDjWPTNaz4\n绑定sessionToken指令：\n/${PHI_COMMAND_HEAD} bind <sessionToken>`, { kind: 'info', actions: [{ command: `/${PHI_COMMAND_HEAD} bind qrcode`, label: 'TapTap' }] })
     }
 
     /**
@@ -108,27 +112,31 @@ export class phihelp extends phiPluginBase {
     async apihelp(e) {
 
         // if (await getBanGroup.get(e, 'apihelp')) {
-        //     send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+        //     send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
         //     return false
         // }
         const apiAccess = await getApiAccessState(this.config, e)
         if (!apiAccess.enabled) {
-            send.send_with_At(e, apiAccess.message)
+            send.promptWithAt(e, apiAccess.message)
             return false
         }
-        if (apiAccess.warning) send.send_with_At(e, apiAccess.warning)
+        if (apiAccess.warning) send.promptWithAt(e, apiAccess.warning)
 
-        const helpData = await loadHelpData()
         let head = PHI_COMMAND_HEAD
         head = head.match(RegExp(head))[0]
+        if (this.config.LetterMarkdown && isOfficialBot(e)) {
+            const markdown = buildHelpMenuMarkdown('Phi Online API', '在线查分、账户绑定与 API 数据管理。')
+            await sendQuickCommandMarkdown(e, markdown, apiHelpQuickCommands(head || PHI_COMMAND_HEAD), this.config, 2)
+            return true
+        }
+        const helpData = await loadHelpData()
         let pluginData = await getNotes.getNotesData(e.user_id)
-        send.reply(e, await picmodle.help(e, {
+        send.prompt(e, await picmodle.help(e, {
             helpGroup: helpData.apiHelp,
             cmdHead: head || null,
             isMaster: e.isMaster,
             background: getInfo.getill(getInfo.illlist[Math.floor((Math.random() * (getInfo.illlist.length - 1)))]),
             theme: pluginData?.theme || 'star'
         }), true)
-        await sendQuickCommands(e, apiHelpQuickCommands(head || PHI_COMMAND_HEAD), 'API帮助快捷操作', this.config)
     }
 }

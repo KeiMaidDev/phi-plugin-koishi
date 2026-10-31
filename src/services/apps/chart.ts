@@ -381,7 +381,7 @@ export class phihelp extends phiPluginBase {
   async chart(e) {
 
     if (await getBanGroup.get(e, 'chart')) {
-      send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+      send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
       return false
     }
 
@@ -399,13 +399,13 @@ export class phihelp extends phiPluginBase {
    */
   async tag(e) {
     if (await getBanGroup.get(e, 'tag')) {
-      send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+      send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
       return false
     }
 
     const apiAccess = await getApiAccessState(this.config, e, 'scoreStatistics')
     if (!apiAccess.enabled) {
-      send.send_with_At(e, apiAccess.message)
+      send.promptWithAt(e, apiAccess.message)
       return false
     }
 
@@ -424,13 +424,13 @@ export class phihelp extends phiPluginBase {
   async settag(e) {
     const credentials = UserCredentials.fromEvent(e)
     if (await getBanGroup.get(e, 'tag')) {
-      send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+      send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
       return false
     }
 
     const apiAccess = await getApiAccessState(this.config, e)
     if (!apiAccess.enabled) {
-      send.send_with_At(e, apiAccess.message)
+      send.promptWithAt(e, apiAccess.message)
       return false
     }
 
@@ -442,7 +442,7 @@ export class phihelp extends phiPluginBase {
 
     const sessionToken = await credentials.getSessionToken()
     if (!sessionToken) {
-      send.send_with_At(e, '权限不足，请尝试扫码登录或使用sessionToken进行绑定哦~', true);
+      send.promptWithAt(e, '权限不足，请尝试使用登录链接或 sessionToken 进行绑定哦~', { quote: true, kind: 'error', actions: [{ command: `/${PHI_COMMAND_HEAD} bind qrcode`, label: 'TapTap' }] });
       return false;
     }
 
@@ -463,7 +463,7 @@ export class phihelp extends phiPluginBase {
       this.getMicInfoFromMsg(e, /[#/](.*?)(settag)(\s*)/, ['rank'], { sessionToken, tagTree }, async (e, id, optObj) => {
         const timeout = Number(this.config.mutiNickWaitTimeOut) || 0
         setSetTagState(String(e.user_id), { id, rank: optObj.rank, sessionToken, tagTree }, timeout)
-        send.send_with_At(e, formatTagCategoryMenu(tagTree), true);
+        send.promptWithAt(e, formatTagCategoryMenu(tagTree), true);
         setContext(this, 'settagCategory', false, timeout, '操作超时已取消，请重新使用 /settag。')
       })
       return true;
@@ -476,7 +476,7 @@ export class phihelp extends phiPluginBase {
       this.getMicInfoFromMsg(cleanEvent, /[#/](.*?)(settag)(\s*)/, ['rank'], { sessionToken }, async (e, id, optObj) => {
         const timeout = Number(this.config.mutiNickWaitTimeOut) || 0
         setSetTagState(String(e.user_id), { id, rank: optObj.rank, sessionToken, category: categorySelection.category }, timeout)
-        send.send_with_At(e, formatTagChildMenu(categorySelection.category), true);
+        send.promptWithAt(e, formatTagChildMenu(categorySelection.category), true);
         setContext(this, 'settagChild', false, timeout, '操作超时已取消，请重新使用 /settag。')
       })
       return true;
@@ -505,12 +505,12 @@ export class phihelp extends phiPluginBase {
 
     const categorySelection = findCategorySelection(this.e.msg, state.tagTree ?? [])
     if (!categorySelection) {
-      send.send_with_At(this.e, formatTagCategoryMenu(state.tagTree ?? []), true)
+      send.promptWithAt(this.e, formatTagCategoryMenu(state.tagTree ?? []), true)
       return false
     }
 
     state.category = categorySelection.category
-    send.send_with_At(this.e, formatTagChildMenu(categorySelection.category), true)
+    send.promptWithAt(this.e, formatTagChildMenu(categorySelection.category), true)
     finishContext(this, 'settagCategory', false)
     const timeout = Number(this.config.mutiNickWaitTimeOut) || 0
     setSetTagState(userId, state, timeout)
@@ -533,7 +533,7 @@ export class phihelp extends phiPluginBase {
 
     const childSelections = findChildSelections(this.e.msg, state.category)
     if (!childSelections.length) {
-      send.send_with_At(this.e, formatTagChildMenu(state.category), true)
+      send.promptWithAt(this.e, formatTagChildMenu(state.category), true)
       return false
     }
 
@@ -612,7 +612,7 @@ async function getChartImg(e, id, options, config) {
     chartImg: getInfo.getChartImg(info.id, rank),
   });
 
-  await send.send_with_At(e, [img, `${info.song} - ${rank}\n谱师：${info.chart[rank].charter}`])
+  await send.promptWithAt(e, [img, `${info.song} - ${rank}\n谱师：${info.chart[rank].charter}`])
   const commandHead = PHI_COMMAND_HEAD
   await sendQuickCommands(e, [
     { command: `/${commandHead} chart ${info.id} ${rank}`, label: '其他难度' },
@@ -682,7 +682,7 @@ async function getChartTags(e, id, options, config) {
     })
   });
 
-  await send.send_with_At(e, resMsg.join('\n'));
+  await send.promptWithAt(e, resMsg.join('\n'));
   const commandHead = PHI_COMMAND_HEAD
   await sendQuickCommands(e, [
     { command: `/${commandHead} chart ${info.id} ${rank}`, label: '查看谱面' },

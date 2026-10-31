@@ -44,6 +44,14 @@ async function invokeRootHelp(runtime: EngineRuntime, session: any) {
   return typeof result === 'boolean' ? undefined : result
 }
 
+async function sendCommandResult(runtime: EngineRuntime, session: any, result: any, kind?: 'info' | 'error') {
+  if (typeof result !== 'string' || !result) return typeof result === 'boolean' ? undefined : result
+  const event = runtime.adapter.fromSession(session)
+  const { default: send } = await import('../render/send')
+  await send.prompt(event, result, { kind })
+  return undefined
+}
+
 export function registerEngineCommands(ctx: Context, runtime: EngineRuntime) {
   const root = ctx.command('phi', 'Phi 相关功能', { slash: false, checkArgCount: true })
 
@@ -56,10 +64,11 @@ export function registerEngineCommands(ctx: Context, runtime: EngineRuntime) {
     command.action(async (argv) => {
       try {
         const result = await invokeEngine(runtime, spec, argv.session)
-        return typeof result === 'boolean' ? undefined : result
+        return await sendCommandResult(runtime, argv.session, result)
       } catch (error) {
         ctx.logger('phi-plugin').error(error)
-        return `Phi 功能执行失败：${error instanceof Error ? error.message : String(error)}`
+        const message = `Phi 功能执行失败：${error instanceof Error ? error.message : String(error)}`
+        await sendCommandResult(runtime, argv.session, message, 'error')
       }
     })
   }
@@ -69,10 +78,12 @@ export function registerEngineCommands(ctx: Context, runtime: EngineRuntime) {
 
   root.action(async (argv) => {
     try {
-      return await invokeRootHelp(runtime, argv.session)
+      const result = await invokeRootHelp(runtime, argv.session)
+      return await sendCommandResult(runtime, argv.session, result)
     } catch (error) {
       ctx.logger('phi-plugin').error(error)
-      return `Phi 功能执行失败：${error instanceof Error ? error.message : String(error)}`
+      const message = `Phi 功能执行失败：${error instanceof Error ? error.message : String(error)}`
+      await sendCommandResult(runtime, argv.session, message, 'error')
     }
   })
 }

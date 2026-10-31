@@ -2,7 +2,7 @@
 import saveHistory from '../../domain/save/save-history';
 import phiApiClient from './phi-api-client';
 import logger from '../../utils/logger';
-import platform from '../../platform/index';
+import { sendPromptWithAt } from '../../render/prompt';
 import { APII18NCN } from '../../domain/game/const-num';
 import { getPhiApiUserMessage, hasPhiApiUserMessage } from './phi-api-errors';
 
@@ -414,11 +414,10 @@ export default class makeRequest {
 
         if (notifyUser && userMessage) {
             const prefix = errorPrefix ? `${errorPrefix}\n` : ''
-            platform.sendWithAt(
-                platform.wrapEvent(event),
+            sendPromptWithAt(
+                event,
                 `${prefix}${userMessage || `错误信息：${errorMessage}`}`,
-                false,
-                {},
+                { kind: 'error' },
             )
         }
         if (logTag) logger[loggerLevel](`[phi-plugin] ${logTag}`, error)

@@ -100,7 +100,7 @@ export class phib19 extends phiPluginBase {
         const credentials = UserCredentials.fromEvent(e)
 
         if (await getBanGroup.get(e, 'b19')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
         let save;
@@ -116,7 +116,7 @@ export class phib19 extends phiPluginBase {
                 save = await credentials.getCloudSaveByApiId(otherId);
                 if (!save) throw new Error('API未返回存档')
             } catch (err) {
-                send.send_with_At(e, `获取用户 ${otherId} 的存档失败！请确认该用户公开了存档且ID正确喵！\n错误信息：${err}`);
+                send.promptWithAt(e, `获取用户 ${otherId} 的存档失败！请确认该用户公开了存档且ID正确喵！\n错误信息：${err}`);
                 return true;
             }
         } else {
@@ -130,7 +130,7 @@ export class phib19 extends phiPluginBase {
         let err = save.checkNoInfo()
 
         if (err.length) {
-            send.send_with_At(e, "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n'))
+            send.promptWithAt(e, "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n'))
         }
 
 
@@ -159,7 +159,7 @@ export class phib19 extends phiPluginBase {
         let plugin_data = await getNotes.getNotesData(e.user_id)
 
         if (!this.config.isGuild) {
-            send.reply(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
+            send.prompt(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
         }
 
 
@@ -258,7 +258,7 @@ export class phib19 extends phiPluginBase {
         }
         const img = await picmodle.b19(e, data)
         res.unshift(img);
-        send.send_with_At(e, res)
+        send.promptWithAt(e, res)
     }
 
     /**
@@ -269,7 +269,7 @@ export class phib19 extends phiPluginBase {
     async p30(e) {
 
         if (await getBanGroup.get(e, 'p30')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -281,7 +281,7 @@ export class phib19 extends phiPluginBase {
         let err = save.checkNoInfo()
 
         if (err.length) {
-            send.send_with_At(e, "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n'))
+            send.promptWithAt(e, "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n'))
         }
 
 
@@ -310,7 +310,7 @@ export class phib19 extends phiPluginBase {
 
 
         if (!this.config.isGuild)
-            send.reply(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
+            send.prompt(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
 
         let save_b19;
         let spInfo = [];
@@ -379,7 +379,7 @@ export class phib19 extends phiPluginBase {
 
         let res = [await picmodle.b19(e, data)]
         res.push(`计算rks: ${save_b19.com_rks}\n存档rks: ${save.saveInfo.summary.rankingScore}`)
-        send.send_with_At(e, res)
+        send.promptWithAt(e, res)
     }
 
     /**
@@ -390,7 +390,7 @@ export class phib19 extends phiPluginBase {
     async arcgrosB19(e) {
 
         if (await getBanGroup.get(e, 'arcgrosB19')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -403,7 +403,7 @@ export class phib19 extends phiPluginBase {
         let err = save.checkNoInfo()
 
         if (err.length) {
-            send.send_with_At(e, "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n'))
+            send.promptWithAt(e, "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n'))
         }
 
 
@@ -445,7 +445,7 @@ export class phib19 extends phiPluginBase {
             nnum: nnum,
         }
 
-        send.send_with_At(e, await picmodle.arcgros_b19(e, data))
+        send.promptWithAt(e, await picmodle.arcgros_b19(e, data))
     }
 
     /**
@@ -455,7 +455,7 @@ export class phib19 extends phiPluginBase {
      */
     async lmtAcc(e) {
         if (await getBanGroup.get(e, 'lmtAcc')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -467,14 +467,14 @@ export class phib19 extends phiPluginBase {
         let err = save.checkNoInfo()
 
         if (err.length) {
-            send.send_with_At(e, "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n'))
+            send.promptWithAt(e, "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n'))
         }
 
 
         let acc = Number(e.msg.replace(/^.*lmtacc\s*/g, ''))
 
         if (!acc || acc < 0 || acc > 100) {
-            send.send_with_At(e, `我听不懂 ${e.msg.replace(/^.*lmtacc\s*/g, '')} 是多少喵！请指定一个0-100的数字喵！\n格式：/${PHI_COMMAND_HEAD} lmtAcc <0-100>`)
+            send.promptWithAt(e, `我听不懂 ${e.msg.replace(/^.*lmtacc\s*/g, '')} 是多少喵！请指定一个0-100的数字喵！\n格式：/${PHI_COMMAND_HEAD} lmtAcc <0-100>`, { kind: 'warning', actions: [{ command: `/${PHI_COMMAND_HEAD} lmtAcc `, label: 'lmtAcc', enter: false }] })
             return false
         }
 
@@ -485,7 +485,7 @@ export class phib19 extends phiPluginBase {
 
 
         if (!this.config.isGuild)
-            send.reply(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
+            send.prompt(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
 
         let save_b19 = await save.getBestWithLimit(nnum, [{ type: 'acc', value: [acc, 100] }])
         let stats = await save.getStats()
@@ -524,7 +524,7 @@ export class phib19 extends phiPluginBase {
 
         let res = [await picmodle.b19(e, data)]
         res.push(`计算rks: ${save_b19.com_rks}\n存档rks: ${save.saveInfo.summary.rankingScore}`)
-        send.send_with_At(e, res)
+        send.promptWithAt(e, res)
 
     }
 
@@ -535,7 +535,7 @@ export class phib19 extends phiPluginBase {
      */
     async overLevelB30(e) {
         if (await getBanGroup.get(e, 'b19')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -547,7 +547,7 @@ export class phib19 extends phiPluginBase {
         let err = save.checkNoInfo()
 
         if (err.length) {
-            send.send_with_At(e, "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n'))
+            send.promptWithAt(e, "以下曲目无信息，可能导致b19显示错误\n" + err.join('\n'))
         }
 
         /**是否计入Flick */
@@ -576,7 +576,7 @@ export class phib19 extends phiPluginBase {
         let save_b19 = await save.getBestWithLimit(nnum, overLevelLimit, false)
 
         if (!save_b19.b19_list.length) {
-            send.send_with_At(e, withFlick
+            send.promptWithAt(e, withFlick
                 ? '没有找到越级的成绩喵！(计入Flick时所有成绩的acc均不低于越级线)'
                 : '没有找到越级的成绩喵！(不计Flick时所有成绩的acc均不低于越级线)')
             return true
@@ -585,7 +585,7 @@ export class phib19 extends phiPluginBase {
         let plugin_data = await getNotes.getNotesData(e.user_id)
 
         if (!this.config.isGuild)
-            send.reply(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
+            send.prompt(e, "正在生成图片，请稍等一下哦！\n//·/w\\·\\\\", false, { recallMsg: 5 })
 
         let stats = await save.getStats()
 
@@ -638,7 +638,7 @@ export class phib19 extends phiPluginBase {
         let res = [await picmodle.b19(e, data)]
         let sum_rks = save_b19.b19_list.reduce((sum, x) => sum + Number(x?.rks || 0), 0)
         res.push(`越级成绩均rks: ${(sum_rks / save_b19.b19_list.length).toFixed(4)}\n存档rks: ${save.saveInfo.summary.rankingScore}`)
-        send.send_with_At(e, res)
+        send.promptWithAt(e, res)
 
     }
 
@@ -650,7 +650,7 @@ export class phib19 extends phiPluginBase {
     async bestn(e) {
 
         if (await getBanGroup.get(e, 'bestn')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
         }
 
         const save = await send.getsave_result(e)
@@ -662,7 +662,7 @@ export class phib19 extends phiPluginBase {
         let numMsg = e.msg.replace(/[#/](.*?)(best)(\s*)/g, '')
 
         if (Number(numMsg) % 1 != 0) {
-            await send.reply(e, `${numMsg}不是个数字吧！`, true)
+            await send.prompt(e, `${numMsg}不是个数字吧！`, true)
             return true
         }
 
@@ -701,11 +701,11 @@ export class phib19 extends phiPluginBase {
 
         if (e.isGroup) {
             /**群聊只发送10条 */
-            send.send_with_At(e, Remsg[0])
-            send.send_with_At(e, `消息过长，自动转为私聊发送喵～`)
+            send.promptWithAt(e, Remsg[0])
+            send.promptWithAt(e, `消息过长，自动转为私聊发送喵～`)
             send.pick_send(e, await common.makeForwardMsg(e, Remsg, undefined))
         } else {
-            send.reply(e, await common.makeForwardMsg(e, Remsg, undefined))
+            send.prompt(e, await common.makeForwardMsg(e, Remsg, undefined))
         }
     }
 
@@ -717,7 +717,7 @@ export class phib19 extends phiPluginBase {
     async singlescore(e) {
 
         if (await getBanGroup.get(e, 'singlescore')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -746,12 +746,12 @@ export class phib19 extends phiPluginBase {
         }
 
         if (!song) {
-            send.send_with_At(e, `请指定曲名哦！\n格式：/${PHI_COMMAND_HEAD} score <曲名>`)
+            send.promptWithAt(e, `请指定曲名哦！\n格式：/${PHI_COMMAND_HEAD} score <曲名>`, { kind: 'warning', actions: [{ command: `/${PHI_COMMAND_HEAD} score `, label: '单曲成绩', enter: false }] })
             return true
         }
         const songIds = getInfo.fuzzysongsnick(song)
         if (!songIds[0]) {
-            send.send_with_At(e, `未找到 ${song} 的有关信息哦！`)
+            send.promptWithAt(e, `未找到 ${song} 的有关信息哦！`)
             return true
         }
         if (songIds.length > 1) {
@@ -779,7 +779,7 @@ export class phib19 extends phiPluginBase {
     async suggest(e) {
 
         if (await getBanGroup.get(e, 'suggest')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -933,7 +933,7 @@ export class phib19 extends phiPluginBase {
         }
 
         if (data.length > this.config.listScoreMaxNum) {
-            send.send_with_At(e, `谱面数量过多(${data.length})大于设置的最大值(${this.config.listScoreMaxNum})，只显示前${this.config.listScoreMaxNum}条！`)
+            send.promptWithAt(e, `谱面数量过多(${data.length})大于设置的最大值(${this.config.listScoreMaxNum})，只显示前${this.config.listScoreMaxNum}条！`)
         }
 
         data.splice(this.config.listScoreMaxNum)
@@ -948,7 +948,7 @@ export class phib19 extends phiPluginBase {
 
         let plugin_data = await getNotes.getNotesData(e.user_id)
 
-        send.send_with_At(e, await picmodle.common(e, 'suggest', {
+        send.promptWithAt(e, await picmodle.common(e, 'suggest', {
             head_title: "推分建议",
             song: data,
             phisong: phidata,
@@ -973,12 +973,12 @@ export class phib19 extends phiPluginBase {
     async chap(e) {
 
         if (await getBanGroup.get(e, 'chap')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
         let msg = e.msg.replace(/^[#/].*chap\s*/, '').toUpperCase()
         if (msg == 'HELP' || !msg) {
-            send.send_with_At(e, getPic.getimg('chapHelp'))
+            send.promptWithAt(e, getPic.getimg('chapHelp'))
             return true
         }
 
@@ -990,7 +990,7 @@ export class phib19 extends phiPluginBase {
         let chap = fCompute.fuzzySearch(msg, getInfo.chapNick)[0]?.value
 
         if (!chap && msg != 'ALL') {
-            send.send_with_At(e, `未找到${msg}章节QAQ！可以使用 /${PHI_COMMAND_HEAD} chap help 来查询支持的名称嗷！`)
+            send.promptWithAt(e, `未找到${msg}章节QAQ！可以使用 /${PHI_COMMAND_HEAD} chap help 来查询支持的名称嗷！`, { kind: 'error', actions: [{ command: `/${PHI_COMMAND_HEAD} chap help`, label: '章节帮助' }] })
             return false
         }
 
@@ -1082,7 +1082,7 @@ export class phib19 extends phiPluginBase {
             }
         }
 
-        send.send_with_At(e, await picmodle.chap(e, {
+        send.promptWithAt(e, await picmodle.chap(e, {
             player: { id: save.saveInfo.PlayerId },
             count,
             song_box,
@@ -1101,7 +1101,7 @@ export class phib19 extends phiPluginBase {
      */
     async achievement(e) {
         if (await getBanGroup.get(e, 'achievement')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -1114,12 +1114,12 @@ export class phib19 extends phiPluginBase {
         let dif = Number(difMatch?.[0])
 
         if (!difMatch) {
-            send.send_with_At(e, `请输入定数嗷！\n/格式：${PHI_COMMAND_HEAD} table <定数>`, true)
+            send.promptWithAt(e, `请输入定数嗷！\n/格式：${PHI_COMMAND_HEAD} table <定数>`, { quote: true, kind: 'warning', actions: [{ command: `/${PHI_COMMAND_HEAD} table `, label: '定数表', enter: false }] })
             return false
         }
 
         if (dif > getInfo.MAX_DIFFICULTY) {
-            send.send_with_At(e, `定数已经超过最高的定数${getInfo.MAX_DIFFICULTY}了QAQ！`)
+            send.promptWithAt(e, `定数已经超过最高的定数${getInfo.MAX_DIFFICULTY}了QAQ！`)
             return false
         }
 
@@ -1130,14 +1130,14 @@ export class phib19 extends phiPluginBase {
         if (matchVersion) {
             if (matchVersion.includes('.')) {
                 if (!getInfo.versionInfoByLabel[matchVersion]) {
-                    send.send_with_At(e, `未找到版本 ${matchVersion} 的相关信息QAQ！`)
+                    send.promptWithAt(e, `未找到版本 ${matchVersion} 的相关信息QAQ！`)
                     return true
                 }
                 matchVerCode = getInfo.versionInfoByLabel[matchVersion].version_code
             } else {
                 let verCodeNum = Number(matchVersion)
                 if (!getInfo.versionInfoByCode[verCodeNum]) {
-                    send.send_with_At(e, `未找到版本 ${matchVersion} 的相关信息QAQ！`)
+                    send.promptWithAt(e, `未找到版本 ${matchVersion} 的相关信息QAQ！`)
                     return true
                 }
                 matchVerCode = verCodeNum
@@ -1149,7 +1149,7 @@ export class phib19 extends phiPluginBase {
         const versionInfo = getInfo.versionInfoByCode[matchVerCode]
         if (!versionInfo) {
             console.error(`[phi-plugin] 版本信息获取失败，versionCode: ${matchVerCode}`);
-            send.send_with_At(e, `发生未知错误QAQ！请回报管理员！`)
+            send.promptWithAt(e, `发生未知错误QAQ！请回报管理员！`)
             return true
         }
 
@@ -1194,7 +1194,7 @@ export class phib19 extends phiPluginBase {
 
         }
 
-        send.send_with_At(e, await picmodle.common(e, 'table', data));
+        send.promptWithAt(e, await picmodle.common(e, 'table', data));
         await sendQuickCommands(e, achievementQuickCommands(PHI_COMMAND_HEAD), '成就页快捷操作', this.config)
     }
 }
@@ -1218,7 +1218,7 @@ async function getScore(songId, e, args = {}, config) {
 
     const info = getInfo.info(songId, true)
     if (!info) {
-        send.send_with_At(e, `未找到${songId}的相关信息QAQ！`)
+        send.promptWithAt(e, `未找到${songId}的相关信息QAQ！`)
         return true
     }
 
@@ -1228,7 +1228,7 @@ async function getScore(songId, e, args = {}, config) {
     let songRecord = Record[songId]
 
     if (!songRecord) {
-        send.send_with_At(e, `我不知道你关于[${info.song}]的成绩哦！可以试试更新成绩哦！\n格式：/${PHI_COMMAND_HEAD} update`)
+        send.promptWithAt(e, `我不知道你关于[${info.song}]的成绩哦！可以试试更新成绩哦！\n格式：/${PHI_COMMAND_HEAD} update`, { kind: 'warning', actions: [{ command: `/${PHI_COMMAND_HEAD} update`, label: '更新存档' }] })
         return true
     }
 
@@ -1418,7 +1418,7 @@ async function getScore(songId, e, args = {}, config) {
     }
 
 
-    send.send_with_At(e, await picmodle.score(e, data, 1))
+    send.promptWithAt(e, await picmodle.score(e, data, 1))
 
 }
 

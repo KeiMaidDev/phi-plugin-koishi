@@ -36,12 +36,12 @@ export default class getBanGroup {
         const credentials = UserCredentials.fromEvent(e)
         if (await canUseApi(this.config, e)) {
             if (await credentials.getUserAPIBanStatus({ ignoreUnboundError: true })) {
-                send.send_with_At(e, "当前账户被加入黑名单，详情请联系管理员(1)。")
+                send.promptWithAt(e, "当前账户被加入黑名单，详情请联系管理员(1)。")
                 return true;
             }
         }
         if (await credentials.getUserLoaclBanStatus()) {
-            send.send_with_At(e, "当前账户被加入黑名单，详情请联系管理员(2)。")
+            send.promptWithAt(e, "当前账户被加入黑名单，详情请联系管理员(2)。")
             return true;
         }
         if (!group_id) {

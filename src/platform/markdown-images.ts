@@ -20,13 +20,22 @@ export function isPublicHttpUrl(value: unknown): value is string {
     }
 }
 
+/** QQ 上传素材返回的 Markdown 图片地址。 */
+export function isQqMediaUrl(value: unknown): value is string {
+    return typeof value === 'string' && /^qqbot-media:\/\/[^\s]+$/i.test(value)
+}
+
+export function isMarkdownImageUrl(value: unknown): value is string {
+    return isPublicHttpUrl(value) || isQqMediaUrl(value)
+}
+
 async function transformMarkdownImage(source: string, assets?: MarkdownImageAssets) {
-    if (isPublicHttpUrl(source)) return source
+    if (isMarkdownImageUrl(source)) return source
     if (!assets?.transform) throw new Error('assets service is unavailable')
     const transformed = await assets.transform(String(h.image(source)))
     const image = h.parse(transformed).find(element => element.type === 'img')
     const resolved = image?.attrs?.src
-    if (!isPublicHttpUrl(resolved)) throw new Error('assets transform did not return a public HTTP(S) URL')
+    if (!isMarkdownImageUrl(resolved)) throw new Error('assets transform did not return a public HTTP(S) or qqbot-media URL')
     return resolved
 }
 

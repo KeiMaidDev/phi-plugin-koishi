@@ -173,7 +173,7 @@ export class phiupdate extends phiPluginBase {
             // @ts-ignore
             logger.error(error.toString());
             // @ts-ignore
-            this.reply(error.toString());
+            this.replyRaw(error.toString());
         }
 
         if (!logAll) return false;
@@ -204,9 +204,9 @@ export class phiupdate extends phiPluginBase {
 
         if (!this.config.isGuild) {
             log.push("更多详细信息，请前往github查看\nhttps://github.com/Catrong/phi-plugin");
-            await this.reply(await common.makeForwardMsg(this.e, log, `phi-plugin更新日志，共${line}条`))
+            await this.replyRaw(await common.makeForwardMsg(this.e, log, `phi-plugin更新日志，共${line}条`))
         } else {
-            await this.reply(log.join("\n"))
+            await this.replyRaw(log.join("\n"))
         }
 
         return ifrestart;
@@ -308,7 +308,7 @@ export class phiupdate extends phiPluginBase {
             this.isUp = true;
             /** 获取phi-plugin-ill的更新日志 */
             let log = await this.ill_getLog();
-            await this.reply(log);
+            await this.replyRaw(log);
         }
 
         logger.mark(`${this.e.logFnc} 最后更新时间：${time}`);
@@ -371,7 +371,7 @@ export class phiupdate extends phiPluginBase {
             this.isUp = true;
             /** 获取phi-plugin-ill的更新日志 */
             let log = await this.ill_getLog();
-            await this.reply(log);
+            await this.replyRaw(log);
         }
 
         logger.mark(`${this.e.logFnc} 最后更新时间：${time}`);
@@ -415,7 +415,7 @@ export class phiupdate extends phiPluginBase {
             // @ts-ignore
             logger.error(error.toString());
             // @ts-ignore
-            this.reply(error.toString());
+            this.replyRaw(error.toString());
         }
 
         if (!logAll) return false;
@@ -501,7 +501,7 @@ export class phiupdate extends phiPluginBase {
         }
 
         if (errMsg.includes("be overwritten by merge")) {
-            await this.reply(
+            await this.replyRaw(
                 msg +
                 `存在冲突：\n${errMsg}\n` +
                 "请解决冲突后再更新，或者执行#phi强制更新，放弃本地修改"
@@ -511,7 +511,7 @@ export class phiupdate extends phiPluginBase {
 
         if (stdout.includes("CONFLICT")) {
             // @ts-ignore
-            await this.reply([
+            await this.replyRaw([
                 msg + "存在冲突\n",
                 errMsg,
                 stdout,
@@ -521,7 +521,7 @@ export class phiupdate extends phiPluginBase {
         }
 
         // @ts-ignore
-        await this.reply([errMsg, stdout]);
+        await this.replyRaw([errMsg, stdout]);
     }
 
     /**

@@ -3,7 +3,7 @@ import autoSeekApi from '../../providers/phi-api/auto-seek-api'
 import { PHI_COMMAND_HEAD } from '../../constants'
 
 import logger from '../../utils/logger'
-import platform from '../../platform/index'
+import { sendPromptWithAt } from '../../render/prompt'
 import PhigrosUser from '../../vendor/phigros/phigros-user'
 import { canUseApi } from './api-permission'
 import { PhiApiError } from '../../providers/phi-api/phi-api-errors'
@@ -891,5 +891,5 @@ async function buildingRecord(old = undefined, now, e) {
  * @param {string} message 提示内容
  */
 function notifyUser(event, message) {
-    return platform.sendWithAt(platform.wrapEvent(event), message, false, {})
+    return sendPromptWithAt(event, message, { kind: 'info' })
 }

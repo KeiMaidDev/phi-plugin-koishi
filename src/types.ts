@@ -100,7 +100,7 @@
  * @typedef {'allowChartTag'} allowChartTag 曲目标签
  * @typedef {'autoPullPhiIll'} autoPullPhiIll 自动更新曲绘
  * @typedef {'isGuild'} isGuild 频道模式
- * @typedef {'TapTapLoginQRcode'} TapTapLoginQRcode 绑定二维码
+ * @typedef {'TapTapLoginQRcode'} TapTapLoginQRcode 绑定登录链接按钮
  * @typedef {'WordB19Img'} WordB19Img 文字版B19曲绘图片
  * @typedef {'WordSuggImg'} WordSuggImg Suggest曲绘图片
  * @typedef {'openPhiPluginApi'} openPhiPluginApi 是否启用Phigros联合查分API地址

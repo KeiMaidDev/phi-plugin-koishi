@@ -57,7 +57,7 @@ export class phiRankList extends phiPluginBase {
     async rankList(e) {
 
         if (await getBanGroup.get(e, 'rankList')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -84,7 +84,7 @@ export class phiRankList extends phiPluginBase {
                     data.users.push({ ...await makeSmallLine(item), index: item.index, me: item.me })
                 }
                 data.me = await makeLargeLine(new Save(api_ranklist.me.save), new saveHistory(api_ranklist.me.history), e)
-                send.send_with_At(e, [await picmodle.common(e, 'rankingList', data), `总数据量：${data.totDataNum}\n`])
+                send.promptWithAt(e, [await picmodle.common(e, 'rankingList', data), `总数据量：${data.totDataNum}\n`])
                 await sendQuickCommands(e, rankQuickCommands(PHI_COMMAND_HEAD), '排行榜快捷操作', this.config)
                 return true
             }
@@ -145,7 +145,7 @@ export class phiRankList extends phiPluginBase {
             }
         }
 
-        send.send_with_At(e, [`总数据量：${data.totDataNum}\n`, await picmodle.common(e, 'rankingList', data)])
+        send.promptWithAt(e, [`总数据量：${data.totDataNum}\n`, await picmodle.common(e, 'rankingList', data)])
         await sendQuickCommands(e, rankQuickCommands(PHI_COMMAND_HEAD), '排行榜快捷操作', this.config)
     }
 
@@ -156,20 +156,20 @@ export class phiRankList extends phiPluginBase {
      */
     async rankfind(e) {
         if (await getBanGroup.get(e, 'rankList')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
         let rks = Number(e.msg.replace(/^[#/]?.*?rankfind/, '').match(/\d+(.\d+)?/)?.[0])
         if (!rks) {
-            send.send_with_At(e, `请输入要查询的 rks！\n格式： /${PHI_COMMAND_HEAD} rankfind <rks>`)
+            send.promptWithAt(e, `请输入要查询的 rks！\n格式： /${PHI_COMMAND_HEAD} rankfind <rks>`)
             return false
         }
 
         if (await canUseApi(this.config, e, 'scoreStatistics')) {
             const res = await makeRequest.getRanklistRks({ request_rks: rks }, { event: e })
             if (res) {
-                send.send_with_At(e, `当前服务器记录中一共有 ${res.rksRank}/${res.totNum} 位玩家的 rks 大于 ${rks}！`)
+                send.promptWithAt(e, `当前服务器记录中一共有 ${res.rksRank}/${res.totNum} 位玩家的 rks 大于 ${rks}！`)
                 await sendQuickCommands(e, rankQuickCommands(PHI_COMMAND_HEAD), '排行榜快捷操作', this.config)
                 return true
             }
@@ -179,7 +179,7 @@ export class phiRankList extends phiPluginBase {
 
         let rank = await getRksRank.getRankByRks(rks)
 
-        send.send_with_At(e, `当前服务器记录中一共有 ${totDataNum - rank + 1}/${totDataNum} 位玩家的 rks 大于等于 ${rks}！`)
+        send.promptWithAt(e, `当前服务器记录中一共有 ${totDataNum - rank + 1}/${totDataNum} 位玩家的 rks 大于等于 ${rks}！`)
         await sendQuickCommands(e, rankQuickCommands(PHI_COMMAND_HEAD), '排行榜快捷操作', this.config)
 
         return true
@@ -194,7 +194,7 @@ export class phiRankList extends phiPluginBase {
     // async godList(e) {
 
     //     if (await getBanGroup.get(e, 'godList')) {
-    //         send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+    //         send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
     //         return false
     //     }
 
@@ -210,7 +210,7 @@ export class phiRankList extends phiPluginBase {
 
     //     if (!list) {
     //         data.totDataNum = 0
-    //         send.send_with_At(e, await picmodle.common(e, 'rankingList', data))
+    //         send.promptWithAt(e, await picmodle.common(e, 'rankingList', data))
     //         return true
     //     }
 
@@ -226,7 +226,7 @@ export class phiRankList extends phiPluginBase {
     //             data.users[data.users.length].index = i
     //         } catch (e) { }
     //     }
-    //     send.send_with_At(e, await picmodle.common(e, 'rankingList', data))
+    //     send.promptWithAt(e, await picmodle.common(e, 'rankingList', data))
     // }
 }
 

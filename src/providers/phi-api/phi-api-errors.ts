@@ -70,7 +70,7 @@ const USER_ERROR_MESSAGES = {
     binding_conflict_requires_sstk: '当前平台已绑定其他查分ID，请使用sessionToken重新绑定。',
     user_id_binding_disabled: () => {
         const commandHead = `${PHI_COMMAND_HEAD}`
-        return `该用户未开启API ID绑定，请使用 /${commandHead} bind <sessionToken> 或 /${commandHead} bind qrcode 扫码重新绑定。`
+        return `该用户未开启API ID绑定，请使用 /${commandHead} bind <sessionToken> 或 /${commandHead} bind qrcode 获取登录链接重新绑定。`
     },
     user_not_found: '未找到对应的查分ID，请检查后重试。',
 }

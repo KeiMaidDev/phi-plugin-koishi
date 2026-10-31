@@ -1,6 +1,7 @@
 import type { Context } from 'koishi'
 import type { Config } from '../config'
 import { getNoteBalance, NOTE_CURRENCY } from '../database/index'
+import send from '../render/send'
 
 class UserLocks {
   private tails = new Map<number, Promise<void>>()
@@ -21,6 +22,9 @@ class UserLocks {
   }
 }
 
+async function replyPrompt(session: any, text: string, kind?: 'info' | 'error' | 'warning' | 'success') {
+  await send.prompt(session, text, { kind })
+}
 function getLocalDateKey(timezone: string, date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
@@ -57,7 +61,7 @@ export function registerMoneyCommands(ctx: Context, config: Config) {
   }
 
   register(['balance', '余额'], '查看 Note Balance', async ({ session }: any) => {
-    return session.text('commands.balance.messages.balance', [await getNoteBalance(ctx, session.user.id)])
+    return replyPrompt(session, session.text('commands.balance.messages.balance', [await getNoteBalance(ctx, session.user.id)]), 'info')
   })
 
   register(['sign', '签到', '打卡'], '每日签到领取 Note', async ({ session }: any) => locks.run(session.user.id, async () => {
@@ -66,7 +70,7 @@ export function registerMoneyCommands(ctx: Context, config: Config) {
     const [user] = await ctx.database.get('phi_user', { uid })
     const signDates = user?.signDates ?? []
     if (user?.lastSignDate === dateKey || signDates.includes(dateKey)) {
-      return session.text('commands.sign.messages.sign.duplicate')
+      return replyPrompt(session, session.text('commands.sign.messages.sign.duplicate'), 'warning')
     }
 
     const reward = Math.floor(Math.random() * (config.signInRewardMax - config.signInRewardMin + 1))
@@ -105,18 +109,18 @@ export function registerMoneyCommands(ctx: Context, config: Config) {
       throw error
     }
 
-    return session.text('commands.sign.messages.sign.success', [reward, await getNoteBalance(ctx, uid)])
+    return replyPrompt(session, session.text('commands.sign.messages.sign.success', [reward, await getNoteBalance(ctx, uid)]), 'success')
   }))
 
   register(['transfer <target:user> <amount:string>', '转账 <target:user> <amount:string>', 'send <target:user> <amount:string>', '送 <target:user> <amount:string>', '转 <target:user> <amount:string>'], 'Transfer Note', async ({ session }: any, target: string, amountSource: string) => locks.run(session.user.id, async () => {
     const amount = parseTransferAmount(amountSource)
-    if (!amount) return session.text('commands.transfer.messages.transfer.invalidAmount')
+    if (!amount) return replyPrompt(session, session.text('commands.transfer.messages.transfer.invalidAmount'), 'error')
     const targetInfo = parseTransferTarget(target)
-    if (!targetInfo) return session.text('commands.transfer.messages.transfer.invalidTarget')
+    if (!targetInfo) return replyPrompt(session, session.text('commands.transfer.messages.transfer.invalidTarget'), 'error')
     const targetUser = await ctx.database.getUser(targetInfo.platform, targetInfo.userId, ['id'])
-    if (!targetUser) return session.text('commands.transfer.messages.transfer.invalidTarget')
-    if (targetUser.id === session.user.id) return session.text('commands.transfer.messages.transfer.self')
-    if (await getNoteBalance(ctx, session.user.id) < amount) return session.text('commands.transfer.messages.transfer.insufficient')
+    if (!targetUser) return replyPrompt(session, session.text('commands.transfer.messages.transfer.invalidTarget'), 'error')
+    if (targetUser.id === session.user.id) return replyPrompt(session, session.text('commands.transfer.messages.transfer.self'), 'error')
+    if (await getNoteBalance(ctx, session.user.id) < amount) return replyPrompt(session, session.text('commands.transfer.messages.transfer.insufficient'), 'error')
 
     const fee = Number(BigInt(amount) * BigInt(config.transferFee) / 100n)
     const net = amount - fee
@@ -131,20 +135,20 @@ export function registerMoneyCommands(ctx: Context, config: Config) {
           await ctx.monetary.gain(session.user.id, amount, NOTE_CURRENCY)
         } catch (compensationError) {
           ctx.logger('phi-plugin').error('failed to compensate Transfer for user %s: %o', session.user.id, compensationError)
-          return session.text('commands.transfer.messages.transfer.compensationFailed')
+          return replyPrompt(session, session.text('commands.transfer.messages.transfer.compensationFailed'), 'error')
         }
       }
       ctx.logger('phi-plugin').warn('failed to process Transfer from user %s to user %s: %o', session.user.id, targetUser.id, error)
-      return session.text('commands.transfer.messages.transfer.failed')
+      return replyPrompt(session, session.text('commands.transfer.messages.transfer.failed'), 'error')
     }
 
-    return session.text('commands.transfer.messages.transfer.success', [
+    return replyPrompt(session, session.text('commands.transfer.messages.transfer.success', [
       amount,
       fee,
       net,
       await getNoteBalance(ctx, session.user.id),
       await getNoteBalance(ctx, targetUser.id),
-    ])
+    ]), 'success')
   }))
 
   ctx.i18n.define('zh-CN', {

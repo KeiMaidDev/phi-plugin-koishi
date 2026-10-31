@@ -154,7 +154,7 @@ export class phihelp extends phiPluginBase {
     async checkApiEnabled(e) {
         const access = await getApiAccessState(this.config, e)
         if (!access.enabled) {
-            send.send_with_At(e, access.message)
+            send.promptWithAt(e, access.message)
             return false
         }
         return true
@@ -169,7 +169,7 @@ export class phihelp extends phiPluginBase {
         const credentials = UserCredentials.fromEvent(e)
 
         if (await getBanGroup.get(e, 'setApiToken')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -180,24 +180,24 @@ export class phihelp extends phiPluginBase {
         const sessionToken = await credentials.getSessionToken()
 
         if (!sessionToken) {
-            send.send_with_At(e, `本地没有您的tk记录嗷！请先尝试使用tk绑定呐！`)
+            send.promptWithAt(e, `本地没有您的tk记录嗷！请先尝试使用tk绑定呐！`)
             return false
         }
 
         let apiToken = e.msg.replace(/^[#/].*?setApiToken\s*\n?/, '')
         if (!apiToken) {
-            send.send_with_At(e, `请输入apiToken！\n格式：\n设置密码：/${PHI_COMMAND_HEAD} setApiToken <新Token> `)
+            send.promptWithAt(e, `请输入apiToken！\n格式：\n设置密码：/${PHI_COMMAND_HEAD} setApiToken <新Token> `)
             return true
         }
         if (/[\s\x00-\x1F\x7F'"\\]/.test(apiToken)) {
-            send.send_with_At(e, 'API Token 包含非法字符，请检查后重试！\n格式：\n/setApiToken <新Token>')
+            send.promptWithAt(e, 'API Token 包含非法字符，请检查后重试！\n格式：\n/setApiToken <新Token>')
             return false
         }
         const setTokenResult = await credentials.setApiToken(apiToken)
         if (!setTokenResult) {
             return false
         }
-        send.send_with_At(e, 'API Token 已设置为: \n' + apiToken)
+        send.promptWithAt(e, 'API Token 已设置为: \n' + apiToken)
 
 
         return true
@@ -211,7 +211,7 @@ export class phihelp extends phiPluginBase {
     async tokenList(e) {
         const credentials = UserCredentials.fromEvent(e)
         if (await getBanGroup.get(e, 'tokenList')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -221,7 +221,7 @@ export class phihelp extends phiPluginBase {
 
         const sessionToken = await credentials.getSessionToken()
         if (!sessionToken) {
-            send.send_with_At(e, `本地没有您的tk记录嗷！请先尝试使用tk绑定呐！`)
+            send.promptWithAt(e, `本地没有您的tk记录嗷！请先尝试使用tk绑定呐！`)
             return;
         }
         const tokenList = await credentials.listPlatformBindings()
@@ -253,7 +253,7 @@ export class phihelp extends phiPluginBase {
             }
         })
 
-        send.send_with_At(e, resMsg)
+        send.promptWithAt(e, resMsg)
 
         return true
     }
@@ -268,7 +268,7 @@ export class phihelp extends phiPluginBase {
         const credentials = UserCredentials.fromEvent(e)
 
         if (await getBanGroup.get(e, 'auth')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -278,13 +278,13 @@ export class phihelp extends phiPluginBase {
 
         let apiToken = e.msg.replace(/^[#/].*?auth\s*/, '')
         if (/[\s\x00-\x1F\x7F'"\\]/.test(apiToken)) {
-            send.send_with_At(e, 'API Token 包含非法字符，请检查后重试！')
+            send.promptWithAt(e, 'API Token 包含非法字符，请检查后重试！')
             return false
         }
 
         const apiId = await credentials.getApiId()
         if (!apiId) {
-            send.send_with_At(e, `本地没有您的apiId记录嗷！请尝试重新绑定呐！`)
+            send.promptWithAt(e, `本地没有您的apiId记录嗷！请尝试重新绑定呐！`)
             return;
         }
         const sessionToken = await credentials.authenticateApiToken(apiToken)
@@ -292,7 +292,7 @@ export class phihelp extends phiPluginBase {
             return false
         }
 
-        send.send_with_At(e, `验证成功！\n您的用户Token为：\n${sessionToken.token}\n请妥善保管您的Token哦~`);
+        send.promptWithAt(e, `验证成功！\n您的用户Token为：\n${sessionToken.token}\n请妥善保管您的Token哦~`);
 
         return true
     }
@@ -305,7 +305,7 @@ export class phihelp extends phiPluginBase {
     async clearApiData(e) {
         const credentials = UserCredentials.fromEvent(e)
         if (await getBanGroup.get(e, 'clearApiData')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
 
@@ -315,12 +315,12 @@ export class phihelp extends phiPluginBase {
 
         const sessionToken = await credentials.getSessionToken()
         if (!sessionToken) {
-            send.send_with_At(e, '注销 phi-api 账号需要 Phigros SSTK 权限，请先使用 SSTK 绑定。')
+            send.promptWithAt(e, '注销 phi-api 账号需要 Phigros SSTK 权限，请先使用 SSTK 绑定。')
             return false;
         }
 
         this.setContext('confirmClearApiData', false, 30, '超时已取消，请注意 @Bot 进行回复哦！')
-        send.send_with_At(e, '注销 phi-api 账号将永久清除云端账号及全部数据，且无法恢复！真的要这么做吗？（确认/取消）')
+        send.promptWithAt(e, '注销 phi-api 账号将永久清除云端账号及全部数据，且无法恢复！真的要这么做吗？（确认/取消）')
 
         return true
     }
@@ -329,14 +329,14 @@ export class phihelp extends phiPluginBase {
         const e = this.e
         const credentials = UserCredentials.fromEvent(e)
         if (e.msg.replace(/\s/g, '') !== '确认') {
-            send.send_with_At(e, '已取消')
+            send.promptWithAt(e, '已取消')
             this.finish('confirmClearApiData', false)
             return true
         }
 
         const sessionToken = await credentials.getSessionToken()
         if (!sessionToken) {
-            send.send_with_At(e, '注销 phi-api 账号需要 Phigros SSTK 权限，请先使用 SSTK 绑定。')
+            send.promptWithAt(e, '注销 phi-api 账号需要 Phigros SSTK 权限，请先使用 SSTK 绑定。')
             this.finish('confirmClearApiData', false)
             return false
         }
@@ -353,7 +353,7 @@ export class phihelp extends phiPluginBase {
             logger.warn('[phi-plugin] phi-api 账号已注销，但本地 API 缓存清理失败', err)
         }
 
-        send.send_with_At(e, 'phi-api 账号已注销，云端数据已清除')
+        send.promptWithAt(e, 'phi-api 账号已注销，云端数据已清除')
         this.finish('confirmClearApiData', false)
 
         return true
@@ -365,7 +365,7 @@ export class phihelp extends phiPluginBase {
      */
     async updateUserToken(e) {
         if (!e.isMaster) {
-            send.reply(e, "无权限");
+            send.prompt(e, "无权限");
             return false;
         }
 
@@ -374,7 +374,7 @@ export class phihelp extends phiPluginBase {
         }
 
         /**提取redis中user_id数据 */
-        send.send_with_At(e, '开始提取user_token，请稍等...')
+        send.promptWithAt(e, '开始提取user_token，请稍等...')
         console.info('\n[phi-plugin][backup] 开始提取user_token数据...')
         let bar = new ProgressBar('[phi-plugin] user_token提取中', 20)
         /**
@@ -387,7 +387,7 @@ export class phihelp extends phiPluginBase {
         user_token.push(...credentialEntries.values())
         logger.info(`[phi-plugin] 已获取 ${user_token.length} 个 user_token`)
         if (user_token.length > 1000) {
-            send.send_with_At(e, `数据量过大，开始分批上传，预计${Math.ceil(user_token.length / 1000) * 5}秒...`);
+            send.promptWithAt(e, `数据量过大，开始分批上传，预计${Math.ceil(user_token.length / 1000) * 5}秒...`);
             for (let i = 0; i < user_token.length; i += 1000) {
                 let batch = user_token.slice(i, i + 1000);
                 const uploadResult = await makeRequest.setUsersToken(
@@ -410,7 +410,7 @@ export class phihelp extends phiPluginBase {
             }
         }
 
-        send.send_with_At(e, '上传用户Token成功')
+        send.promptWithAt(e, '上传用户Token成功')
 
     }
 
@@ -421,7 +421,7 @@ export class phihelp extends phiPluginBase {
      */
     async updateComment(e) {
         if (!e.isMaster) {
-            send.reply(e, "无权限");
+            send.prompt(e, "无权限");
             return false;
         }
 
@@ -429,7 +429,7 @@ export class phihelp extends phiPluginBase {
             return false
         }
 
-        send.send_with_At(e, '开始上传评论数据，请稍等...')
+        send.promptWithAt(e, '开始上传评论数据，请稍等...')
         const data = getComment.data;
 
         /**@type {import('../../domain/game/get-comment').commentObject[]} */
@@ -474,7 +474,7 @@ export class phihelp extends phiPluginBase {
 
         const token = await credentials.getSessionToken()
         if (!token) {
-            send.send_with_At(e, `本地没有您的tk记录嗷！请先尝试使用tk绑定呐！`)
+            send.promptWithAt(e, `本地没有您的tk记录嗷！请先尝试使用tk绑定呐！`)
             return true;
         }
 
@@ -502,7 +502,7 @@ export class phihelp extends phiPluginBase {
         const normalized = rawArgs.replace(/[：:=]/g, ' ').replace(/\s+/g, ' ').trim()
         const args = normalized.split(' ')
         if (args.length < 2) {
-            send.send_with_At(e, `参数不足，请提供“设置项 + 目标值”。\n${usage}`)
+            send.promptWithAt(e, `参数不足，请提供“设置项 + 目标值”。\n${usage}`)
             return true
         }
 
@@ -511,13 +511,13 @@ export class phihelp extends phiPluginBase {
 
         const settingKey = API_USER_SETTING_KEY_ALIAS[keyInput]
         if (!settingKey) {
-            send.send_with_At(e, `未知设置项：${args[0]}\n${usage}`)
+            send.promptWithAt(e, `未知设置项：${args[0]}\n${usage}`)
             return true
         }
 
         const settingValue = API_USER_SETTING_BOOL_ALIAS[valueInput]
         if (settingValue === undefined) {
-            send.send_with_At(e, `无效值：${args.slice(1).join(' ')}\n${usage}`)
+            send.promptWithAt(e, `无效值：${args.slice(1).join(' ')}\n${usage}`)
             return true
         }
 
@@ -529,7 +529,7 @@ export class phihelp extends phiPluginBase {
         if (!setResult) {
             return true;
         }
-        send.send_with_At(e, `设置成功：${API_USER_SETTING_META[settingKey].title} -> ${settingValue ? '开启' : '关闭'}`)
+        send.promptWithAt(e, `设置成功：${API_USER_SETTING_META[settingKey].title} -> ${settingValue ? '开启' : '关闭'}`)
 
         userSetting = await credentials.getUserSetting()
         if (!userSetting) {
@@ -579,7 +579,7 @@ export class phihelp extends phiPluginBase {
             return buildItem(key, String(userSetting[key]))
         })
 
-        send.send_with_At(e, await picmodle.common(e, 'setting', {
+        send.promptWithAt(e, await picmodle.common(e, 'setting', {
             pageTitle: 'Phi-Plugin API 用户设置',
             pageDescription: '以下设置会同步到查分平台账户权限。',
             items: items,

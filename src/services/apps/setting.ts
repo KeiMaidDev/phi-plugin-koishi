@@ -44,7 +44,7 @@ export class phihelp extends phiPluginBase {
      */
     async showUserSetting(e) {
         if (await getBanGroup.get(e, 'help')) {
-            send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
         }
         let pluginData = await getNotes.getNotesData(e.user_id)
@@ -152,7 +152,7 @@ export class phihelp extends phiPluginBase {
             const args = normalized.split(' ')
 
             if (args.length < 2) {
-                send.send_with_At(e, `参数不足，请提供“设置项 + 目标值”。\n${usage}`)
+                send.promptWithAt(e, `参数不足，请提供“设置项 + 目标值”。\n${usage}`)
                 return true
             }
 
@@ -170,12 +170,12 @@ export class phihelp extends phiPluginBase {
             }
 
             if (!settingKey) {
-                send.send_with_At(e, `未知设置项：${args[0]}\n支持：主题 / 均值范围 / 配色 / API开关 / B30分析\n${usage}`)
+                send.promptWithAt(e, `未知设置项：${args[0]}\n支持：主题 / 均值范围 / 配色 / API开关 / B30分析\n${usage}`)
                 return true
             }
 
             if (settingKey === 'theme' && await getBanGroup.get(e, 'theme')) {
-                send.send_with_At(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+                send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
                 return false
             }
 
@@ -207,11 +207,11 @@ export class phihelp extends phiPluginBase {
                 if (!selectedTheme) {
                     const apiAccess = await getApiAccessState(this.config, e, 'customTheme')
                     if (!apiAccess.enabled) {
-                        send.send_with_At(e, apiAccess.message)
+                        send.promptWithAt(e, apiAccess.message)
                         return true
                     }
                 }
-                send.send_with_At(e, `正在校验并准备主题 ${canonicalValue}，请稍候。`)
+                send.promptWithAt(e, `正在校验并准备主题 ${canonicalValue}，请稍候。`)
                 try {
                     await themeUseService.use(canonicalValue, { requesterId: getThemeInstallRequesterId(e) })
                     // 下载期间用户数据可能已由其他命令更新；保存前重新读取，避免覆盖并发修改。
@@ -219,14 +219,14 @@ export class phihelp extends phiPluginBase {
                     optionMap = /** @type {Record<string, { title: string, description: string }>} */ (getOptions(settingKey))
                     optionKeys = Object.keys(optionMap)
                 } catch (error) {
-                    send.send_with_At(e, marketThemeErrorMessage(error))
+                    send.promptWithAt(e, marketThemeErrorMessage(error))
                     return true
                 }
             }
 
             if (!optionMap[canonicalValue]) {
                 const optionalValues = optionKeys.map((value, index) => `${index}. ${value}`).join(' / ')
-                send.send_with_At(e, `无效值：${valueInputRaw}\n${USER_SETTING_META[settingKey].title} 可选：${optionalValues}`)
+                send.promptWithAt(e, `无效值：${valueInputRaw}\n${USER_SETTING_META[settingKey].title} 可选：${optionalValues}`)
                 return true
             }
 
@@ -239,11 +239,11 @@ export class phihelp extends phiPluginBase {
                 pluginData[settingKey] = canonicalValue
             }
             if (!getNotes.putNotesData(e.user_id, pluginData)) {
-                send.send_with_At(e, '主题或用户设置已准备完成，但保存失败，请稍后重试。')
+                send.promptWithAt(e, '主题或用户设置已准备完成，但保存失败，请稍后重试。')
                 return true
             }
 
-            send.send_with_At(e, `设置成功：${USER_SETTING_META[settingKey].title} -> ${optionMap[canonicalValue].title}`)
+            send.promptWithAt(e, `设置成功：${USER_SETTING_META[settingKey].title} -> ${optionMap[canonicalValue].title}`)
         }
 
         /**
@@ -310,7 +310,7 @@ export class phihelp extends phiPluginBase {
             ]
         }
 
-        send.send_with_At(e, await picmodle.common(e, 'setting', {
+        send.promptWithAt(e, await picmodle.common(e, 'setting', {
             ...data,
             background: getInfo.getill(getInfo.illlist[Number((Math.random() * (getInfo.illlist.length - 1)).toFixed(0))]),
             theme: pluginData?.theme || 'default'
