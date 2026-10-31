@@ -300,12 +300,12 @@ export class phiupdate extends phiPluginBase {
         const isForce = 1
 
 
-        if (!fs.existsSync(`${originalIllPath}/.git`)) {
-            /**执行安装 */
-            await this.ill_clone()
-        } else {
+        if (await this.ill_hasValidHead()) {
             /** 执行更新 */
             await this.ill_runUpdate();
+        } else if (await this.ill_recoverIncompleteRepo()) {
+            /** 执行安装 */
+            await this.ill_clone();
         }
 
 
@@ -315,17 +315,41 @@ export class phiupdate extends phiPluginBase {
         }
     }
 
+    async ill_hasValidHead() {
+        if (!fs.existsSync(`${originalIllPath}/.git`)) return false;
+        const ret = await this.execSync(`git -C ${shellPath(originalIllPath)} rev-parse --verify HEAD`);
+        return !ret.error;
+    }
+
+    async ill_recoverIncompleteRepo() {
+        if (!fs.existsSync(originalIllPath)) return true;
+
+        const entries = fs.readdirSync(originalIllPath);
+        const canReset = entries.length === 0 || (entries.length === 1 && entries[0] === ".git");
+        if (!canReset) {
+            await this.reply(`检测到未完成的曲绘目录，请先手动删除：${originalIllPath}`);
+            return false;
+        }
+
+        fs.rmSync(originalIllPath, { recursive: true, force: true });
+        return true;
+    }
+
     async ill_clone() {
         let command = `git clone --progress --depth=1 ${this.getDownIllUrl()} ${shellPath(originalIllPath)}`;
 
         this.reply("开始下载曲绘文件");
 
         uping = true;
-        let ret = await this.execWithProgress(command, "下载曲绘");
-        uping = false;
+        let ret;
+        try {
+            ret = await this.execWithProgress(command, "下载曲绘");
+        } finally {
+            uping = false;
+        }
         if (ret.error) {
             logger.mark(`${this.e.logFnc} 曲绘文件更新失败QAQ!`);
-            this.gitErr(ret.error, ret.stdout);
+            this.gitErr(ret.error, [ret.stdout, ret.stderr].filter(Boolean).join("\n"));
             return false;
         }
 
@@ -381,14 +405,24 @@ export class phiupdate extends phiPluginBase {
         this.reply("开始更新曲绘文件，请稍等");
 
         /** 获取上次提交的commitId，用于获取日志时判断新增的更新日志 */
-        this.oldCommitId = await this.ill_getcommitId();
+        try {
+            this.oldCommitId = await this.ill_getcommitId();
+        } catch (error) {
+            logger.warn(`[phi-plugin][曲绘] 读取本地版本失败`, error);
+            await this.reply("读取本地曲绘版本失败，请稍后重试");
+            return false;
+        }
         uping = true;
-        let ret = await this.execWithProgress(command, "更新曲绘");
-        uping = false;
+        let ret;
+        try {
+            ret = await this.execWithProgress(command, "更新曲绘");
+        } finally {
+            uping = false;
+        }
 
         if (ret.error) {
             logger.mark(`${this.e.logFnc} 曲绘文件更新失败QAQ!`);
-            this.gitErr(ret.error, ret.stdout);
+            this.gitErr(ret.error, [ret.stdout, ret.stderr].filter(Boolean).join("\n"));
             return false;
         }
 
@@ -516,17 +550,16 @@ export class phiupdate extends phiPluginBase {
         let msg = "更新失败QAQ！";
         let errMsg = err.toString();
         stdout = stdout.toString();
+        const details = [errMsg, stdout].filter(Boolean).join("\n");
 
-        if (errMsg.includes("Timed out")) {
-            // @ts-ignore
-            let remote = errMsg.match(/'(.+?)'/g)[0].replace(/'/g, "");
+        if (details.includes("Timed out")) {
+            let remote = details.match(/'([^']+)'/)?.[1] || "远端";
             await this.reply(msg + `\n连接超时：${remote}`);
             return;
         }
 
-        if (/Failed to connect|unable to access/g.test(errMsg)) {
-            // @ts-ignore
-            let remote = errMsg.match(/'(.+?)'/g)[0].replace(/'/g, "");
+        if (/Failed to connect|unable to access/g.test(details)) {
+            let remote = details.match(/'([^']+)'/)?.[1] || "远端";
             await this.reply(msg + `\n连接失败：${remote}`);
             return;
         }
