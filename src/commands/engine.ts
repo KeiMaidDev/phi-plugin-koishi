@@ -10,8 +10,6 @@ const helpSpec: EngineCommandSpec = {
   description: '查看 Phi 帮助',
 }
 
-const rootHelpAliases = new Set(['help', '帮助', '菜单', '命令', '说明', '功能', '指令', '使用说明'])
-
 function stripCommandPrefix(source: string, commandName: string) {
   const raw = source.trim()
   if (!raw) return ''
@@ -46,15 +44,8 @@ async function invokeRootHelp(runtime: EngineRuntime, session: any) {
   return typeof result === 'boolean' ? undefined : result
 }
 
-function isRootHelpInput(session: any) {
-  const content = String(session?.stripped?.content ?? session?.content ?? '').trim()
-  const match = /^(?:[/#]\s*)?phi\s+(\S+)\s*$/i.exec(content)
-  return Boolean(match && rootHelpAliases.has(match[1].toLowerCase()))
-}
-
 export function registerEngineCommands(ctx: Context, runtime: EngineRuntime) {
   const root = ctx.command('phi', 'Phi 相关功能', { slash: false })
-  root.alias('phihelp')
 
   const register = (spec: EngineCommandSpec) => {
     const command = ctx.command(`phi.${spec.path} [...args]`, spec.description, {
@@ -76,17 +67,12 @@ export function registerEngineCommands(ctx: Context, runtime: EngineRuntime) {
   for (const spec of engineCommands) register(spec)
   for (const spec of aliasProposalCommands) register(spec)
 
-  ctx.middleware?.(async (session, next) => {
-    if (!isRootHelpInput(session)) return next()
-    try {
-      return await invokeRootHelp(runtime, session)
-    } catch (error) {
-      ctx.logger('phi-plugin').error(error)
-      return `Phi 功能执行失败：${error instanceof Error ? error.message : String(error)}`
-    }
-  }, true)
-
   root.action(async (argv) => {
+    const extraArgs = Array.isArray((argv as any).args) ? (argv as any).args : []
+    const hasExtraInput = extraArgs.some((value: any) => String(value ?? '').trim())
+      || (Array.isArray((argv as any).tokens)
+        && (argv as any).tokens.some((token: any) => String(token?.content ?? '').trim()))
+    if (hasExtraInput) return '请发送 phi 查看用法。'
     try {
       return await invokeRootHelp(runtime, argv.session)
     } catch (error) {
