@@ -13,7 +13,7 @@ import logger from "../../utils/logger";
 import platform from "../../platform/index";
 
 const require = createRequire(__filename);
-const { exec, execSync } = require("child_process");
+const { exec, execSync, spawn } = require("child_process");
 
 // 是否在更新中
 let uping = false;
@@ -26,8 +26,36 @@ function shellPath(filePath) {
 }
 
 /**
- * 处理插件更新
+ * 将 Git 的 \r 进度流拆成可读日志，并按阶段/百分比去重。
+ * @param {string} label
  */
+function createProgressReporter(label) {
+    let buffer = ""
+    const seen = new Set()
+    const report = line => {
+        const text = line.trim()
+        if (!text || !/(\d+%|Receiving objects|Resolving deltas|Counting objects|Compressing objects|remote:)/i.test(text)) return
+        const phase = text.split(":")[0].trim()
+        const percent = text.match(/(\d+)%/)?.[1]
+        const key = percent ? `${phase}:${percent}` : text
+        if (seen.has(key)) return
+        seen.add(key)
+        logger.info(`[phi-plugin][曲绘] ${label} ${text}`)
+    }
+    return {
+        push(chunk) {
+            buffer += chunk.toString()
+            const lines = buffer.split(/\r|\n/)
+            buffer = lines.pop() || ""
+            lines.forEach(report)
+        },
+        flush() {
+            if (buffer) report(buffer)
+            buffer = ""
+        },
+    }
+}
+/** 处理插件更新 */
 export class phiupdate extends phiPluginBase {
     constructor(runtime: PhiRuntime) {
         super({
@@ -285,12 +313,12 @@ export class phiupdate extends phiPluginBase {
     }
 
     async ill_clone() {
-        let command = `git clone ${this.getDownIllUrl()} ${shellPath(originalIllPath)} --depth=1`;
+        let command = `git clone --progress --depth=1 ${this.getDownIllUrl()} ${shellPath(originalIllPath)}`;
 
         this.reply("开始下载曲绘文件");
 
         uping = true;
-        let ret = await this.execSync(command);
+        let ret = await this.execWithProgress(command, "下载曲绘");
         uping = false;
         if (ret.error) {
             logger.mark(`${this.e.logFnc} 曲绘文件更新失败QAQ!`);
@@ -341,7 +369,7 @@ export class phiupdate extends phiPluginBase {
         // --depth=1 把历史截断回单个提交；但被截断的旧提交仍被 reflog 引用而保持可达，
         // 必须先清掉 reflog 再 repack，才能真正丢弃它们，否则 .git 会随每次更新持续变大。
         let command = [
-            `git -C ${repoPath} fetch --all --prune --depth=1`,
+            `git -C ${repoPath} fetch --all --prune --depth=1 --progress`,
             `git -C ${repoPath} reset --hard origin/main`,
             `git -C ${repoPath} clean -fd`,
             `git -C ${repoPath} reflog expire --expire=now --expire-unreachable=now --all`,
@@ -352,7 +380,7 @@ export class phiupdate extends phiPluginBase {
         /** 获取上次提交的commitId，用于获取日志时判断新增的更新日志 */
         this.oldCommitId = await this.ill_getcommitId();
         uping = true;
-        let ret = await this.execSync(command);
+        let ret = await this.execWithProgress(command, "更新曲绘");
         uping = false;
 
         if (ret.error) {
@@ -524,6 +552,42 @@ export class phiupdate extends phiPluginBase {
         await this.replyRaw([errMsg, stdout]);
     }
 
+    /**
+     * 执行 Git 命令并把进度流式写入控制台。
+     * @param {string} command
+     * @param {string} label
+     */
+    async execWithProgress(command, label) {
+        logger.info(`[phi-plugin][曲绘] 开始${label}`)
+        return new Promise(resolve => {
+            const child = spawn(command, { shell: true, windowsHide: true })
+            const progress = createProgressReporter(label)
+            let stdout = ""
+            let stderr = ""
+            let settled = false
+
+            child.stdout?.on("data", chunk => {
+                stdout += chunk.toString()
+                progress.push(chunk)
+            })
+            child.stderr?.on("data", chunk => {
+                stderr += chunk.toString()
+                progress.push(chunk)
+            })
+
+            const finish = error => {
+                if (settled) return
+                settled = true
+                progress.flush()
+                if (error) logger.warn(`[phi-plugin][曲绘] ${label}失败`, error)
+                else logger.info(`[phi-plugin][曲绘] ${label}完成`)
+                resolve({ error, stdout, stderr })
+            }
+
+            child.on("error", finish)
+            child.on("close", code => finish(code === 0 ? undefined : new Error(`git exited with code ${code}`)))
+        })
+    }
     /**
      * 异步执行git相关命令
      * @param {string} cmd git命令
