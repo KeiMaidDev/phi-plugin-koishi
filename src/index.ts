@@ -11,7 +11,10 @@ import { Config, resolveConfig, validateConfig, type Config as PhiConfig } from 
 export { Config }
 export type { PhiConfig }
 export const name = 'phi-plugin-koishi'
-export const inject = ['database', 'monetary', 'puppeteer', 'cron']
+export const inject = {
+  required: ['database', 'monetary', 'puppeteer', 'cron'],
+  optional: ['assets'],
+}
 
 export async function apply(ctx: Context, input: PhiConfig) {
   const config = resolveConfig(input)

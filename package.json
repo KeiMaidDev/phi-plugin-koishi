@@ -38,6 +38,9 @@
         "monetary",
         "puppeteer",
         "cron"
+      ],
+      "optional": [
+        "assets"
       ]
     },
     "locales": [
