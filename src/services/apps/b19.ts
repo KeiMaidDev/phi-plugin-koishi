@@ -26,7 +26,7 @@ import {
     getB30AnalysisRecords,
 } from '../../domain/game/b30-analysis';
 import {
-    sendQuickCommands,
+    sendResultWithQuickCommands,
     suggestQuickCommands,
     chapterQuickCommands,
     achievementQuickCommands,
@@ -927,9 +927,9 @@ export class phib19 extends phiPluginBase {
             }
         }
 
-        if (data.length > this.config.listScoreMaxNum) {
-            send.promptWithAt(e, `谱面数量过多(${data.length})大于设置的最大值(${this.config.listScoreMaxNum})，只显示前${this.config.listScoreMaxNum}条！`)
-        }
+        const truncateNotice = data.length > this.config.listScoreMaxNum
+            ? `谱面数量过多(${data.length})，只显示前${this.config.listScoreMaxNum}条。`
+            : ''
 
         data.splice(this.config.listScoreMaxNum)
 
@@ -943,7 +943,7 @@ export class phib19 extends phiPluginBase {
 
         let plugin_data = await getNotes.getNotesData(e.user_id)
 
-        send.promptWithAt(e, await picmodle.common(e, 'suggest', {
+        const image = await picmodle.common(e, 'suggest', {
             head_title: "推分建议",
             song: data,
             phisong: phidata,
@@ -955,8 +955,11 @@ export class phib19 extends phiPluginBase {
             ChallengeMode: Math.floor(save.saveInfo.summary.challengeModeRank / 100),
             ChallengeModeRank: save.saveInfo.summary.challengeModeRank % 100,
             // dan: await get.getDan(e.user_id)
-        }))
-        await sendQuickCommands(e, suggestQuickCommands(PHI_COMMAND_HEAD), '推分建议快捷操作', this.config)
+        })
+        await sendResultWithQuickCommands(e, truncateNotice ? [image, truncateNotice] : image, suggestQuickCommands(PHI_COMMAND_HEAD), {
+            config: this.config,
+            buttonsPerRow: 2,
+        })
 
     }
 
@@ -1077,7 +1080,7 @@ export class phib19 extends phiPluginBase {
             }
         }
 
-        send.promptWithAt(e, await picmodle.chap(e, {
+        const image = await picmodle.chap(e, {
             player: { id: save.saveInfo.PlayerId },
             count,
             song_box,
@@ -1085,8 +1088,11 @@ export class phib19 extends phiPluginBase {
             num: rank.EZ,
             chapName: msg == 'ALL' ? 'AllSong' : chap,
             chapIll: getInfo.getChapIll(msg == 'ALL' ? 'AllSong' : chap),
-        }))
-        await sendQuickCommands(e, chapterQuickCommands(PHI_COMMAND_HEAD), '章节成绩快捷操作', this.config)
+        })
+        await sendResultWithQuickCommands(e, image, chapterQuickCommands(PHI_COMMAND_HEAD), {
+            config: this.config,
+            buttonsPerRow: 2,
+        })
 
     }
 
@@ -1189,8 +1195,11 @@ export class phib19 extends phiPluginBase {
 
         }
 
-        send.promptWithAt(e, await picmodle.common(e, 'table', data));
-        await sendQuickCommands(e, achievementQuickCommands(PHI_COMMAND_HEAD), '成就页快捷操作', this.config)
+        const image = await picmodle.common(e, 'table', data)
+        await sendResultWithQuickCommands(e, image, achievementQuickCommands(PHI_COMMAND_HEAD), {
+            config: this.config,
+            buttonsPerRow: 2,
+        })
     }
 }
 

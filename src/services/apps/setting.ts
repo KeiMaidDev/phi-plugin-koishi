@@ -13,7 +13,7 @@ import { getThemeInstallRequesterId } from '../theme/install-guard'
 import getBanGroup from '../../domain/user/get-ban-group'
 import send from '../../render/send'
 import { getApiAccessState } from '../../domain/user/api-permission'
-import { sendQuickCommandSections, userSettingQuickCommandSections } from '../../domain/game/markdown'
+import { sendResultWithQuickCommands, userSettingQuickCommandSections } from '../../domain/game/markdown'
 
 /**@import {botEvent} from '../base-class' */
 
@@ -310,12 +310,16 @@ export class phihelp extends phiPluginBase {
             ]
         }
 
-        send.promptWithAt(e, await picmodle.common(e, 'setting', {
+        const image = await picmodle.common(e, 'setting', {
             ...data,
             background: getInfo.getill(getInfo.illlist[Number((Math.random() * (getInfo.illlist.length - 1)).toFixed(0))]),
             theme: pluginData?.theme || 'default'
-        }, 'userSetting'))
-        await sendQuickCommandSections(e, userSettingQuickCommandSections(PHI_COMMAND_HEAD), '用户设置快捷操作', this.config)
+        }, 'userSetting')
+        const commands = userSettingQuickCommandSections(PHI_COMMAND_HEAD).flatMap(section => section.commands)
+        await sendResultWithQuickCommands(e, image, commands, {
+            config: this.config,
+            buttonsPerRow: 2,
+        })
         return true
     }
 }

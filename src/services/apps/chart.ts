@@ -12,7 +12,7 @@ import logger from '../../utils/logger';
 import { UserCredentials } from '../../domain/user/user-credentials';
 import { canUseApi, getApiAccessState } from '../../domain/user/api-permission'
 import platform from '../../platform/index'
-import { sendQuickCommands } from '../../domain/game/markdown'
+import { sendResultWithQuickCommands } from '../../domain/game/markdown'
 import { originalIllPath } from '../../utils/path'
 
 /** @import {botEvent} from '../base-class' */
@@ -612,13 +612,12 @@ async function getChartImg(e, id, options, config) {
     chartImg: getInfo.getChartImg(info.id, rank),
   });
 
-  await send.promptWithAt(e, [img, `${info.song} - ${rank}\n谱师：${info.chart[rank].charter}`])
   const commandHead = PHI_COMMAND_HEAD
-  await sendQuickCommands(e, [
+  await sendResultWithQuickCommands(e, [img, `${info.song} - ${rank}\n谱师：${info.chart[rank].charter}`], [
     { command: `/${commandHead} chart ${info.id} ${rank}`, label: '其他难度' },
     { command: `/${commandHead} tag ${info.id} ${rank}`, label: '查看标签' },
-    { command: `/${commandHead} help`, label: '帮助' },
-  ], '谱面操作', config)
+    { command: `/${commandHead}`, label: '帮助' },
+  ], { config, buttonsPerRow: 2 })
   return;
 }
 
@@ -682,13 +681,12 @@ async function getChartTags(e, id, options, config) {
     })
   });
 
-  await send.promptWithAt(e, resMsg.join('\n'));
   const commandHead = PHI_COMMAND_HEAD
-  await sendQuickCommands(e, [
+  await sendResultWithQuickCommands(e, resMsg.join('\n'), [
     { command: `/${commandHead} chart ${info.id} ${rank}`, label: '查看谱面' },
     { command: `/${commandHead} settag ${info.id} ${rank}`, label: '提交标签' },
-    { command: `/${commandHead} help`, label: '帮助' },
-  ], '谱面操作', config)
+    { command: `/${commandHead}`, label: '帮助' },
+  ], { config, buttonsPerRow: 2 })
 }
 
 /**

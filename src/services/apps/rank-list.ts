@@ -17,7 +17,7 @@ import { canUseApi } from '../../domain/user/api-permission';
 import logger from '../../utils/logger'
 import platform from '../../platform/index'
 import { UserCredentials } from '../../domain/user/user-credentials'
-import { sendQuickCommands, rankQuickCommands } from '../../domain/game/markdown'
+import { sendResultWithQuickCommands, rankQuickCommands } from '../../domain/game/markdown'
 
 /**@import {botEvent} from '../base-class' */
 
@@ -84,8 +84,11 @@ export class phiRankList extends phiPluginBase {
                     data.users.push({ ...await makeSmallLine(item), index: item.index, me: item.me })
                 }
                 data.me = await makeLargeLine(new Save(api_ranklist.me.save), new saveHistory(api_ranklist.me.history), e)
-                send.promptWithAt(e, [await picmodle.common(e, 'rankingList', data), `总数据量：${data.totDataNum}\n`])
-                await sendQuickCommands(e, rankQuickCommands(PHI_COMMAND_HEAD), '排行榜快捷操作', this.config)
+                const image = await picmodle.common(e, 'rankingList', data)
+                await sendResultWithQuickCommands(e, [image, `总数据量：${data.totDataNum}`], rankQuickCommands(PHI_COMMAND_HEAD), {
+                    config: this.config,
+                    buttonsPerRow: 2,
+                })
                 return true
             }
         }
@@ -145,8 +148,11 @@ export class phiRankList extends phiPluginBase {
             }
         }
 
-        send.promptWithAt(e, [`总数据量：${data.totDataNum}\n`, await picmodle.common(e, 'rankingList', data)])
-        await sendQuickCommands(e, rankQuickCommands(PHI_COMMAND_HEAD), '排行榜快捷操作', this.config)
+        const image = await picmodle.common(e, 'rankingList', data)
+        await sendResultWithQuickCommands(e, [image, `总数据量：${data.totDataNum}`], rankQuickCommands(PHI_COMMAND_HEAD), {
+            config: this.config,
+            buttonsPerRow: 2,
+        })
     }
 
     /**
@@ -169,8 +175,10 @@ export class phiRankList extends phiPluginBase {
         if (await canUseApi(this.config, e, 'scoreStatistics')) {
             const res = await makeRequest.getRanklistRks({ request_rks: rks }, { event: e })
             if (res) {
-                send.promptWithAt(e, `当前服务器记录中一共有 ${res.rksRank}/${res.totNum} 位玩家的 rks 大于 ${rks}！`)
-                await sendQuickCommands(e, rankQuickCommands(PHI_COMMAND_HEAD), '排行榜快捷操作', this.config)
+                await sendResultWithQuickCommands(e, `当前服务器记录中一共有 ${res.rksRank}/${res.totNum} 位玩家的 rks 大于 ${rks}！`, rankQuickCommands(PHI_COMMAND_HEAD), {
+                    config: this.config,
+                    buttonsPerRow: 2,
+                })
                 return true
             }
         }
@@ -179,8 +187,10 @@ export class phiRankList extends phiPluginBase {
 
         let rank = await getRksRank.getRankByRks(rks)
 
-        send.promptWithAt(e, `当前服务器记录中一共有 ${totDataNum - rank + 1}/${totDataNum} 位玩家的 rks 大于等于 ${rks}！`)
-        await sendQuickCommands(e, rankQuickCommands(PHI_COMMAND_HEAD), '排行榜快捷操作', this.config)
+        await sendResultWithQuickCommands(e, `当前服务器记录中一共有 ${totDataNum - rank + 1}/${totDataNum} 位玩家的 rks 大于等于 ${rks}！`, rankQuickCommands(PHI_COMMAND_HEAD), {
+            config: this.config,
+            buttonsPerRow: 2,
+        })
 
         return true
     }

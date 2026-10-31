@@ -22,7 +22,7 @@ import picmodle from '../../render/pic-model'
 import { canUseApi } from '../../domain/user/api-permission'
 import platform, { redis } from '../../platform/index'
 import { UserCredentials } from '../../domain/user/user-credentials'
-import { sendQuickCommands, sessionQuickCommands, updateQuickCommands } from '../../domain/game/markdown'
+import { sendResultWithQuickCommands, sessionQuickCommands, updateQuickCommands } from '../../domain/game/markdown'
 
 /**@import {botEvent} from '../base-class' */
 
@@ -675,8 +675,14 @@ async function build(config, e, updateData, history, quickCommands = updateQuick
         rks_history, rks_range,
     }
 
-    send.promptWithAt(e, [await picmodle.update(e, data), `PlayerId: ${fCompute.convertRichText(now.saveInfo.PlayerId, true)}`])
-    if (!simpleReply) await sendQuickCommands(e, quickCommands(PHI_COMMAND_HEAD), quickCommandsTitle, config)
+    const image = await picmodle.update(e, data)
+    const playerId = fCompute.convertRichText(now.saveInfo.PlayerId, true)
+    await sendResultWithQuickCommands(
+        e,
+        [image, `PlayerId: ${playerId}`],
+        simpleReply ? [] : quickCommands(PHI_COMMAND_HEAD),
+        { config, buttonsPerRow: 2 },
+    )
 
     return false
 }

@@ -183,7 +183,7 @@ export const Config: Schema<Config> = Schema.intersect([
     HistoryDayNum: Schema.number().min(2).max(10000).default(10).description("历史成绩单日数量"),
     HistoryScoreDate: Schema.number().min(1).max(100).default(10).description("历史成绩展示天数"),
     HistoryScoreNum: Schema.number().min(10).max(10000).default(50).description("历史成绩展示数量"),
-    listScoreMaxNum: Schema.number().min(3).max(10000).default(180).description("/list 最大数量，建议为3的倍数"),
+    listScoreMaxNum: Schema.number().min(3).max(10000).default(180).description("成绩列表和建议单次最大数量，同时限制 phi list N 的上限"),
     WordB19Img: Schema.boolean().default(false).description("文字版B19曲绘图片"),
     WordSuggImg: Schema.boolean().default(false).description("Suggest曲绘图片"),
   }).description("渲染设置"),

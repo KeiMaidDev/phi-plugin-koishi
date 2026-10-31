@@ -14,9 +14,10 @@ import { Level, MAX_DIFFICULTY } from '../../domain/game/const-num'
 import getNotes from '../../domain/user/get-notes'
 import { UserCredentials } from '../../domain/user/user-credentials'
 import analyzeSaveHistory from '../../domain/save/analyze-save-history'
+import { parseScoreListQuery } from '../../domain/game/list-query'
 import { canUseApi } from '../../domain/user/api-permission'
 import {
-    sendQuickCommands,
+    sendResultWithQuickCommands,
     userListQuickCommands,
     historyQuickCommands,
 } from '../../domain/game/markdown'
@@ -531,50 +532,23 @@ export class phiuser extends phiPluginBase {
             return true
         }
 
-        const dif_range = [0, getInfo.MAX_DIFFICULTY];
-        const acc_range = [0, 100];
-
-        /** @type {string} */
-        let msg = e.msg.replace(/^[#/](.*?)list/, "")
-
-        /**EZ HD IN AT */
-        let isask = [true, true, true, true]
-
-        msg = msg.toUpperCase()
-
-        const accStr = msg.match(/-ACC\s*\d+(\.\d+)?(\s*[-～~]\s*\d+(\.\d+)?|\s*[+-])?/i)?.[0];
-        if (accStr) {
-            fCompute.match_range(accStr, acc_range);
-            msg = msg.replace(accStr, '');
+        const maxListSize = Math.max(1, Number(this.config.listScoreMaxNum) || 180)
+        const fail = (message) => {
+            send.promptWithAt(e, message)
+            return true
         }
-
-        const difStr = msg.match(/(-DIF)?\s*\d+(\.\d+)?(\s*[-～~]\s*\d+(\.\d+)?|\s*[+-])?/i)?.[0];
-        if (difStr) {
-            fCompute.match_range(difStr, dif_range);
-            msg = msg.replace(difStr, '');
+        const usage = `用法：/${PHI_COMMAND_HEAD} list [数量] [-dif 定数范围] [-acc ACC范围] [EZ|HD|IN|AT] [NEW|C|B|A|S|V|FC|PHI]`
+        const parsed = parseScoreListQuery(e.msg, maxListSize, getInfo.MAX_DIFFICULTY)
+        if (!parsed.ok) {
+            return fail(`${parsed.error}\n${usage}`)
         }
-
-        if (msg.includes('EZ') || msg.includes('HD') || msg.includes('IN') || msg.includes('AT')) {
-            isask = [false, false, false, false]
-            if (msg.includes('EZ')) { isask[0] = true }
-            if (msg.includes('HD')) { isask[1] = true }
-            if (msg.includes('IN')) { isask[2] = true }
-            if (msg.includes('AT')) { isask[3] = true }
-        }
-        msg = msg.replace(/(list|AT|IN|HD|EZ)*/g, "");
-
-        let scoreAsk = { NEW: true, F: true, C: true, B: true, A: true, S: true, V: true, FC: true, PHI: true };
-        const selectedTags = msg.match(/\b(?:NEW|F|C|B|A|S|V|FC|PHI|AP)\b/g);
-        if (selectedTags) {
-            scoreAsk = { NEW: false, F: false, C: false, B: false, A: false, S: false, V: false, FC: false, PHI: false };
-            for (const tag of selectedTags) {
-                const key = tag === 'AP' ? 'PHI' : tag;
-                // @ts-ignore
-                scoreAsk[key] = true;
-            }
-        }
-        msg = msg.replace(/\b(?:NEW|F|C|B|A|S|V|FC|PHI|AP)\b/g, "");
-
+        const {
+            limit: requestedLimit,
+            difficultyRange: dif_range,
+            accRange: acc_range,
+            levelFilters: isask,
+            scoreFilters: scoreAsk,
+        } = parsed.query
 
         let Record = save.gameRecord
 
@@ -621,14 +595,19 @@ export class phiuser extends phiPluginBase {
             }
         }
 
-        if (data.length > this.config.listScoreMaxNum) {
-            send.promptWithAt(e, `谱面数量过多(${data.length})大于设置的最大值(${this.config.listScoreMaxNum})，请缩小搜索范围QAQ！`)
-            return true
+        const total = data.length
+        if (!total) {
+            return fail(`没有找到符合条件的谱面。\n${usage}`)
+        }
+        if (requestedLimit == null && total > maxListSize) {
+            return fail(`谱面数量过多(${total})，超过设置的最大值(${maxListSize})。请缩小搜索范围，或在 ${PHI_COMMAND_HEAD} list 后指定不超过上限的数量。`)
         }
 
         data.sort((a, b) => {
             return (b.difficulty || 0) - (a.difficulty || 0)
         })
+        const truncated = requestedLimit != null && total > requestedLimit
+        if (truncated) data = data.slice(0, requestedLimit)
 
         let plugin_data = await getNotes.getNotesData(e.user_id)
 
@@ -638,7 +617,7 @@ export class phiuser extends phiPluginBase {
         request.push(`ACC ${acc_range[0]}-${acc_range[1]}`);
 
 
-        send.promptWithAt(e, await picmodle.list(e, {
+        const image = await picmodle.list(e, {
             head_title: "成绩筛选",
             song: data,
             background: getInfo.getill(illList[fCompute.randInt(0, illList.length - 1)]),
@@ -650,9 +629,14 @@ export class phiuser extends phiPluginBase {
             ChallengeModeRank: save.saveInfo.summary.challengeModeRank % 100,
             // dan: await get.getDan(e.user_id),
             request: request
-        }))
-        await sendQuickCommands(e, userListQuickCommands(PHI_COMMAND_HEAD), '成绩筛选快捷操作', this.config)
-
+        })
+        const content = truncated
+            ? [image, `命中 ${total} 条谱面，显示定数最高的前 ${requestedLimit} 条。`]
+            : image
+        await sendResultWithQuickCommands(e, content, userListQuickCommands(PHI_COMMAND_HEAD, maxListSize), {
+            config: this.config,
+        })
+        return true
     }
 
     /**
@@ -684,11 +668,10 @@ export class phiuser extends phiPluginBase {
 
         const stats = analyzeSaveHistory(history);
 
-        send.promptWithAt(e, await picmodle.analyzeSaveHistory(e, {
+        await sendResultWithQuickCommands(e, await picmodle.analyzeSaveHistory(e, {
             stats,
             background: getInfo.getill(getInfo.illlist[fCompute.randInt(0, getInfo.illlist.length - 1)]),
-        }));
-        await sendQuickCommands(e, historyQuickCommands(PHI_COMMAND_HEAD), '历史记录快捷操作', this.config)
+        }), historyQuickCommands(PHI_COMMAND_HEAD), { config: this.config })
     }
 
     /**
@@ -974,13 +957,12 @@ export class phiuser extends phiPluginBase {
             // dan: dan,
         }
 
-        send.promptWithAt(e, await picmodle.common(e, 'historyB30', {
+        await sendResultWithQuickCommands(e, await picmodle.common(e, 'historyB30', {
             gameuser,
             rows,
             background: getInfo.getill(illList[fCompute.randInt(0, illList.length - 1)]),
             theme: pluginData?.theme || 'star',
-        }))
-        await sendQuickCommands(e, historyQuickCommands(PHI_COMMAND_HEAD), '历史记录快捷操作', this.config)
+        }), historyQuickCommands(PHI_COMMAND_HEAD), { config: this.config })
 
     }
 

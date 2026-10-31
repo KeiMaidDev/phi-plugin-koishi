@@ -18,7 +18,7 @@ import { getApiAccessState } from '../../domain/user/api-permission'
 import fCompute from '../../domain/game/f-compute'
 import platform from '../../platform/index'
 import getNotes from '../../domain/user/get-notes'
-import { sendQuickCommands, apiSettingQuickCommands } from '../../domain/game/markdown'
+import { sendResultWithQuickCommands, apiSettingQuickCommands } from '../../domain/game/markdown'
 
 
 /**@import {botEvent} from '../base-class' */
@@ -579,13 +579,16 @@ export class phihelp extends phiPluginBase {
             return buildItem(key, String(userSetting[key]))
         })
 
-        send.promptWithAt(e, await picmodle.common(e, 'setting', {
+        const image = await picmodle.common(e, 'setting', {
             pageTitle: 'Phi-Plugin API 用户设置',
             pageDescription: '以下设置会同步到查分平台账户权限。',
             items: items,
             background: getInfo.getill(getInfo.illlist[Number((Math.random() * (getInfo.illlist.length - 1)).toFixed(0))]),
             theme: pluginData?.theme || 'default'
-        }, 'userSetting'))
-        await sendQuickCommands(e, apiSettingQuickCommands(PHI_COMMAND_HEAD), 'API设置快捷操作', this.config)
+        }, 'userSetting')
+        await sendResultWithQuickCommands(e, image, apiSettingQuickCommands(PHI_COMMAND_HEAD), {
+            config: this.config,
+            buttonsPerRow: 2,
+        })
     }
 }

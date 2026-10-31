@@ -92,7 +92,7 @@
  * @typedef {'HistoryDayNum'} HistoryDayNum 历史成绩单日数量
  * @typedef {'HistoryScoreDate'} HistoryScoreDate 历史成绩展示天数
  * @typedef {'HistoryScoreNum'} HistoryScoreNum 历史成绩展示数量
- * @typedef {'listScoreMaxNum'} listScoreMaxNum /list 最大数量
+ * @typedef {'listScoreMaxNum'} listScoreMaxNum 成绩列表和建议单次最大数量
  * 系统设置
  * @typedef {'defaultGlobal'} defaultGlobal 默认使用国际服
  * @typedef {'watchInfoPath'} watchInfoPath 监听信息文件

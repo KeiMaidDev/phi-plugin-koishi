@@ -18,7 +18,7 @@ import {
     getLocalThemeDetail,
     isThemeSlug,
 } from '../theme/catalog'
-import { sendMarketQuickCommands, sendQuickCommands } from '../../domain/game/markdown'
+import { sendMarketResult, sendResultWithQuickCommands } from '../../domain/game/markdown'
 import { isApiConnectionError } from '../../providers/phi-api/phi-api-errors'
 import { getThemeInstallRequesterId } from '../theme/install-guard'
 import { getApiAccessState } from '../../domain/user/api-permission'
@@ -85,6 +85,7 @@ export class phiMarket extends phiPluginBase {
     async renderMarketCatalog(e, query, page, forceLocal = false) {
         const commandHead = `${PHI_COMMAND_HEAD}`
         let catalog
+        let notice = ''
         if (!forceLocal) {
             const apiAccess = await getApiAccessState(this.config, e, 'customTheme')
             if (apiAccess.enabled) {
@@ -94,18 +95,18 @@ export class phiMarket extends phiPluginBase {
                     logger.warn(`[phi-plugin][主题市场] 在线目录不可用，已切换本地目录：${error?.code || 'unknown'}`)
                 }
             } else if (apiAccess.message) {
-                send.promptWithAt(e, apiAccess.message)
+                notice = apiAccess.message
             }
         }
         catalog ||= getLocalThemeCatalog(query, page)
         const pluginData = await getNotes.getNotesData(e.user_id)
-        await send.promptWithAt(e, await picmodle.market(e, {
+        const image = await picmodle.market(e, {
             ...catalog,
             currentTheme: pluginData?.theme || 'default',
             commandHead,
-        }))
+        })
         setMarketPageState(e, query, catalog.page, catalog.pageCount, catalog.localOnly === true)
-        await sendMarketQuickCommands(e, catalog.themes, catalog, this.config)
+        await sendMarketResult(e, image, catalog.themes, catalog, this.config, notice)
     }
 
     /** @param {botEvent} e */
@@ -184,9 +185,13 @@ export class phiMarket extends phiPluginBase {
                 const customThemeAccess = wantsOnlineDetail
                     ? await getApiAccessState(this.config, e, 'customTheme')
                     : null
+                let notice = ''
                 if (customThemeAccess && !customThemeAccess.enabled) {
-                    if (customThemeAccess.message) send.promptWithAt(e, customThemeAccess.message)
-                    if (!localDetail) return true
+                    notice = customThemeAccess.message || ''
+                    if (!localDetail) {
+                        if (notice) send.promptWithAt(e, notice)
+                        return true
+                    }
                 }
                 const shouldFetchOnline = customThemeAccess?.enabled === true && wantsOnlineDetail
                 if (shouldFetchOnline) {
@@ -200,15 +205,15 @@ export class phiMarket extends phiPluginBase {
                 }
                 if (!detail) throw new Error('local_theme_not_found')
                 const pluginData = await getNotes.getNotesData(e.user_id)
-                send.promptWithAt(e, await picmodle.marketDetail(e, {
+                const image = await picmodle.marketDetail(e, {
                     theme: pluginData?.theme || 'default',
                     detail,
                     commandHead,
-                }))
-                await sendQuickCommands(e, [
+                })
+                await sendResultWithQuickCommands(e, notice ? [image, notice] : image, [
                     { command: `/${commandHead} market ${themeId}`, label: '使用主题' },
                     { command: `/${commandHead} market`, label: '返回市场' },
-                ], '主题操作', this.config)
+                ], { config: this.config, buttonsPerRow: 2 })
             } catch (/** @type {any} */ error) {
                 logger.warn(`[phi-plugin][主题市场] 详情加载失败 ${themeId}：${error?.code || 'unknown'}`)
                 send.promptWithAt(e, '未找到该主题，或主题市场暂时不可用。')

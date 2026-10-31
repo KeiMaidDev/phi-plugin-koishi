@@ -65,6 +65,26 @@ export async function sendQuickCommandMarkdown(e, markdown, commands, config, bu
 }
 
 /**
+ * 发送一次性结果页：正文/图片与快捷操作合并为同一条消息。
+ * Raw Markdown 不可用或发送失败时，回退为一条不带 Keyboard 的普通消息。
+ * @param {botEvent} e
+ * @param {unknown} content
+ * @param {{command:string,label:string}[]} commands
+ * @param {{config?:any,kind?:string,markdown?:boolean,buttonsPerRow?:number,fallback?:unknown}} [options]
+ */
+export async function sendResultWithQuickCommands(e, content, commands, options = {}) {
+    return await send.promptWithAt(e, content, {
+        kind: options.kind || 'help',
+        markdown: options.markdown === true,
+        actions: commands,
+        buttonsPerRow: options.buttonsPerRow,
+        config: options.config,
+        label: false,
+        fallback: options.fallback ?? content,
+    })
+}
+
+/**
  * 向 QQ 官方机器人发送快捷操作菜单。
  * @param {botEvent} e
  * @param {{command:string,label:string}[]} commands
@@ -323,13 +343,20 @@ export function updateQuickCommands(commandHead) {
 }
 
 /** 成绩筛选页。 */
-export function userListQuickCommands(commandHead) {
-    return [
-        { command: pageCommand(commandHead, 'list'), label: '全部成绩' },
+export function userListQuickCommands(commandHead, limit) {
+    const count = Number(limit)
+    const result = []
+    if (Number.isSafeInteger(count) && count > 0) {
+        result.push({ command: pageCommand(commandHead, `list ${count}`), label: `前 ${count} 条` })
+    } else {
+        result.push({ command: pageCommand(commandHead, 'list'), label: '全部成绩' })
+    }
+    result.push(
         { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
         { command: pageCommand(commandHead, 'info'), label: '个人信息' },
         { command: pageRoot(commandHead), label: '帮助' },
-    ]
+    )
+    return result
 }
 
 /** 存档历史页。 */
@@ -443,4 +470,30 @@ function marketQuickCommands(themes, pagination = {}) {
 export async function sendMarketQuickCommands(e, themes, pagination = {}, config) {
     const markdown = buildMarketQuickMarkdown(themes, pagination)
     return await sendQuickCommandMarkdown(e, markdown, marketQuickCommands(themes, pagination), config)
+}
+
+/**
+ * 把主题市场目录图与 Keyboard 合并为一条消息。
+ * @param {botEvent} e
+ * @param {unknown} image
+ * @param {{slug:string,name:string,botDownloadAllowed:boolean|null}[]} themes
+ * @param {{page?:number,pageCount?:number}} pagination
+ * @param {any} config
+ * @param {string} [notice]
+ */
+export async function sendMarketResult(e, image, themes, pagination = {}, config, notice = '') {
+    const markdown = buildMarketQuickMarkdown(themes, pagination)
+    const fallbackText = markdown.replace(/^###\s*/, '')
+    const content = notice ? [image, escapePromptText(notice), markdown] : [image, markdown]
+    return await sendResultWithQuickCommands(
+        e,
+        content,
+        marketQuickCommands(themes, pagination),
+        {
+            config,
+            markdown: true,
+            buttonsPerRow: 2,
+            fallback: notice ? [image, notice, fallbackText] : [image, fallbackText],
+        },
+    )
 }
