@@ -13,7 +13,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import logger from '../../../utils/logger'
 import { resolveSongGuess } from './game-interaction'
-import { sendGameStatus } from './game-message'
+import { sendGameStatus, sendGameStatusWithImage } from './game-message'
 import {
     buildSongPool,
     buildVersionIndex,
@@ -289,15 +289,16 @@ async function timeoutGame(group_id, gameList, config) {
     endGame(group_id, gameList)
     const answer = getInfo.info(game.ansId)
     try {
-        await sendGameStatus(
+        const image = await renderGame(game.event, game, true, config)
+        await sendGameStatusWithImage(
             game.event,
             `**超时结束**\n\n${config.FribTimeout}s 内没有新的有效猜测，正确答案是：${answer?.song}`,
             `超时结束。${config.FribTimeout}s 内没有新的有效猜测，正确答案是：${answer?.song}`,
+            image,
             config,
             'replay',
             replay,
         )
-        await send.reply(game.event, await renderGame(game.event, game, true, config))
     } catch (err) {
         logger.error('[phi-plugin][frib19]超时结算失败')
         logger.error(err)
@@ -428,15 +429,16 @@ export default class frib19 {
             markGuessed(game, e)
             endGame(group_id, gameList)
             try {
-                await sendGameStatus(
+                const image = await renderGame(e, game, true, this.config)
+                await sendGameStatusWithImage(
                     e,
                     `**恭喜你，猜中啦！**\n\n正确答案是：${answer.song}`,
                     `恭喜你，猜中啦！正确答案是：${answer.song}`,
+                    image,
                     this.config,
                     'replay',
                     replay,
                 )
-                await send.reply(e, await renderGame(e, game, true, this.config))
                 await send.reply(e, await getPic.GetSongsInfoAtlas(e, game.ansId))
             } catch (err) {
                 logger.error('[phi-plugin][frib19]结算消息发送失败')
@@ -481,32 +483,33 @@ export default class frib19 {
             const replay = gameList[group_id]?.replayCommand || '/phi fri'
             endGame(group_id, gameList)
             try {
-                await sendGameStatus(
+                const image = await renderGame(e, game, true, this.config)
+                await sendGameStatusWithImage(
                     e,
                     `**猜测次数用完了**\n\n正确答案是：${answer.song}`,
                     `猜测次数用完了。正确答案是：${answer.song}`,
+                    image,
                     this.config,
                     'replay',
                     replay,
                 )
-                await send.reply(e, await renderGame(e, game, true, this.config))
             } catch (err) {
                 logger.error('[phi-plugin][frib19]结算消息发送失败')
                 logger.error(err)
             }
             return true
         }
-        await sendGameStatus(
-            e,
-            `**第 ${game.rows.length} 次猜测**\n\n已记录「${getInfo.info(guessId)?.song ?? msg}」。`,
-            `第 ${game.rows.length} 次猜测，已记录「${getInfo.info(guessId)?.song ?? msg}」。`,
-            this.config,
-            'answer',
-        )
         const image = await renderGame(e, game, false, this.config)
         /** 渲染期间本局可能已被他人结算，此时不再补发这张图 */
         if (fribGameData[group_id] !== game) return true
-        await send.reply(e, image)
+        await sendGameStatusWithImage(
+            e,
+            `**第 ${game.rows.length} 次猜测**\n\n已记录「${getInfo.info(guessId)?.song ?? msg}」。`,
+            `第 ${game.rows.length} 次猜测，已记录「${getInfo.info(guessId)?.song ?? msg}」。`,
+            image,
+            this.config,
+            'answer',
+        )
         return true
     }
 
@@ -525,15 +528,16 @@ export default class frib19 {
         const replay = gameList[group_id]?.replayCommand || '/phi fri'
         endGame(group_id, gameList)
         try {
-            await sendGameStatus(
+            const image = await renderGame(e, game, true, this.config)
+            await sendGameStatusWithImage(
                 e,
                 `**游戏已结束**\n\n正确答案是：${answer?.song}`,
                 `游戏已结束。正确答案是：${answer?.song}`,
+                image,
                 this.config,
                 'replay',
                 replay,
             )
-            await send.reply(e, await renderGame(e, game, true, this.config))
         } catch (err) {
             logger.error('[phi-plugin][frib19]结算消息发送失败')
             logger.error(err)

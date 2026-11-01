@@ -157,7 +157,7 @@ function cooldownMessage(kind, seconds) {
   return `${kind}冷却还有 ${seconds}s，先耐心等一下喵。`
 }
 
-function buildLetterPanel(game, { note = '', revealAll = false } = {}) {
+export function buildLetterPanel(game, { note = '', revealAll = false } = {}) {
   const markdown = ['## Phi 开字母', '']
   const text = ['Phi 开字母']
   if (note) {
@@ -168,8 +168,15 @@ function buildLetterPanel(game, { note = '', revealAll = false } = {}) {
   markdown.push(`> 曲库范围：${escapePromptText(scope)}`)
   text.push(`曲库范围：${scope}`)
   game.ansList.forEach((song, index) => {
-    if (revealAll || !game.blurlist[index]) {
-      const winner = game.winnerlist[index]
+    const winner = game.winnerlist[index]
+    if (revealAll) {
+      const icon = winner ? '✅' : '❌'
+      const suffix = winner ? ` · ${escapePromptText(winner)}` : ''
+      markdown.push(`> ${icon} ${escapePromptText(song)}${suffix}`)
+      text.push(`${icon} ${song}${winner ? ` · ${winner}` : ''}`)
+      return
+    }
+    if (!game.blurlist[index]) {
       const suffix = winner ? ` · ${escapePromptText(winner)}` : ''
       markdown.push(`> ✅ ${escapePromptText(song)}${suffix}`)
       text.push(`✅ ${song}${winner ? ` · ${winner}` : ''}`)

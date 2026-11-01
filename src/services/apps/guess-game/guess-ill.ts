@@ -8,7 +8,7 @@ import SongsInfo from '../../../domain/game/songs-info'
 import fCompute from '../../../domain/game/f-compute'
 import getPic from '../../../render/get-pic'
 import { resolveSongGuess } from './game-interaction'
-import { sendGameStatus } from './game-message'
+import { sendGameStatus, sendGameStatusWithImage } from './game-message'
 
 let songIdList = getInfo.illlist || [] //所有有曲绘的曲目列表
 
@@ -258,11 +258,17 @@ export default class guessIll {
             '发送“不玩了”可以提前结束游戏。',
             `本局难度：${level}，当前干扰类型：${data.chosenInterferences.length ? data.chosenInterferences.join('、') : '无干扰'}`,
         ].join('\n')
-        await sendGameStatus(e, intro, intro, this.config, 'answer')
-        if (this.config.GuessTipRecall)
-            await send.reply(e, await picmodle.guess(e, data), false, { recallMsg: this.config.GuessTipCd })
-        else
-            await send.reply(e, await picmodle.guess(e, data))
+        const initialImage = await picmodle.guess(e, data)
+        await sendGameStatusWithImage(
+            e,
+            intro,
+            intro,
+            initialImage,
+            this.config,
+            'answer',
+            undefined,
+            { recallMsg: this.config.GuessTipRecall ? this.config.GuessTipCd : undefined },
+        )
 
         /**单局时间不超过4分半 */
         const time = this.config.GuessTipCd
@@ -346,11 +352,16 @@ export default class guessIll {
                 return true
             }
 
-            await sendGameStatus(e, tipmsg, tipmsg, this.config, 'answer')
-            if (this.config.GuessTipRecall)
-                send.reply(e, remsg, false, { recallMsg: this.config.GuessTipCd + 1 })
-            else
-                send.reply(e, remsg)
+            await sendGameStatusWithImage(
+                e,
+                tipmsg,
+                tipmsg,
+                remsg[0],
+                this.config,
+                'answer',
+                undefined,
+                { recallMsg: this.config.GuessTipRecall ? this.config.GuessTipCd + 1 : undefined },
+            )
 
         }
 
@@ -494,7 +505,7 @@ async function gameover(e, data) {
     data.filterStyle = buildFilterStyle(data)
     data.ans = data.illustration
     data.style = 1
-    await send.reply(e, await picmodle.guess(e, data))
+    await send.prompt(e, await picmodle.guess(e, data), { keyboard: false })
     delete eList[groupKey(e)]
 }
 
