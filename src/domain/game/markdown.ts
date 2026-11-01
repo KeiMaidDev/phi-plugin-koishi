@@ -2,7 +2,7 @@
 import { performance } from 'node:perf_hooks'
 import { h } from 'koishi'
 
-import { PHI_COMMAND_HEAD, phiMenuCallbackData } from '../../constants'
+import { PHI_COMMAND_HEAD, phiMarketCallbackData, phiMenuCallbackData } from '../../constants'
 
 import send from '../../render/send'
 import { escapePromptText } from '../../render/prompt'
@@ -456,7 +456,7 @@ export function buildMarketQuickMarkdown(themes, pagination = {}) {
 }
 
 /** @param {{slug:string,name:string,botDownloadAllowed:boolean|null}[]} themes @param {{page?:number,pageCount?:number}} pagination */
-function marketQuickCommands(themes, pagination = {}) {
+export function marketQuickCommands(themes, pagination = {}) {
     const commandHead = `${PHI_COMMAND_HEAD}`
     const commands = []
     for (const theme of themes || []) {
@@ -469,8 +469,8 @@ function marketQuickCommands(themes, pagination = {}) {
     const page = pagination.page || 1
     const pageCount = pagination.pageCount || 1
     if (pageCount > 1) {
-        if (page > 1) commands.push({ command: `/${commandHead} pr`, label: '上一页' })
-        if (page < pageCount) commands.push({ command: `/${commandHead} nx`, label: '下一页' })
+        if (page > 1) commands.push({ command: phiMarketCallbackData('prev'), type: 'callback', label: '上一页' })
+        if (page < pageCount) commands.push({ command: phiMarketCallbackData('next'), type: 'callback', label: '下一页' })
     }
     return commands
 }

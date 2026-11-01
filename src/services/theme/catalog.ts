@@ -7,7 +7,7 @@ export const THEME_MARKET_API_ORIGIN = 'https://lyh.org.cn:18473'
 const SLUG_RE = /^[a-z][a-z0-9_-]{0,119}$/
 const PINNED_LOCAL_THEME_ID = 'milthm'
 const MAX_MARKET_THEMES = 500
-export const THEME_MARKET_PAGE_SIZE = 6
+export const THEME_MARKET_PAGE_SIZE = 4
 
 /** @param {unknown} value */
 function isRecord(value) {

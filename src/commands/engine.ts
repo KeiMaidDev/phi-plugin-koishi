@@ -1,6 +1,6 @@
 import type { Context } from 'koishi'
 import type { EngineRuntime } from '../runtime'
-import { parsePhiMenuCallbackData } from '../constants'
+import { parsePhiMarketCallbackData, parsePhiMenuCallbackData } from '../constants'
 import { engineCommands, aliasProposalCommands, type EngineCommandSpec } from './spec'
 
 const helpSpec: EngineCommandSpec = {
@@ -53,19 +53,35 @@ async function sendCommandResult(runtime: EngineRuntime, session: any, result: a
   return undefined
 }
 
-export async function dispatchMenuCallback(runtime: EngineRuntime, session: any) {
-  const page = parsePhiMenuCallbackData(session?.event?.button?.data)
-  if (!page) return false
+export async function dispatchButtonCallback(runtime: EngineRuntime, session: any) {
+  const data = session?.event?.button?.data
+  const page = parsePhiMenuCallbackData(data)
+  if (page) {
+    const app = runtime.apps.help
+    const method = page === 'game' ? app?.gameMenu : app?.showMenu
+    if (typeof method !== 'function') throw new Error(`Phi menu callback not found: ${page}`)
 
-  const app = runtime.apps.help
-  const method = page === 'game' ? app?.gameMenu : app?.showMenu
-  if (typeof method !== 'function') throw new Error(`Phi menu callback not found: ${page}`)
+    const event = runtime.adapter.fromSession(session)
+    app.e = event
+    if (page === 'game') await method.call(app, event)
+    else await method.call(app, event, page)
+    return true
+  }
 
-  const event = runtime.adapter.fromSession(session)
-  app.e = event
-  if (page === 'game') await method.call(app, event)
-  else await method.call(app, event, page)
-  return true
+  const action = parsePhiMarketCallbackData(data)
+  if (action) {
+    const app = runtime.apps.market
+    const method = app?.marketPage
+    if (typeof method !== 'function') throw new Error(`Phi market callback not found: ${action}`)
+
+    const event = runtime.adapter.fromSession(session)
+    event.msg = event.text = `/phi ${action === 'next' ? 'nx' : 'pr'}`
+    app.e = event
+    await method.call(app, event)
+    return true
+  }
+
+  return false
 }
 
 export function registerEngineCommands(ctx: Context, runtime: EngineRuntime) {
@@ -105,7 +121,7 @@ export function registerEngineCommands(ctx: Context, runtime: EngineRuntime) {
 
   ctx.on('interaction/button', async (session) => {
     try {
-      await dispatchMenuCallback(runtime, session)
+      await dispatchButtonCallback(runtime, session)
     } catch (error) {
       ctx.logger('phi-plugin').error(error)
     }
