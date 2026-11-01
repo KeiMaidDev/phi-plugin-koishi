@@ -153,18 +153,27 @@ async function elementsToMarkdown(values: any[], assets?: MarkdownImageAssets): 
   return result
 }
 
+function appendMarkdownBlock(result: string, chunk: string) {
+  if (!chunk) return result
+  if (!result) return chunk
+  if (result.endsWith('\n') || chunk.startsWith('\n')) return result + chunk
+  return `${result}\n\n${chunk}`
+}
+
 async function contentToMarkdown(content: unknown, options: PromptOptions) {
   const values = Array.isArray(content) ? content : [content]
   let result = ''
   for (const value of values) {
     if (value === false || value == null) continue
+    let chunk = ''
     if (typeof value === 'string') {
-      result += options.markdown ? value : escapePromptText(value)
+      chunk = options.markdown ? value : escapePromptText(value)
     } else if (isElement(value)) {
-      result += await elementToMarkdown(value, options.assets)
+      chunk = await elementToMarkdown(value, options.assets)
     } else {
       throw new Error(`unsupported prompt value: ${typeof value}`)
     }
+    result = appendMarkdownBlock(result, chunk)
   }
   return result
 }
