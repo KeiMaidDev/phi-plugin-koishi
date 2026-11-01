@@ -2,290 +2,227 @@
 import type { PhiRuntime } from '../../runtime-context'
 import { PHI_COMMAND_HEAD } from '../../constants'
 
-import send from '../../render/send';
-import GuessTips from './guess-game/guess-tips';
-import GuessLetter from './guess-game/guess-letter';
-import GuessIll from './guess-game/guess-ill';
-import Frib19 from './guess-game/frib19';
-import getBanGroup from '../../domain/user/get-ban-group';
-import phiPluginBase from '../base-class';
-import logger from '../../utils/logger';
+import send from '../../render/send'
+import GuessTips from './guess-game/guess-tips'
+import GuessLetter from './guess-game/guess-letter'
+import GuessIll from './guess-game/guess-ill'
+import Frib19 from './guess-game/frib19'
+import getBanGroup from '../../domain/user/get-ban-group'
+import phiPluginBase from '../base-class'
+import logger from '../../utils/logger'
+import {
+  GAME_HINT_KEYWORD,
+  GAME_STOP_KEYWORD,
+  LETTER_OPEN_KEYWORD,
+  LETTER_OPEN_SONG_KEYWORD,
+  normalizeGameReplayCommand,
+} from './guess-game/game-interaction'
 
-/**
- * 各游戏及其自身支持的参数，按游戏分组写在这里：
- * - 提示猜曲 / tipgame：无参数
- * - 开字母 / ltr：后续内容直接吞掉（由字母游戏自己解析）
- * - 猜曲绘 / guess：-l 指定干扰难度
- * - 弗一把 / fib：难度与定数下限，可与游戏名连写（如 IN 14+、14.1、fib14.3）
- * 每个游戏名都放在独立捕获组里，start 取第一个命中的捕获组作为游戏名，
- * 参数只作用于所属游戏，不会互相串味。
- */
-let games = [
-    '(提示猜曲|tipgame)',
-    '(ltr|letter|开字母).*',
-    '(guess|猜曲绘)(?:\\s*\\-[lL]\\s*\\d+)?',
-    '(弗一把|(?:[Ff][Rr][Ii][Bb][Ee][Rr][Gg])|(?:[Ff][Ii][Bb])|(?:[Ff][Rr][Ii]))(?:\\s*(?:(?:[Ee][Zz]|[Hh][Dd]|[Ii][Nn]|[Aa][Tt])(?:\\s*\\d+(?:\\.\\d+)?\\s*\\+?)?|\\d+(?:\\.\\d+)?\\s*\\+?))?',
+const games = [
+  '(提示猜曲|tipgame)',
+  '(ltr|letter|开字母).*',
+  '(guess|猜曲绘)(?:\\s*\\-[lL]\\s*\\d+)?',
+  '(弗一把|(?:[Ff][Rr][Ii][Bb][Ee][Rr][Gg])|(?:[Ff][Ii][Bb])|(?:[Ff][Rr][Ii]))(?:\\s*(?:(?:[Ee][Zz]|[Hh][Dd]|[Ii][Nn]|[Aa][Tt])(?:\\s*\\d+(?:\\.\\d+)?\\s*\\+?)?|\\d+(?:\\.\\d+)?\\s*\\+?))?',
 ].join('|')
 
-/**@import {botEvent} from '../base-class' */
-
-/**
- * @typedef {Record<string, {gameType: string}>} GameList
- */
-
-/**
- * 进行中的游戏列表
- * @type {GameList}
- */
+/** @type {Record<string, { gameType: string, replayCommand?: string }>} */
 let gameList = {}
 
+function parseGameStart(message) {
+  const matched = String(message ?? '').match(new RegExp(`^[#/](${PHI_COMMAND_HEAD})(\\s*)(?:${games})$`))
+  const text = matched?.slice(3).find(value => value !== undefined) ?? ''
+  return { text, lower: text.toLowerCase() }
+}
+
 export class phiGames extends phiPluginBase {
-    guessTips
-    guessLetter
-    guessIll
-    frib19
+  guessTips
+  guessLetter
+  guessIll
+  frib19
+  runtime
+  queues = new Map()
 
-    constructor(runtime: PhiRuntime) {
-        super({
-            config: runtime.config,
-            data: runtime.data,
-            name: 'phi-games',
-            dsc: 'phi-plugin 猜曲游戏',
-            event: 'message',
-            priority: 1000,
-            rule: [
-                {
-                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(?:${games})$`,
-                    fnc: 'start'
-                },
-                {
-                    reg: `^.*$`,
-                    fnc: 'guess',
-                    log: false
-                },
-                {
-                    reg: `^[#/](出|开|翻|揭|看|翻开|打开|揭开|open)(\\s*)[a-zA-Z\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\d\S]$`,
-                    fnc: 'reveal'
-                },
-                {
-                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(tip|提示)$`,
-                    fnc: 'getTip'
-                },
-                {
-                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)(ans|答案|结束)$`,
-                    fnc: 'ans'
-                }
-            ]
-        })
-        this.guessTips = new GuessTips(runtime)
-        this.guessLetter = new GuessLetter(runtime)
-        this.guessIll = new GuessIll(runtime)
-        this.frib19 = new Frib19(runtime)
+  constructor(runtime: PhiRuntime) {
+    super({
+      config: runtime.config,
+      data: runtime.data,
+      name: 'phi-games',
+      dsc: 'phi-plugin 猜曲游戏',
+      event: 'message',
+      priority: 1000,
+      rule: [],
+    })
+    this.runtime = runtime
+    this.guessTips = new GuessTips(runtime)
+    this.guessLetter = new GuessLetter(runtime)
+    this.guessIll = new GuessIll(runtime)
+    this.frib19 = new Frib19(runtime)
+  }
+
+  async serialized(groupId, operation) {
+    const previous = this.queues.get(groupId) ?? Promise.resolve()
+    let release
+    const pending = new Promise(resolve => { release = resolve })
+    const tail = previous.then(() => pending)
+    this.queues.set(groupId, tail)
+    await previous
+    try {
+      return await operation()
+    } finally {
+      release()
+      if (this.queues.get(groupId) === tail) this.queues.delete(groupId)
+    }
+  }
+
+  async startGame(e, starter) {
+    return starter()
+  }
+
+  async start(e) {
+    const groupId = String(e.group_id || '')
+    const { text, lower } = parseGameStart(e.msg)
+    if (!groupId) {
+      send.promptWithAt(e, '请在群聊中使用这个功能喵！')
+      return false
+    }
+    if (gameList[groupId]) {
+      send.promptWithAt(e, `当前存在未结束的游戏喵！发送“${GAME_STOP_KEYWORD}”结束后再开始新游戏。`)
+      return false
+    }
+    if (!text) return false
+
+    e.replayCommand = normalizeGameReplayCommand(e.msg)
+
+    if (lower === 'tipgame' || lower === '提示猜曲') {
+      if (await getBanGroup.get(e, 'tipgame')) {
+        send.promptWithAt(e, '这里被管理员禁止使用这个功能了喵。')
+        return false
+      }
+      return this.startGame(e, () => this.guessTips.start(e, gameList))
     }
 
-    /** @param {botEvent} e @param {() => Promise<any>} starter */
-    async startGame(e, starter) {
-        const groupId = e.group_id
-        this.setContext('guess', true, 0, '', () => Boolean(gameList[groupId]))
-        try {
-            return await starter()
-        } finally {
-            this.finishGame(e)
-        }
+    if (lower === 'guess' || lower.startsWith('猜曲绘') || lower.startsWith('guess ')) {
+      if (await getBanGroup.get(e, 'guessgame')) {
+        send.promptWithAt(e, '这里被管理员禁止使用这个功能了喵。')
+        return false
+      }
+      return this.startGame(e, () => this.guessIll.start(e, gameList))
     }
 
-    /** @param {botEvent} e */
-    finishGame(e) {
-        if (!gameList[e.group_id]) this.finish('guess', true)
+    if (['弗一把', 'friberg', 'fib', 'fri'].includes(lower) || lower.startsWith('弗一把') || lower.startsWith('fri')) {
+      if (await getBanGroup.get(e, 'fribgame')) {
+        send.promptWithAt(e, '这里被管理员禁止使用这个功能了喵。')
+        return false
+      }
+      return this.startGame(e, () => this.frib19.start(e, gameList))
     }
 
-    /**
-     * 开始游戏
-     * @param {botEvent} e 
-     * @returns 
-     */
-    async start(e) {
-        const head = PHI_COMMAND_HEAD
-        /** games 中每个游戏名都是独立捕获组，取第一个命中的捕获组即为本次游戏名 */
-        const matched = String(e.msg ?? '').match(new RegExp(`^[#/](${head})(\\s*)(?:${games})$`))
-        const msg = matched?.slice(3).find(value => value !== undefined) ?? ''
-        if (!e.group_id) {
-            send.promptWithAt(e, '请在群聊中使用这个功能嗷！')
-            return false
-        }
-        if (gameList[e.group_id]) {
-            send.promptWithAt(e, `当前存在其他未结束的游戏嗷！如果想要开启新游戏请 /${PHI_COMMAND_HEAD} ans 结束进行的游戏嗷！`)
-            return false
-        }
-        if (!msg) {
-            return false
-        }
-        /** 弗一把的英文别名大小写不敏感 */
-        const gameName = msg.toLowerCase()
-        switch (gameName) {
-            case "tipgame":
-            case "提示猜曲": {
-
-                if (await getBanGroup.get(e, 'tipgame')) {
-                    send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
-                    return false
-                }
-
-                return await this.startGame(e, () => this.guessTips.start(e, gameList))
-            }
-            case "guess":
-            case "猜曲绘": {
-
-                if (await getBanGroup.get(e, 'guessgame')) {
-                    send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
-                    return false
-                }
-
-                return await this.startGame(e, () => this.guessIll.start(e, gameList))
-            }
-            case "弗一把":
-            case "friberg":
-            case "fib":
-            case "fri": {
-
-                if (await getBanGroup.get(e, 'fribgame')) {
-                    send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
-                    return false
-                }
-
-                return await this.startGame(e, () => this.frib19.start(e, gameList))
-            }
-            default: {
-                if (gameName.startsWith("ltr") || gameName.startsWith("letter") || gameName.startsWith("开字母")) {
-
-                    if (await getBanGroup.get(e, 'ltrgame')) {
-                        send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
-                        return false
-                    }
-
-                    return await this.startGame(e, () => this.guessLetter.start(e, gameList))
-                }
-                return false
-            }
-        }
+    if (lower.startsWith('ltr') || lower.startsWith('letter') || lower.startsWith('开字母')) {
+      if (await getBanGroup.get(e, 'ltrgame')) {
+        send.promptWithAt(e, '这里被管理员禁止使用这个功能了喵。')
+        return false
+      }
+      return this.startGame(e, () => this.guessLetter.start(e, gameList))
     }
+    return false
+  }
 
-
-    /**
-     * 翻开字母
-     * @param {botEvent} e 
-     * @returns 
-     */
-    async reveal(e) {
-        if (!e.isGroup || !e.group_id) {
-            send.promptWithAt(e, '请在群聊中使用这个功能嗷！')
-            return false
-        }
-        if (gameList[e.group_id]?.gameType !== 'guessLetter') return false
-        const result = await this.guessLetter.reveal(e, gameList)
-        this.finishGame(e)
-        return result
+  async guess(e) {
+    if (!e.msg || !e.group_id) return false
+    const groupId = String(e.group_id)
+    try {
+      switch (gameList[groupId]?.gameType) {
+        case 'guessTips':
+          logger.info(`[phi-games][guess][tips] ${e.msg}`)
+          return await this.guessTips.guess(e, gameList)
+        case 'guessLetter':
+          logger.info(`[phi-games][guess][letter] ${e.msg}`)
+          return await this.guessLetter.guess(e, gameList)
+        case 'guessIll':
+          logger.info(`[phi-games][guess][ill] ${e.msg}`)
+          return await this.guessIll.guess(e, gameList)
+        case 'frib19':
+          logger.info(`[phi-games][guess][frib] ${e.msg}`)
+          return await this.frib19.guess(e, gameList)
+        default:
+          return false
+      }
+    } catch (error) {
+      logger.error('[phi-plugin][games]直接回答处理失败', error)
+      return false
     }
+  }
 
-
-    /**
-     * 猜测
-     * @param {botEvent} e 
-     * @returns 
-     */
-    async guess(e) {
-        /**过滤特殊消息 */
-        if (!e.msg) {
-            return false;
-        }
-        if (!e.group_id) {
-            return false
-        }
-        try {
-            switch (gameList[e.group_id]?.gameType) {
-                case "guessTips": {
-                    logger.info(`[phi-games][guess][tips] ${e.msg}`)
-                    return await this.guessTips.guess(e, gameList)
-                }
-                case "guessLetter": {
-                    logger.info(`[phi-games][guess][letter] ${e.msg}`)
-                    return await this.guessLetter.guess(e, gameList)
-                }
-                case "guessIll": {
-                    logger.info(`[phi-games][guess][ill] ${e.msg}`)
-                    return await this.guessIll.guess(e, gameList)
-                }
-                case "frib19": {
-                    logger.info(`[phi-games][guess][frib] ${e.msg}`)
-                    return await this.frib19.guess(e, gameList)
-                }
-                default: {
-                    return false
-                }
-            }
-        } finally {
-            this.finishGame(e)
-        }
+  async getTip(e) {
+    const groupId = String(e.group_id || '')
+    if (!groupId) return false
+    switch (gameList[groupId]?.gameType) {
+      case 'guessTips':
+        return this.guessTips.getTip(e, gameList)
+      case 'guessLetter':
+        return this.guessLetter.getTip(e, gameList)
+      default:
+        return false
     }
+  }
 
-
-    /**
-     * 获取提示
-     * @param {botEvent} e 
-     * @returns 
-     */
-    async getTip(e) {
-        if (!e.group_id) {
-            return false
-        }
-        try {
-            switch (gameList[e.group_id]?.gameType) {
-                case "guessTips": {
-                    return await this.guessTips.getTip(e, gameList)
-                }
-                case "guessLetter": {
-                    return await this.guessLetter.getTip(e, gameList)
-                }
-                default: {
-                    return false
-                }
-            }
-        } finally {
-            this.finishGame(e)
-        }
+  async ans(e) {
+    const groupId = String(e.group_id || '')
+    if (!groupId) return false
+    switch (gameList[groupId]?.gameType) {
+      case 'guessTips':
+        return this.guessTips.ans(e, gameList)
+      case 'guessLetter':
+        return this.guessLetter.ans(e, gameList)
+      case 'guessIll':
+        return this.guessIll.ans(e, gameList)
+      case 'frib19':
+        return this.frib19.ans(e, gameList)
+      default:
+        return false
     }
+  }
 
+  async interact(e) {
+    const groupId = String(e.group_id || '')
+    const type = gameList[groupId]?.gameType
+    if (!type) return false
+    const content = String(e.msg ?? '').trim()
+    if (!content) return false
 
-    /**
-     * 结束游戏
-     * @param {botEvent} e 
-     * @returns 
-     */
-    async ans(e) {
-        if (!e.group_id) {
-            return false
-        }
-        try {
-            switch (gameList[e.group_id]?.gameType) {
-                case "guessTips": {
-                    return await this.guessTips.ans(e, gameList)
-                }
-                case "guessLetter": {
-                    return await this.guessLetter.ans(e, gameList)
-                }
-                case "guessIll": {
-                    return await this.guessIll.ans(e, gameList)
-                }
-                case "frib19": {
-                    return await this.frib19.ans(e, gameList)
-                }
-                default: {
-                    send.prompt(e, `当前没有进行中的游戏嗷！`)
-                    return false
-                }
-            }
-        } finally {
-            this.finishGame(e)
-        }
+    if (content === GAME_STOP_KEYWORD) {
+      await this.ans(e)
+      return true
     }
+    if (content === GAME_HINT_KEYWORD) {
+      if (type === 'guessTips' || type === 'guessLetter') {
+        await this.getTip(e)
+        return true
+      }
+      return false
+    }
+    if (type === 'guessLetter' && content.startsWith(LETTER_OPEN_KEYWORD)) {
+      await this.guessLetter.reveal(e, gameList)
+      return true
+    }
+    if (type === 'guessLetter' && content.startsWith(LETTER_OPEN_SONG_KEYWORD)) {
+      await this.guessLetter.openSong(e, gameList)
+      return true
+    }
+    return this.guess(e)
+  }
+
+  async handleMessage(session, next) {
+    if (!session?.userId || !session?.channelId || session.userId === session.selfId) return next()
+    if (session.event?.user?.isBot) return next()
+    const content = String(session.stripped?.content ?? session.content ?? '').trim()
+    if (!content || content.startsWith('/') || content.startsWith('#')) return next()
+    const event = this.runtime.adapter.fromSession(session)
+    const groupId = String(event.group_id || '')
+    if (!groupId || !gameList[groupId]) return next()
+    event.replayCommand = gameList[groupId]?.replayCommand
+    this.e = event
+    const handled = await this.serialized(groupId, () => this.interact(event))
+    return handled ? undefined : next()
+  }
 }

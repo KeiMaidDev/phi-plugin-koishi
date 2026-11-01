@@ -1,832 +1,498 @@
 // @ts-nocheck
-import { PHI_COMMAND_HEAD } from '../../../constants'
-
-/**Phigros出字母猜曲名游戏
- * 会随机抽选 n 首歌曲
- * 每首曲目的名字只显示一部分，剩下的部分隐藏
- * 通过给出的字母猜出相应的歌曲
- * 玩家可以翻开所有曲目响应的字母获得更多线索
-*/
-import { pinyin } from 'pinyin-pro'
-
-import send from '../../../render/send'
 import getInfo from '../../../domain/game/get-info'
-import getPic from '../../../render/get-pic'
 import fCompute from '../../../domain/game/f-compute'
+import getPic from '../../../render/get-pic'
 import picmodle from '../../../render/pic-model'
+import send from '../../../render/send'
 import logger from '../../../utils/logger'
-import { buildQqKeyboard } from '../../../platform/qq-markdown'
 import {
-    LETTER_HIDDEN_CHAR,
-    allGuessed,
-    encryptSongName,
-    getRevealCandidates,
-    hasHiddenCharacters,
-    revealCharacter
+  LETTER_HIDDEN_CHAR,
+  allGuessed,
+  encryptSongName,
+  getRevealCandidates,
+  hasHiddenCharacters,
+  revealCharacter,
 } from './letter-game-utils'
+import {
+  GAME_HINT_KEYWORD,
+  GAME_STOP_KEYWORD,
+  LETTER_OPEN_KEYWORD,
+  LETTER_OPEN_SONG_KEYWORD,
+  normalizeCharacter,
+  resolveSongGuess,
+} from './game-interaction'
+import {
+  escapePromptText,
+  sendGameStatus,
+  sendGameStatusWithImage,
+} from './game-message'
 
-/**
- * @type {idString[]}
- */
-let songIdList = getInfo.idList || []
-/**
- * 存储每首歌曲被抽取的权重
- * @type {Record<string, Record<idString, number>>}
- */
-let songweights = {}
-
-/** @type {Record<string, NodeJS.Timeout>} */
-const songweightCleanupTimers = {}
 const SONGWEIGHT_IDLE_TTL = 60 * 60 * 1000
 
-/** @param {string} groupId */
-function scheduleSongweightCleanup(groupId) {
-    if (songweightCleanupTimers[groupId]) clearTimeout(songweightCleanupTimers[groupId])
-    songweightCleanupTimers[groupId] = setTimeout(() => {
-        delete songweights[groupId]
-        delete songweightCleanupTimers[groupId]
-    }, SONGWEIGHT_IDLE_TTL)
-    songweightCleanupTimers[groupId].unref?.()
-}
-
-/**
- * @param {string} groupId
- * @param {GameList} gameList
- */
-function cleanupGameState(groupId, gameList) {
-    delete letterGameData[groupId]
-    delete gameList[groupId]
-    delete timeCount[groupId]
-}
-
-/**
- * @typedef {{ansList: string[], winnerlist: string[]}} LetterGameResult
- */
-
-// let gamelist = {}//存储标准答案曲名
-// let blurlist = {}//存储模糊后的曲名
-// let alphalist = {}//存储翻开的字母
-// let winnerlist = {} //存储猜对者的群名称
-// let lastGuessedTime = {} //存储群聊猜字母全局冷却时间
-// let lastRevealedTime = {} //存储群聊翻字母全局冷却时间
-// let lastTipTime = {} //存储群聊提示全局冷却时间
-// let gameSelectList = {} //群聊游戏选择的游戏范围
-
-
-class letterGameDataObject {
-    /**
-     * 单个群聊开字母游戏数据对象
-     * @param {number} letterNum 曲目数量
-     */
-    constructor(letterNum = 8) {
-        /** 
-         * 曲目数量
-         * @type {number}
-         */
-        this.letterNum = letterNum
-        /**
-         * 答案曲名列表
-         * @type {songString[]}
-         **/
-        this.ansList = new Array(letterNum).fill('')
-        /**
-         * 曲目ID列表
-         * @type {idString[]}
-         */
-        this.ansIdList = new Array(letterNum).fill('')
-        /**
-         * 模糊后的曲名列表
-         * @type {(string|null)[]}
-         */
-        this.blurlist = new Array(letterNum).fill('')
-        /**
-         * 猜对者列表
-         * @type {string[]}
-         */
-        this.winnerlist = new Array(letterNum).fill('')
-        /**
-         * 翻开的字母列表
-         * @type {string[]}
-         */
-        this.alphalist = []
-        /**
-         * 上次猜测时间
-         * @type {number}
-         */
-        this.lastGuessedTime = 0
-        /**
-         * 上次翻开时间
-         * @type {number}
-         */
-        this.lastRevealedTime = 0
-        /**
-         * 上次提示时间
-         * @type {number}
-         */
-        this.lastTipTime = 0
-        /**
-         * 游戏选择的范围
-         * @type {string[]}
-         */
-        this.gameSelectList = []
-    }
-}
-
-
-/**@type {Record<string, letterGameDataObject>} */
+/** @type {Record<string, Record<string, number>>} */
+const songweights = {}
+/** @type {Record<string, NodeJS.Timeout>} */
+const songweightCleanupTimers = {}
+/** @type {Record<string, LetterGameData>} */
 const letterGameData = {}
+/** @type {Map<string, Promise<unknown>>} */
+const groupQueues = new Map()
 
-/**
- * 存储群聊游戏计时器
- * @type {Object.<string, {startTime: number, newTime: number}>}
- */
-let timeCount = {}
+function scheduleSongweightCleanup(groupId) {
+  if (songweightCleanupTimers[groupId]) clearTimeout(songweightCleanupTimers[groupId])
+  songweightCleanupTimers[groupId] = setTimeout(() => {
+    delete songweights[groupId]
+    delete songweightCleanupTimers[groupId]
+  }, SONGWEIGHT_IDLE_TTL)
+  songweightCleanupTimers[groupId].unref?.()
+}
 
+async function serialized(groupId, operation) {
+  const previous = groupQueues.get(groupId) ?? Promise.resolve()
+  let release
+  const pending = new Promise(resolve => { release = resolve })
+  const tail = previous.then(() => pending)
+  groupQueues.set(groupId, tail)
+  await previous
+  try {
+    return await operation()
+  } finally {
+    release()
+    if (groupQueues.get(groupId) === tail) groupQueues.delete(groupId)
+  }
+}
 
-/**
- * @import {GameList} from '../guess-game'
- */
+class LetterGameData {
+  constructor({ letterNum, gameSelectList, replayCommand, event }) {
+    this.letterNum = letterNum
+    this.ansList = new Array(letterNum).fill('')
+    this.ansIdList = new Array(letterNum).fill('')
+    this.blurlist = new Array(letterNum).fill('')
+    this.winnerlist = new Array(letterNum).fill('')
+    this.alphalist = []
+    this.lastGuessedTime = 0
+    this.lastRevealedTime = 0
+    this.lastTipTime = 0
+    this.gameSelectList = [...gameSelectList]
+    this.replayCommand = replayCommand
+    this.event = event
+    this.timer = null
+    this.settled = false
+  }
+}
+
+function parseStartArgs(message) {
+  const raw = String(message ?? '').trim()
+  const match = raw.match(/^[#/]\S+\s+(?:ltr|letter|开字母)\b([\s\S]*)$/i)
+  return match?.[1]?.trim() ?? ''
+}
+
+function chooseSongPool(args) {
+  const selected = []
+  let ids = []
+  for (const key of Object.keys(getInfo.DLC_Info || {})) {
+    if (!args.includes(key)) continue
+    selected.push(key)
+    ids = ids.concat(getInfo.DLC_Info[key] || [])
+  }
+  if (!selected.length) {
+    selected.push('pgr')
+    ids = [...(getInfo.idList || [])]
+  }
+  return { gameSelectList: selected, ids: [...new Set(ids)] }
+}
+
+function getRandomSong(groupId, ids) {
+  const weights = songweights[groupId] || (songweights[groupId] = {})
+  for (const id of ids) weights[id] ||= 1
+  const totalWeight = ids.reduce((total, id) => total + weights[id], 0)
+  const randomWeight = fCompute.randFloatBetween(0, totalWeight, 6)
+  let accumulated = 0
+  for (const id of ids) {
+    accumulated += weights[id]
+    if (accumulated >= randomWeight) return id
+  }
+  return ids[fCompute.randInt(0, ids.length - 1)]
+}
+
+function rememberPickedSongs(groupId, ids) {
+  const weights = songweights[groupId] || (songweights[groupId] = {})
+  for (const id of ids) {
+    weights[id] = Math.min(5, (weights[id] || 1) * 1.1)
+  }
+  scheduleSongweightCleanup(groupId)
+}
+
+function nicknameOf(event) {
+  return String(
+    event?.sender?.card
+      || event?.sender?.name
+      || event?.nickname
+      || event?.user_id
+      || '群友',
+  )
+}
+
+function hiddenIds(game) {
+  return game.ansIdList.filter((_, index) => Boolean(game.blurlist[index]))
+}
+
+function revealAllTitle(game, index) {
+  game.blurlist[index] = null
+}
+
+function revealCharacterAcrossGame(game, character) {
+  let changed = false
+  game.ansList.forEach((song, index) => {
+    const blur = game.blurlist[index]
+    if (!blur) return
+    const next = revealCharacter(song, blur, character)
+    if (next !== blur) changed = true
+    game.blurlist[index] = hasHiddenCharacters(next) ? next : null
+  })
+  return changed
+}
+
+function cooldownMessage(kind, seconds) {
+  return `${kind}冷却还有 ${seconds}s，先耐心等一下喵。`
+}
+
+function buildLetterPanel(game, { note = '', revealAll = false } = {}) {
+  const markdown = ['## Phi 开字母', '']
+  const text = ['Phi 开字母']
+  if (note) {
+    markdown.push(`**${escapePromptText(note)}**`, '')
+    text.push(note)
+  }
+  const scope = game.gameSelectList.join('、')
+  markdown.push(`> 曲库范围：${escapePromptText(scope)}`)
+  text.push(`曲库范围：${scope}`)
+  game.ansList.forEach((song, index) => {
+    if (revealAll || !game.blurlist[index]) {
+      const winner = game.winnerlist[index]
+      const suffix = winner ? ` · ${escapePromptText(winner)}` : ''
+      markdown.push(`> ✅ ${escapePromptText(song)}${suffix}`)
+      text.push(`✅ ${song}${winner ? ` · ${winner}` : ''}`)
+      return
+    }
+    const masked = game.blurlist[index].replaceAll(LETTER_HIDDEN_CHAR, '?')
+    markdown.push(`> 🤔 ${escapePromptText(masked)}`)
+    text.push(`🤔 ${masked}`)
+  })
+  const opened = game.alphalist.join(' ') || '暂无'
+  markdown.push(`> 💡已开字符：${escapePromptText(opened)}`)
+  text.push(`💡已开字符：${opened}`)
+  return { markdown: markdown.join('\n'), text: text.join('\n') }
+}
+
+async function illustrationFor(event, songId, config) {
+  const info = getInfo.info(songId)
+  if (!info?.illustration) return null
+  try {
+    if (config.LetterIllustration === '水印版') {
+      return await picmodle.ill(event, {
+        illustration: info.illustration,
+        illustrator: info.illustrator,
+      })
+    }
+    if (config.LetterIllustration === '原版') return getPic.getIll(songId)
+  } catch (error) {
+    logger.warn('[phi-plugin][letter]曲绘发送准备失败', error)
+  }
+  return null
+}
 
 export default class guessLetter {
-    config
+  config
 
-    constructor(runtime) {
-        this.config = runtime.config
+  constructor(runtime) {
+    this.config = runtime.config
+  }
+
+  async start(e, gameList) {
+    const groupId = String(e.group_id)
+    if (letterGameData[groupId]) {
+      await sendGameStatus(
+        e,
+        `**开字母已在进行中**\n\n发送“${LETTER_OPEN_KEYWORD} X”“${LETTER_OPEN_SONG_KEYWORD} 曲名”“${GAME_HINT_KEYWORD}”或“${GAME_STOP_KEYWORD}”继续。`,
+        `开字母已在进行中。发送“${LETTER_OPEN_KEYWORD} X”“${LETTER_OPEN_SONG_KEYWORD} 曲名”“${GAME_HINT_KEYWORD}”或“${GAME_STOP_KEYWORD}”继续。`,
+        this.config,
+        'letter',
+      )
+      return true
     }
 
-    /**
-     * 发起出字母猜歌
-     * @param {any} e 事件对象
-     * @param {GameList} gameList 进行中的游戏列表
-     */
-    async start(e, gameList) {
-        const { group_id } = e // 使用对象解构提取group_id
-
-        if (letterGameData[group_id]) {
-            send.prompt(e, `喂喂喂，已经有群友发起出字母猜歌啦，不要再重复发起了，赶快输入'/第X个XXXX'来猜曲名或者'/出X'来揭开字母吧！结束请发 /${PHI_COMMAND_HEAD} ans 嗷！`, true)
-            return true
-        }
-
-        let { msg } = e // 提取消息
-        msg = msg.replace(/[#/](.*?)(ltr|letter|开字母)(\s*)/, "")
-
-        /**
-         * 其他游戏的曲目
-         * @type {idString[]}
-         */
-        let allSelectSongId = []
-        // console.info(getInfo.DLC_Info)
-
-        // 初始化游戏数据对象
-        letterGameData[group_id] = new letterGameDataObject(this.config.LetterNum);
-
-        const currentGame = letterGameData[group_id];
-
-        for (let i in getInfo.DLC_Info) {
-            if (msg.includes(i)) {
-                letterGameData[group_id].gameSelectList.push(i)
-                allSelectSongId = allSelectSongId.concat(/**@type {idString[]} */(getInfo.DLC_Info[i]))
-            }
-        }
-
-        if (letterGameData[group_id].gameSelectList.length == 0) {
-            letterGameData[group_id].gameSelectList = ['pgr']
-            allSelectSongId = [...songIdList]
-        }
-
-        if (allSelectSongId.length < this.config.LetterNum) {
-            send.prompt(e, "曲库中曲目的数量小于开字母的条数哦！更改曲库后需要重启哦！")
-            cleanupGameState(group_id, gameList)
-            return true
-        }
-
-
-        if (!songweights[group_id]) {
-            songweights[group_id] = {}
-        }
-
-        // 将每一首曲目的权重初始化为1
-        allSelectSongId.forEach(id => {
-            if (!songweights[group_id][id]) {
-                songweights[group_id][id] = 1
-            } else {
-                songweights[group_id][id] *= 1.1 // 每次游戏权重增加10%，防止浮点数过小
-                songweights[group_id][id] = Math.min(songweights[group_id][id], 5) // 权重上限5
-            }
-        })
-        scheduleSongweightCleanup(group_id)
-
-        let nowTime = Date.now()
-
-        for (let i = 0; i < currentGame.letterNum; i++) {
-            // 根据曲目权重随机返回一首曲目名称
-            let randId = getRandomSong(e, allSelectSongId)
-
-            // 防止抽到重复的曲目
-            let cnnt = 0
-            while (currentGame.ansIdList.includes(randId) || getInfo.info(randId)?.can_t_be_letter) {
-                ++cnnt
-                if (cnnt >= 50) {
-                    logger.error(`[phi-plugin][letter]抽取曲目失败，请检查曲库设置`)
-                    send.prompt(e, `抽取曲目失败，请检查曲库设置`)
-                    cleanupGameState(group_id, gameList)
-                    return
-                }
-                randId = getRandomSong(e, allSelectSongId)
-            }
-            const songs_info = getInfo.info(randId)
-
-            /**@type {songString} */
-            const song_name = songs_info?.song ? songs_info.song :/**@type {any} */ (randId)
-
-            currentGame.ansIdList[i] = randId
-            currentGame.ansList[i] = song_name
-            currentGame.blurlist[i] = encryptSongName(song_name)
-            gameList[group_id] = { gameType: "guessLetter" }
-            timeCount[group_id] = {
-                startTime: nowTime,
-                newTime: Date.now() + (1000 * this.config.LetterTimeLength)
-            }
-
-        }
-
-        // 输出提示信息
-        send.prompt(e, `开字母开启成功！回复'/nX. XXXX'命令猜歌，例如：/n1. Reimei;发送'/open X'来揭开字母(不区分大小写，不需要指令头)，如'/open A';发送'/${PHI_COMMAND_HEAD} ans'结束并查看答案哦！`)
-
-        // 延时1s
-        await timeout(1 * 1000)
-
-        await tryToSendMd(e, (t) => ['开字母进行中：', getPuzzle(currentGame, t)].join('\n'), this.config, buildPuzzleKeyboard(currentGame));
-
-        /**如果过长时间没人回答则结束 */
-        while (timeCount[group_id]?.startTime == nowTime && Date.now() < timeCount[group_id].newTime) {
-            await timeout(1000)
-        }
-
-        if (!letterGameData[group_id] || nowTime !== timeCount[group_id]?.startTime) {
-            return false
-        }
-
-        if (letterGameData[group_id]) {
-            await send.prompt(e, '呜，怎么还没有人答对啊QAQ！只能说答案了喵……')
-            const result = finishGame(group_id, gameList)
-            if (result) {
-                await tryToSendMd(e, (t) => formatGameover(result, t), this.config, buildGameoverKeyboard());
-            }
-
-            return true
-        }
-        return true
+    const args = parseStartArgs(e.msg)
+    const letterNum = Math.max(1, Math.floor(Number(this.config.LetterNum) || 8))
+    const { gameSelectList, ids } = chooseSongPool(args)
+    const validIds = ids.filter(id => !getInfo.info(id)?.can_t_be_letter)
+    if (validIds.length < letterNum) {
+      await sendGameStatus(
+        e,
+        '**曲库不足**\n\n当前筛选曲库中可参与开字母的曲目少于配置的曲目条数。',
+        '曲库不足。当前筛选曲库中可参与开字母的曲目少于配置的曲目条数。',
+        this.config,
+        'letter',
+      )
+      return false
     }
 
-    /**
-     * 翻开字母
-     * @param {any} e 事件对象
-     * @param {GameList} gameList 进行中的游戏列表
-     */
-    async reveal(e, gameList) {
-        const { group_id, msg } = e
-
-        const currentGame = letterGameData[group_id];
-        if (!currentGame) {
-            send.prompt(e, `现在还没有进行的开字母捏，赶快输入'/${PHI_COMMAND_HEAD} ltr'开始新的一局吧！`, true)
-            return false
-        }
-
-        if (timeCount[group_id]) {
-            timeCount[group_id].newTime = Date.now() + (1000 * this.config.LetterTimeLength)
-        }
-
-        const time = this.config.LetterRevealCd
-        const currentTime = Date.now()
-        const timetik = currentTime - currentGame.lastRevealedTime
-        const timeleft = Math.floor((1000 * time - timetik) / 1000)
-
-        if (timetik < 1000 * time) {
-            send.prompt(e, `翻字符的全局冷却时间还有${timeleft}s呐，先耐心等下哇QAQ`, true)
-            return true
-        }
-
-        currentGame.lastRevealedTime = currentTime
-        /**@type {string} */
-        const newMsg = msg.replace(/([#/](出|开|翻|揭|看|翻开|打开|揭开|open)|\s*)/g, '').match(/./)?.[0]
-
-        if (newMsg) {
-            const letter = newMsg.toLowerCase()
-            let output = []
-            let included = false
-
-            if (currentGame.alphalist.includes(letter.toUpperCase())) {
-                send.prompt(e, `字符[ ${letter} ]已经被打开过了ww,不用需要再重复开啦！`, true)
-                return true
-            }
-
-            for (let i in currentGame.ansList) {
-                const songname = currentGame.ansList[i]
-                const blurname = currentGame.blurlist[i]
-                let characters = ''
-                let letters = ''
-
-                if (/[\u4e00-\u9fa5]/.test(songname)) {
-                    characters = [...songname].filter(char => /[\u4e00-\u9fa5]/.test(char)).join("")
-                    letters = pinyin(characters, { pattern: 'first', toneType: 'none', type: 'string' })
-                }
-
-                if (!songname.toLowerCase().includes(letter) && !letters.includes(letter)) {
-                    continue
-                }
-
-                included = true
-
-                if (!blurname) {
-                    continue
-                }
-
-                const newBlurname = revealCharacter(songname, blurname, letter)
-
-                currentGame.blurlist[i] = newBlurname
-
-                if (!hasHiddenCharacters(newBlurname)) {
-                    currentGame.blurlist[i] = null;
-                }
-            }
-
-            if (included) {
-                currentGame.alphalist = currentGame.alphalist || []
-                currentGame.alphalist.push(/^[A-Za-z]+$/g.test(letter) ? letter.toUpperCase() : letter)
-                output.push(`成功翻开字母[ ${letter} ]`)
-            } else {
-                output.push(`这几首曲目中不包含字母[ ${letter} ]`)
-            }
-
-            const opened = '当前所有翻开的字符[' + currentGame.alphalist.join(' ') + ']'
-
-            output.push(opened)
-
-            const isEmpty = allGuessed(currentGame);
-            if (!isEmpty) {
-                await tryToSendMd(e, (t) => [...output, '开字母进行中：', getPuzzle(currentGame, t)].join('\n'), this.config, buildPuzzleKeyboard(currentGame));
-            } else {
-                const result = finishGame(group_id, gameList)
-                if (result) {
-                    await tryToSendMd(e, (t) => ['所有字母已翻开，答案如下：', ...output, formatGameover(result, t)].join('\n'), this.config, buildGameoverKeyboard());
-                }
-            }
-
-            return true
-        }
-        return false
-    }
-
-    /**
-     * 猜测
-     * @param {any} e 事件对象
-     * @param {GameList} gameList 进行中的游戏列表
-     */
-    async guess(e, gameList) {
-        const { group_id, msg, user_id, sender } = e //使用对象解构提取group_id,msg,user_id和sender
-        const currentGame = letterGameData[group_id];
-        //必须已经开始了一局
-        if (!currentGame) {
-            /**未进行游戏放过命令 */
-            return false
-        }
-
-        if (timeCount[group_id]) {
-            timeCount[group_id].newTime = Date.now() + (1000 * this.config.LetterTimeLength)
-        }
-
-        const time = this.config.LetterGuessCd
-        const currentTime = Date.now()
-        const timetik = currentTime - currentGame.lastGuessedTime
-        const timeleft = Math.floor((1000 * time - timetik) / 1000)
-
-        //上一轮猜测的Cd还没过
-        if (timetik < 1000 * time) {
-            send.prompt(e, `猜测的冷却时间还有${timeleft}s呐，先耐心等下哇QAQ`, true)
-            return true
-        }
-
-        //上一轮Cd结束，更新新一轮的时间戳
-        currentGame.lastGuessedTime = currentTime
-
-        const opened = `\n所有翻开的字母[ ${currentGame.alphalist.join(' ')}]\n`
-        const regex = /^[#/]\s*[第n]\s*(\d+|[一二三四五六七八九十百]+)\s*[个首\.]?(.*)$/
-        /**
-         * [0] 完整匹配
-         * [1] Num
-         * [2] ans
-         * [3] index
-         * [4] input
-         * [5] groups
-         */
-        const result = msg.match(regex)
-
-        if (!result) {
-            /**格式匹配错误放过命令 */
-            return false
-        }
-
-        /**
-         * @type {string[]}
-         */
-        const output = []
-        let num = 0
-
-        if (isNaN(result[1])) {
-            num = NumberToArabic(result[1])
-        } else {
-            num = Number(result[1])
-        }
-
-        const content = result[2]
-
-        if (num > this.config.LetterNum || num <= 0) {
-            send.prompt(e, `没有第${num}个啦！看清楚再回答啊喂！￣へ￣`)
-            return true
-        }
-
-        --num;
-
-        const ids = getInfo.fuzzysongsnick(content, 0.95)
-        const standard_id = currentGame.ansIdList[num] // 标准答案
-        const standard_name = currentGame.ansList[num] // 标准答案名称
-
-        if (!ids[0]) {
-            send.prompt(e, `没有找到[${content}]的曲目信息呐QAQ`, true)
-            return true
-        }
-        for (const id of ids) {
-            if (standard_id === id) {
-                //已经猜完移除掉的曲目不能再猜
-                if (!currentGame.blurlist[num]) {
-                    send.prompt(e, `曲目[${standard_name}]已经猜过了，要不咱们换一个吧uwu`)
-                    return true
-                }
-
-                currentGame.blurlist[num] = null //移除模糊曲目
-
-                send.promptWithAt(e, `恭喜你ww，答对啦喵，第${num + 1}首答案是[${standard_name}]!ヾ(≧▽≦*)o `, true)
-
-                /**发送曲绘 */
-                const info = getInfo.info(standard_id)
-                if (info?.illustration) { //如果有曲绘文件
-                    switch (this.config.LetterIllustration) {
-                        case "水印版": {
-                            send.prompt(e, await picmodle.ill(e, { illustration: info.illustration, illustrator: info.illustrator }))
-                            break;
-                        }
-                        case "原版": {
-                            send.prompt(e, getPic.getIll(standard_id))
-                        }
-                        default:
-                            break;
-                    }
-                }
-
-                currentGame.winnerlist[num] = sender.card //记录猜对者
-                const isEmpty = allGuessed(currentGame) //是否全部猜完
-
-                if (!isEmpty) {
-                    output.push('开字母进行中：')
-                    output.push(opened)
-                    await tryToSendMd(e, (t) => [...output, getPuzzle(currentGame, t)].join('\n'), this.config, buildPuzzleKeyboard(currentGame));
-                    return true
-                } else {
-                    output.push('所有曲目均已被猜出，答案如下：');
-                    const result = finishGame(group_id, gameList)
-                    if (result) {
-                        await tryToSendMd(e, (t) => [...output, formatGameover(result, t)].join('\n'), this.config, buildGameoverKeyboard());
-                    }
-                    return true
-                }
-            }
-        }
-
-        if (ids[1]) {
-            send.prompt(e, `第${num + 1}首不是[${content}]www，要不再想想捏？如果实在不会可以悄悄发个[/${PHI_COMMAND_HEAD} tip]哦≧ ﹏ ≦`, true)
-        } else {
-            send.prompt(e, `第${num + 1}首不是[${getInfo.info(ids[0])?.song ?? ids[0]}]www，要不再想想捏？如果实在不会可以悄悄发个[/${PHI_COMMAND_HEAD} tip]哦≧ ﹏ ≦`, true)
-        }
-
-        return false
-
-    }
-
-    /**
-     * 答案
-     * @param {any} e 事件对象
-     * @param {GameList} gameList 进行中的游戏列表
-     */
-    async ans(e, gameList) {
-        const { group_id } = e//使用对象解构提取group_id
-
-        const currentGame = letterGameData[group_id];
-        //必须已经开始了一局
-        if (!currentGame) {
-            /**未进行游戏放过命令 */
-            send.prompt(e, `现在还没有进行的开字母捏，赶快输入'/${PHI_COMMAND_HEAD} letter'开始新的一局吧！`, true)
-            return false
-        }
-
-
-        await send.prompt(e, '好吧好吧，既然你执着要放弃，那就公布答案好啦。', true)
-        const result = finishGame(group_id, gameList)
-        if (result) {
-            await tryToSendMd(e, (t) => formatGameover(result, t), this.config, buildGameoverKeyboard());
-        }
-        return true
-    }
-
-    /**
-     * 提示
-     * @param {any} e 事件对象
-     * @param {GameList} gameList 进行中的游戏列表
-     */
-    async getTip(e, gameList) {
-        const { group_id } = e
-
-
-        const currentGame = letterGameData[group_id];
-
-        if (!currentGame) {
-            send.prompt(e, `现在还没有进行的开字母捏，赶快输入'/${PHI_COMMAND_HEAD} letter'开始新的一局吧！`, true)
-            return false
-        }
-
-        if (timeCount[group_id]) {
-            timeCount[group_id].newTime = Date.now() + (1000 * this.config.LetterTimeLength)
-        }
-
-        const time = this.config.LetterTipCd
-        const currentTime = Date.now()
-        const timetik = currentTime - currentGame.lastTipTime
-        const timeleft = Math.floor((1000 * time - timetik) / 1000)
-
-        if (timetik < 1000 * time) {
-            send.prompt(e, `使用提示的全局冷却时间还有${timeleft}s呐，还请先耐心等下哇QAQ`, true)
-            return false
-        }
-
-        currentGame.lastTipTime = currentTime
-
-        const candidates = getRevealCandidates(currentGame)
-        if (candidates.length === 0) {
-            logger.warn(`[phi-plugin][letter]群${group_id}的提示没有可翻开的字符`)
-            send.prompt(e, '当前没有可以继续翻开的字符，请结束本局后重新开始。', true)
-            return true
-        }
-        const randsymbol = candidates[fCompute.randInt(0, candidates.length - 1)]
-
-        /**
-         * @type {string[]}
-         */
-        const output = []
-
-        currentGame.ansList.forEach((value, index) => {
-            const songname = value
-            let blurname = currentGame.blurlist[index]
-
-            if (!blurname) {
-                return;
-            }
-
-            const newBlurname = revealCharacter(songname, blurname, randsymbol)
-
-            currentGame.blurlist[index] = newBlurname
-            if (!hasHiddenCharacters(newBlurname)) {
-                currentGame.blurlist[index] = null
-            }
-        })
-
-        const reg = /^[A-Za-z]+$/g
-        if (reg.test(randsymbol)) {
-            currentGame.alphalist.push(randsymbol.toUpperCase())
-        } else {
-            currentGame.alphalist.push(randsymbol)
-        }
-
-        output.push(`已经帮你随机翻开一个字符[ ${randsymbol} ]了捏 ♪（＾∀＾●）ﾉ\n`)
-
-        const opened = '当前所有翻开的字符[' + currentGame.alphalist.join(' ') + ']'
-
-        output.push(opened)
-
-        const isEmpty = allGuessed(currentGame)
-        if (!isEmpty) {
-            output.push('开字母进行中：')
-            await tryToSendMd(e, (t) => [...output, getPuzzle(currentGame, t)].join('\n'), this.config, buildPuzzleKeyboard(currentGame));
-        } else {
-            output.unshift('所有字母已翻开，答案如下：');
-            const result = finishGame(group_id, gameList)
-            if (result) {
-                await tryToSendMd(e, (t) => [...output, formatGameover(result, t)].join('\n'), this.config, buildGameoverKeyboard());
-            }
-        }
-        return true
-    }
-
-    /**
-     * 洗牌
-     * @param {any} e 事件对象
-     */
-    async mix(e) {
-        const { group_id } = e
-
-        const currentGame = letterGameData[group_id];
-
-        if (currentGame) {
-            await send.prompt(e, `当前有正在进行的游戏，请等待游戏结束再执行该指令`, true)
-            return false
-        }
-
-        songweights[group_id] = {}
-        scheduleSongweightCleanup(group_id)
-
-        await send.prompt(e, `洗牌成功了www`, true)
-        return true
-    }
-}
-
-
-/**
- * 定义随机抽取曲目的函数
- * @param {any} e 
- * @param {idString[]} allSelectSongId 
- * @returns 
- */
-function getRandomSong(e, allSelectSongId) {
-    //对象解构提取groupid
-    const { group_id } = e
-
-    //计算曲目的总权重
-    const totalWeight = Object.values(songweights[group_id]).reduce((total, weight) => total + weight, 0)
-
-    //生成一个0到总权重之间带有6位小数的随机数
-    const randomWeight = fCompute.randFloatBetween(0, totalWeight, 6)
-
-    let accumulatedWeight = 0
-    const ids = /** @type {idString[]} */ (Object.keys(songweights[group_id]))
-    for (const id of ids) {
-        const weight = songweights[group_id][id]
-        accumulatedWeight += weight
-        if (accumulatedWeight >= randomWeight) {
-            songweights[group_id][id] *= 0.5 //权重每次衰减50%
-            return id
-        }
-    }
-
-    //如果由于浮点数精度问题未能正确选择歌曲，则随机返回一首
-    if (allSelectSongId) {
-        return allSelectSongId[fCompute.randInt(0, allSelectSongId.length - 1)]
-    }
-    return songIdList[fCompute.randInt(0, songIdList.length - 1)]
-}
-
-/**
- * 
- * @param {number} ms 
- * @returns 
- */
-function timeout(ms) {
-    return new Promise((resolve, reject) => {
-        setTimeout(resolve, ms, 'done');
-    });
-}
-
-/**
- * 将中文数字转为阿拉伯数字
- * @param {string} digit 
- * @returns 
- */
-function NumberToArabic(digit) {
-    //只处理到千，再高也根本用不上的www(十位数都用不上的说)
-    const numberMap = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 }
-    const unitMap = { 十: 10, 百: 100, 千: 1000 }
-
-    const total = digit.split('').reduce((acc, character) => {
-        // @ts-ignore
-        const { [character]: numberValue } = numberMap
-        // @ts-ignore
-        const { [character]: unitValue } = unitMap
-
-        if (numberValue !== undefined) {
-            acc.currentUnit = numberValue
-        } else if (unitValue !== undefined) {
-            acc.currentUnit *= unitValue
-            acc.total += acc.currentUnit
-            acc.currentUnit = 0
-        }
-
-        return acc
-    }, { total: 0, currentUnit: 1 })
-
-    return total.total + total.currentUnit
-}
-
-/**
- * 结束本群游戏并返回结算快照。重复调用不会再次结算。
- * @param {string} group_id
- * @param {GameList} gameList
- * @returns {LetterGameResult|null}
- */
-function finishGame(group_id, gameList) {
-    const currentGame = letterGameData[group_id]
-    if (!currentGame) return null
-
-    const result = {
-        ansList: [...currentGame.ansList],
-        winnerlist: [...currentGame.winnerlist]
-    }
-
-    cleanupGameState(group_id, gameList)
-    return result
-}
-
-/**
- * @param {LetterGameResult} result
- * @param {boolean} letterMarkdown
- */
-function formatGameover(result, letterMarkdown) {
-    /**@type {string[]} */
-    const output = ['***\n']
-
-    result.ansList.forEach((value, index) => {
-        const correct_name = value
-        const winner_card = result.winnerlist[index]
-        output.push(`${index + 1}. ${correct_name}` + (winner_card ? ` @${winner_card}` : ''))
-    });
-    if (letterMarkdown) output.push('\n请使用下方键盘按钮继续。')
-
-    return output.join('\n');
-}
-
-/**
- * 生成谜面
- * @param {letterGameDataObject} currentGame 
- * @param {boolean} letterMarkdown 是否使用markdown格式的字母谜面
- */
-function getPuzzle(currentGame, letterMarkdown) {
-    /**@type {string[]} */
-    const output = [];
-    letterMarkdown && output.push('***');
-    output.push(`曲库范围：${currentGame.gameSelectList.join('、')}\n`);
-    currentGame.ansList.forEach((song, index) => {
-        if (currentGame.blurlist[index]) {
-            const visibleBlurName = currentGame.blurlist[index].replaceAll(LETTER_HIDDEN_CHAR, '*')
-            const str = letterMarkdown ? visibleBlurName.replace(/\*/g, '\\*') : visibleBlurName
-            output.push(`${index + 1}. ${str}`);
-        } else {
-            output.push(`${index + 1}. ${song} ✅`)
-            if (currentGame.winnerlist[index]) {
-                output.push(` @${currentGame.winnerlist[index]}`)
-            }
-        }
+    const game = new LetterGameData({
+      letterNum,
+      gameSelectList,
+      replayCommand: e.replayCommand || `/phi ltr${args ? ` ${args}` : ''}`,
+      event: e,
     })
-    if (letterMarkdown) output.push('\n请使用下方键盘按钮填写曲名或执行操作。')
-    return output.join('\n');
-}
 
-/** @param {letterGameDataObject} currentGame */
-function buildPuzzleKeyboard(currentGame) {
-    const commands = [
-        { command: `/${PHI_COMMAND_HEAD} open `, label: '开个字母', enter: false, reply: false },
-        { command: `/${PHI_COMMAND_HEAD} tip`, label: '看看提示' },
-        { command: `/${PHI_COMMAND_HEAD} ans`, label: '公布答案' },
-    ]
-    currentGame.ansList.forEach((_, index) => {
-        if (!currentGame.blurlist[index]) return
-        commands.push({
-            command: `/n${index + 1}. `,
-            label: `${index + 1}号`,
-            enter: false,
-            reply: false,
-        })
+    const available = new Set(validIds)
+    for (let index = 0; index < game.letterNum; index++) {
+      if (!available.size) break
+      const pool = [...available]
+      const chosenId = getRandomSong(groupId, pool)
+      available.delete(chosenId)
+      const info = getInfo.info(chosenId)
+      const song = info?.song || chosenId
+      game.ansIdList[index] = chosenId
+      game.ansList[index] = song
+      game.blurlist[index] = encryptSongName(song)
+    }
+    rememberPickedSongs(groupId, game.ansIdList)
+
+    gameList[groupId] = { gameType: 'guessLetter', replayCommand: game.replayCommand }
+    letterGameData[groupId] = game
+    await this.sendPanel(e, game, {
+      note: `直接回复曲名猜歌；发送“${LETTER_OPEN_KEYWORD} X”翻开字符，发送“${LETTER_OPEN_SONG_KEYWORD} 曲名”直接开出题目，也可以使用“${GAME_HINT_KEYWORD}”或“${GAME_STOP_KEYWORD}”。`,
     })
-    return buildQqKeyboard(commands)
-}
+    this.refreshTimeout(groupId, gameList)
+    return true
+  }
 
-function buildGameoverKeyboard() {
-    return buildQqKeyboard([
-        { command: `/${PHI_COMMAND_HEAD} ltr`, label: '再来一局' },
-        { command: `/${PHI_COMMAND_HEAD} guess`, label: '猜个曲绘' },
-        { command: `/${PHI_COMMAND_HEAD} tipgame`, label: '提示猜歌' },
-    ])
-}
+  async reveal(e, gameList) {
+    const groupId = String(e.group_id)
+    return serialized(groupId, () => this.revealUnlocked(e, gameList))
+  }
 
-/**@import {botEvent} from '../../base-class' */
+  async revealUnlocked(e, gameList) {
+    const groupId = String(e.group_id)
+    const game = letterGameData[groupId]
+    if (!game) return false
+    const raw = String(e.msg ?? '').slice(String(e.msg ?? '').indexOf(LETTER_OPEN_KEYWORD) + LETTER_OPEN_KEYWORD.length).trim()
+    const character = normalizeCharacter(raw)
+    if (!character) {
+      await this.sendPanel(e, game, { note: `请在“${LETTER_OPEN_KEYWORD}”后输入一个字符。` })
+      return true
+    }
+    const label = /^[a-z]$/i.test(character) ? character.toUpperCase() : character
+    if (game.alphalist.includes(label)) {
+      await this.sendPanel(e, game, { note: `字符“${raw[0]}”已经开过了。` })
+      return true
+    }
+    const left = this.cooldownLeft(game.lastRevealedTime, this.config.LetterRevealCd)
+    if (left > 0) {
+      await this.sendPanel(e, game, { note: cooldownMessage('开字符', left) })
+      return true
+    }
 
-/**
- * @param {botEvent} e
- * @param {(arg0: boolean) => string} fnc
- * @param {ReturnType<typeof buildQqKeyboard>} [keyboard]
- */
-async function tryToSendMd(e, fnc, config, keyboard) {
-    return send.prompt(e, fnc(true), {
-        markdown: true,
-        label: false,
-        keyboard,
-        config,
-        fallback: fnc(false),
+    game.lastRevealedTime = Date.now()
+    game.alphalist.push(label)
+    const changed = revealCharacterAcrossGame(game, character)
+    this.refreshTimeout(groupId, gameList)
+    await this.sendPanel(e, game, {
+      note: changed
+        ? `成功翻开字符“${raw[0]}”。`
+        : `当前题目中没有字符“${raw[0]}”，已记入已开字符。`,
     })
+    return true
+  }
+
+  async openSong(e, gameList) {
+    const groupId = String(e.group_id)
+    return serialized(groupId, () => this.openSongUnlocked(e, gameList))
+  }
+
+  async openSongUnlocked(e, gameList) {
+    const groupId = String(e.group_id)
+    const game = letterGameData[groupId]
+    if (!game) return false
+    const msg = String(e.msg ?? '')
+    const query = msg.slice(msg.indexOf(LETTER_OPEN_SONG_KEYWORD) + LETTER_OPEN_SONG_KEYWORD.length).trim()
+    if (!query) {
+      await this.sendPanel(e, game, { note: `请在“${LETTER_OPEN_SONG_KEYWORD}”后输入歌曲名称。` })
+      return true
+    }
+    const resolution = resolveSongGuess(query, hiddenIds(game))
+    if (resolution.status === 'none') {
+      await this.sendPanel(e, game, { note: '歌曲不存在！' })
+      return true
+    }
+    if (resolution.status === 'ambiguous') {
+      await this.sendPanel(e, game, { note: '匹配到多首题目，请输入更完整的曲名。' })
+      return true
+    }
+    if (resolution.status === 'miss') {
+      const name = getInfo.info(resolution.ids[0])?.song || query
+      await this.sendPanel(e, game, { note: `“${name}”不在当前未揭开的题目中。` })
+      return true
+    }
+
+    const left = this.cooldownLeft(game.lastRevealedTime, this.config.LetterRevealCd)
+    if (left > 0) {
+      await this.sendPanel(e, game, { note: cooldownMessage('开字符', left) })
+      return true
+    }
+    game.lastRevealedTime = Date.now()
+    const index = game.ansIdList.indexOf(resolution.id)
+    const song = game.ansList[index]
+    revealAllTitle(game, index)
+    this.refreshTimeout(groupId, gameList)
+    const image = await illustrationFor(e, resolution.id, this.config)
+    await this.sendPanel(e, game, {
+      note: `已直接开出《${song}》，本题不记录猜中者。`,
+      image,
+    })
+    return true
+  }
+
+  async getTip(e, gameList) {
+    const groupId = String(e.group_id)
+    return serialized(groupId, () => this.getTipUnlocked(e, gameList))
+  }
+
+  async getTipUnlocked(e, gameList) {
+    const groupId = String(e.group_id)
+    const game = letterGameData[groupId]
+    if (!game) return false
+    const candidates = getRevealCandidates(game)
+    if (!candidates.length) {
+      await this.sendPanel(e, game, { note: '当前没有可以继续翻开的字符。' })
+      return true
+    }
+    const left = this.cooldownLeft(game.lastTipTime, this.config.LetterTipCd)
+    if (left > 0) {
+      await this.sendPanel(e, game, { note: cooldownMessage('提示', left) })
+      return true
+    }
+
+    game.lastTipTime = Date.now()
+    const character = candidates[fCompute.randInt(0, candidates.length - 1)]
+    const label = /^[a-z]$/i.test(character) ? character.toUpperCase() : character
+    if (!game.alphalist.includes(label)) game.alphalist.push(label)
+    revealCharacterAcrossGame(game, character)
+    this.refreshTimeout(groupId, gameList)
+    await this.sendPanel(e, game, { note: `随机提示翻开了字符“${character}”。` })
+    return true
+  }
+
+  async guess(e, gameList) {
+    const groupId = String(e.group_id)
+    return serialized(groupId, () => this.guessUnlocked(e, gameList))
+  }
+
+  async guessUnlocked(e, gameList) {
+    const groupId = String(e.group_id)
+    const game = letterGameData[groupId]
+    if (!game) return false
+    const query = String(e.msg ?? '').trim()
+    if (!query || query.startsWith('/') || query.startsWith('#') || query === GAME_HINT_KEYWORD || query === GAME_STOP_KEYWORD) return false
+    const resolution = resolveSongGuess(query, hiddenIds(game))
+    if (resolution.status === 'none') return false
+
+    const left = this.cooldownLeft(game.lastGuessedTime, this.config.LetterGuessCd)
+    if (left > 0) {
+      await this.sendPanel(e, game, { note: cooldownMessage('猜测', left) })
+      return true
+    }
+    game.lastGuessedTime = Date.now()
+
+    if (resolution.status === 'ambiguous') {
+      await this.sendPanel(e, game, { note: '匹配到多首题目，请输入更完整的曲名。' })
+      return true
+    }
+    if (resolution.status === 'miss') {
+      const name = getInfo.info(resolution.ids[0])?.song || query
+      await this.sendPanel(e, game, { note: `“${name}”不在当前未揭开的题目中。` })
+      return true
+    }
+
+    const index = game.ansIdList.indexOf(resolution.id)
+    const song = game.ansList[index]
+    revealAllTitle(game, index)
+    game.winnerlist[index] = nicknameOf(e)
+    this.refreshTimeout(groupId, gameList)
+    const image = await illustrationFor(e, resolution.id, this.config)
+    await this.sendPanel(e, game, {
+      note: `恭喜 ${nicknameOf(e)} 猜中了《${song}》。`,
+      image,
+    })
+    return true
+  }
+
+  async ans(e, gameList) {
+    const groupId = String(e.group_id)
+    return serialized(groupId, () => this.answerUnlocked(e, gameList, '游戏已结束，正确答案如下。'))
+  }
+
+  async timeout(e, gameList) {
+    const groupId = String(e.group_id)
+    return serialized(groupId, () => this.answerUnlocked(e, gameList, `超过 ${this.config.LetterTimeLength}s 没有新的有效操作，本局结束。`))
+  }
+
+  async answerUnlocked(e, gameList, note) {
+    const groupId = String(e.group_id)
+    const game = letterGameData[groupId]
+    if (!game || game.settled) return false
+    game.settled = true
+    if (game.timer) clearTimeout(game.timer)
+    delete letterGameData[groupId]
+    delete gameList[groupId]
+    await this.sendPanel(e, game, { note, revealAll: true, forceReplay: true })
+    return true
+  }
+
+  refreshTimeout(groupId, gameList) {
+    const game = letterGameData[groupId]
+    if (!game) return
+    if (game.timer) clearTimeout(game.timer)
+    const seconds = Math.max(0, Number(this.config.LetterTimeLength) || 0)
+    game.timer = setTimeout(() => {
+      void serialized(groupId, () => {
+        const current = letterGameData[groupId]
+        if (!current || current !== game || current.settled) return
+        return this.answerUnlocked(game.event, gameList, `超过 ${this.config.LetterTimeLength}s 没有新的有效操作，本局结束。`)
+      })
+    }, seconds * 1000)
+    game.timer.unref?.()
+  }
+
+  cooldownLeft(lastAt, seconds) {
+    const cooldown = Math.max(0, Number(seconds) || 0)
+    if (!lastAt || !cooldown) return 0
+    return Math.max(0, Math.ceil((lastAt + cooldown * 1000 - Date.now()) / 1000))
+  }
+
+  async sendPanel(e, game, { note = '', image = null, revealAll = false, forceReplay = false } = {}) {
+    const finished = forceReplay || allGuessed(game)
+    const content = buildLetterPanel(game, { note, revealAll: revealAll || finished })
+    const mode = finished ? 'replay' : 'letter'
+    if (image) {
+      await sendGameStatusWithImage(
+        e,
+        content.markdown,
+        content.text,
+        image,
+        this.config,
+        mode,
+        game.replayCommand,
+      )
+      return
+    }
+    await sendGameStatus(
+      e,
+      content.markdown,
+      content.text,
+      this.config,
+      mode,
+      game.replayCommand,
+    )
+  }
 }

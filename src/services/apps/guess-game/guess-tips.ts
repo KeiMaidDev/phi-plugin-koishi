@@ -1,6 +1,4 @@
 // @ts-nocheck
-import { PHI_COMMAND_HEAD } from '../../../constants'
-
 import fCompute from "../../../domain/game/f-compute"
 import getInfo from "../../../domain/game/get-info"
 import { allLevel } from "../../../domain/game/const-num"
@@ -8,6 +6,8 @@ import send from "../../../render/send"
 import picmodle from "../../../render/pic-model"
 import getPic from "../../../render/get-pic"
 import logger from "../../../utils/logger"
+import { resolveSongGuess } from './game-interaction'
+import { sendGameStatus } from './game-message'
 
 
 
@@ -70,196 +70,201 @@ export default class guessTips {
         this.config = runtime.config
     }
 
-    /**
-     * 开始游戏
-     * @param {any} e 事件对象
-     * @param {GameList} gameList 进行中的游戏列表
-     */
+    replayCommand(group_id, gameList) {
+        return gameList[group_id]?.replayCommand || '/phi tipgame'
+    }
+
     async start(e, gameList) {
-        const { group_id } = e;
+        const { group_id } = e
         if (gameList[group_id]) {
-            send.prompt(e, "请不要重复发起哦！", true)
+            await sendGameStatus(e, '**请不要重复发起**', '请不要重复发起。', this.config, 'answer-hint')
             return false
         }
-        /**
-         * 提取id，要求有曲绘
-         * @type {idString[]}
-         */
-        let hasIllIdList = []
 
-        const allIdList = getInfo.idList || []
-
-        allIdList.forEach(id => {
-            if (getInfo.getill(id) && getInfo.info(id)) {
-                hasIllIdList.push(id)
-            }
-        })
-
+        const hasIllIdList = (getInfo.idList || []).filter(id => getInfo.getill(id) && getInfo.info(id))
         if (!hasIllIdList.length) {
             logger.error('[phi-plugin] 提示猜歌无有效曲目')
-            send.prompt(e, '当前曲库暂无有曲绘的曲目哦！更改曲库后需要重启哦！')
+            await sendGameStatus(e, '**当前曲库暂无可用于提示猜歌的曲绘**', '当前曲库暂无可用于提示猜歌的曲绘，更改曲库后需要重启。', this.config, 'answer-hint')
             return false
         }
-        /**选中的歌曲id */
-        let songId = hasIllIdList[fCompute.randInt(0, hasIllIdList.length - 1)]
-        let info = getInfo.info(songId)
+
+        const songId = hasIllIdList[fCompute.randInt(0, hasIllIdList.length - 1)]
+        const info = getInfo.info(songId)
         if (!info) {
-            send.promptWithAt(e, '获取曲目信息发生未知错误QAQ！')
+            await sendGameStatus(e, '**获取曲目信息失败**', '获取曲目信息发生未知错误。', this.config, 'answer-hint')
             return false
         }
-        /**文字提示 */
-        let tips = []
-        tips.push(`这首曲目隶属于 ${info.chapter}`)
-        tips.push(`这首曲目的⌈BPM⌋值为 ${info.bpm}`)
-        tips.push(`这首曲目的⌈作曲者⌋ 为 ${info.composer}`)
-        tips.push(`这首曲目的⌈时长⌋为 ${info.length}`)
-        tips.push(`这首曲目的⌈画师⌋为 ${info.illustrator}`)
-        /**@type {levelKind[]} */
-        const levels = /**@type {any} */ (Object.keys(info.chart))
-        for (let level of levels) {
-            if (!info.chart[level]) continue;
+
+        let tips = [
+            `这首曲目隶属于 ${info.chapter}`,
+            `这首曲目的⌈BPM⌋值为 ${info.bpm}`,
+            `这首曲目的⌈作曲者⌋为 ${info.composer}`,
+            `这首曲目的⌈时长⌋为 ${info.length}`,
+            `这首曲目的⌈画师⌋为 ${info.illustrator}`,
+        ]
+        for (const level of Object.keys(info.chart)) {
+            if (!info.chart[level]) continue
             tips.push(`这首曲目的 ⌈${level}⌋ 难度 ⌈定数⌋ 为 ${info.chart[level].difficulty}`)
             tips.push(`这首曲目的 ⌈${level}⌋ 难度 ⌈物量⌋ 为 ${info.chart[level].combo}`)
             tips.push(`这首曲目的 ⌈${level}⌋ 难度 ⌈谱师⌋ 为 ${info.chart[level].charter}`)
         }
-        tips = fCompute.randArray(tips)
-        tips = tips.splice(0, this.config.GuessTipsTipNum)
-        /**曲绘区域 */
-        /**width */
-        let width = fCompute.randInt(100, 150)
-        /**height */
-        let height = fCompute.randInt(100, 150)
-        let x = fCompute.randInt(0, 2048 - width)
-        let y = fCompute.randInt(0, 1080 - height)
-        gameList[group_id] = { gameType: 'guessTips' }
-        tipsGameData[group_id] = new GuessTipsGameData(songId, tips, width, height, x, y,)
+        tips = fCompute.randArray(tips).slice(0, this.config.GuessTipsTipNum)
+
+        const width = fCompute.randInt(100, 150)
+        const height = fCompute.randInt(100, 150)
+        const x = fCompute.randInt(0, 2048 - width)
+        const y = fCompute.randInt(0, 1080 - height)
+        gameList[group_id] = { gameType: 'guessTips', replayCommand: e.replayCommand || '/phi tipgame' }
+        tipsGameData[group_id] = new GuessTipsGameData(songId, tips, width, height, x, y)
         const currentGame = tipsGameData[group_id]
         const startTime = currentGame.startTime
-        send.prompt(e, `下面开始进行提示猜歌哦！可以直接发送曲名进行回答哦！每过${this.config.GuessTipsTipCD}秒后可以请求下一条提示，共有${this.config.GuessTipsTipNum + 1}条提示嗷！所有提示发送完毕${this.config.GuessTipsAnsTime}秒后会自动结束游戏嗷！发送 /${PHI_COMMAND_HEAD} ans 也可以提前结束游戏呐！`, { kind: 'status', actions: [{ command: `/${PHI_COMMAND_HEAD} ans`, label: '结束游戏' }] })
-        /**@type {string[]} */
-        let resMsg = []
-        for (let i = 0; i < currentGame.tipNum; i++) {
-            resMsg.push(`${i + 1}.${currentGame.tips[i]}`)
-        }
-        send.prompt(e, resMsg)
-        setTimeout(async (startTime) => {
-            if (tipsGameData[group_id]?.startTime == startTime) {
-                send.prompt(e, [`呜……很遗憾，没有人答对喵！正确答案是：${info.song}`, currentGame.tipNum > currentGame.tips.length ? await picmodle.guess(e, { ...currentGame.ill, blur: 0, style: 1, }) : false])
-                gameover(group_id, gameList)
+
+        await sendGameStatus(
+            e,
+            `**提示猜歌开始**\n\n直接回复曲名作答；每过 ${this.config.GuessTipsTipCD}s 可以发送“提示”或点击按钮获取下一条提示，共 ${this.config.GuessTipsTipNum + 1} 条。全部提示结束后 ${this.config.GuessTipsAnsTime}s 自动公布答案，也可以发送“不玩了”提前结束。`,
+            `提示猜歌开始。直接回复曲名作答；每过 ${this.config.GuessTipsTipCD}s 可以发送“提示”获取下一条提示，共 ${this.config.GuessTipsTipNum + 1} 条。全部提示结束后 ${this.config.GuessTipsAnsTime}s 自动公布答案，也可以发送“不玩了”提前结束。`,
+            this.config,
+            'answer-hint',
+        )
+
+        let resMsg = ''
+        for (let i = 0; i < currentGame.tipNum; i++) resMsg += `${i + 1}. ${currentGame.tips[i]}\n`
+        await sendGameStatus(e, resMsg.trim(), resMsg.trim(), this.config, 'answer-hint')
+
+        setTimeout(async () => {
+            if (tipsGameData[group_id]?.startTime !== startTime) return
+            const expired = tipsGameData[group_id]
+            const replay = this.replayCommand(group_id, gameList)
+            gameover(group_id, gameList)
+            await sendGameStatus(
+                e,
+                `**很遗憾，没有人答对**\n\n正确答案是：${info.song}`,
+                `很遗憾，没有人答对。正确答案是：${info.song}`,
+                this.config,
+                'replay',
+                replay,
+            )
+            if (expired.tipNum > expired.tips.length) {
+                await send.reply(e, await picmodle.guess(e, { ...expired.ill, blur: 0, style: 1 }))
             }
-        }, this.config.GuessTipsTimeout * 1000, startTime);
+        }, this.config.GuessTipsTimeout * 1000)
         return true
     }
 
-    /**
-     * 获取提示
-     * @param {any} e 事件对象
-     * @param {GameList} gameList 进行中的游戏列表
-     */
     async getTip(e, gameList) {
-        const { group_id } = e;
-        if (!gameList[group_id]) {
-            return false
-        }
-        const nowTime = new Date().getTime()
+        const { group_id } = e
         const currentGame = tipsGameData[group_id]
+        if (!currentGame) return false
+        const nowTime = Date.now()
         if (nowTime - currentGame.tipTime < this.config.GuessTipsTipCD * 1000) {
-            send.promptWithAt(e, `提示的冷却时间还有${Math.ceil((nowTime - currentGame.tipTime) / 1000)}秒哦！`)
-            return false
+            const left = Math.ceil((this.config.GuessTipsTipCD * 1000 - (nowTime - currentGame.tipTime)) / 1000)
+            await sendGameStatus(e, `**提示冷却还有 ${left}s**`, `提示冷却还有 ${left}s。`, this.config, 'answer-hint')
+            return true
         }
         if (currentGame.tipNum > currentGame.tips.length) {
-            send.promptWithAt(e, `已经没有提示了呐，再仔细想想吧！`)
-            return false
+            await sendGameStatus(e, '**已经没有提示了**', '已经没有提示了，再仔细想想吧。', this.config, 'answer-hint')
+            return true
         }
-        let rev = []
-        if (currentGame.tipNum == currentGame.tips.length) {
-            setTimeout(async (startTime) => {
-                if (tipsGameData[group_id]?.startTime == startTime) {
-                    const currentGame = tipsGameData[group_id]
-                    const info = getInfo.info(currentGame.songId)
-                    send.prompt(e, [`呜……很遗憾，没有人答对喵！正确答案是：${info?.song}`, await picmodle.guess(e, { ...currentGame.ill, blur: 0, style: 1, })])
-                    send.prompt(e, await getPic.GetSongsInfoAtlas(e, currentGame.songId))
-                    gameover(group_id, gameList)
-                }
-            }, 30 * 1000, currentGame.startTime)
-            send.prompt(e, `接下来是曲绘提示哦！如果在${this.config.GuessTipsAnsTime}秒内没有回答正确的话，将会自动公布答案哦！`)
-            rev.push(await picmodle.guess(e, { ...currentGame.ill, blur: 0, style: 0, }))
-        } else {
-            ++currentGame.tipNum
+
+        currentGame.tipTime = nowTime
+        if (currentGame.tipNum === currentGame.tips.length) {
+            currentGame.tipNum += 1
+            await sendGameStatus(
+                e,
+                `**接下来是曲绘提示**\n\n如果在 ${this.config.GuessTipsAnsTime}s 内没有回答正确，将自动公布答案。`,
+                `接下来是曲绘提示。如果在 ${this.config.GuessTipsAnsTime}s 内没有回答正确，将自动公布答案。`,
+                this.config,
+                'answer-hint',
+            )
+            await send.reply(e, await picmodle.guess(e, { ...currentGame.ill, blur: 0, style: 0 }))
+            const startTime = currentGame.startTime
+            setTimeout(async () => {
+                if (tipsGameData[group_id]?.startTime !== startTime) return
+                const expired = tipsGameData[group_id]
+                const info = getInfo.info(expired.songId)
+                const replay = this.replayCommand(group_id, gameList)
+                gameover(group_id, gameList)
+                await sendGameStatus(
+                    e,
+                    `**很遗憾，没有人答对**\n\n正确答案是：${info?.song}`,
+                    `很遗憾，没有人答对。正确答案是：${info?.song}`,
+                    this.config,
+                    'replay',
+                    replay,
+                )
+                await send.reply(e, await picmodle.guess(e, { ...expired.ill, blur: 0, style: 1 }))
+                await send.reply(e, await getPic.GetSongsInfoAtlas(e, expired.songId))
+            }, 30 * 1000)
+            return true
         }
+
+        currentGame.tipNum += 1
         let resMsg = ''
-        for (let i = 0; i < currentGame.tipNum; i++) {
-            resMsg += `${i + 1}.${currentGame.tips[i]}\n`
-        }
-        rev.unshift(resMsg)
-        send.prompt(e, rev)
+        for (let i = 0; i < currentGame.tipNum; i++) resMsg += `${i + 1}. ${currentGame.tips[i]}\n`
+        await sendGameStatus(e, resMsg.trim(), resMsg.trim(), this.config, 'answer-hint')
+        return true
     }
 
-
-    /**
-     * 回答答案
-     * @param {any} e 事件对象
-     * @param {GameList} gameList 进行中的游戏列表
-     */
     async guess(e, gameList) {
-        const { group_id, msg } = e;
+        const { group_id, msg } = e
         const currentGame = tipsGameData[group_id]
-        if (!currentGame) {
-            return false
-        }
-        let songId = getInfo.fuzzysongsnick(msg, 0.95)
-        if (songId[0]) {
-            for (let id of songId) {
-                if (currentGame.songId == id) {
-                    /** 先结束游戏，避免发送结算消息期间并发的猜中重复结算 */
-                    gameover(group_id, gameList)
-                    send.promptWithAt(e, '恭喜你，答对啦喵！ヾ(≧▽≦*)o', true)
-                    if (currentGame.tipNum == currentGame.tips.length + 1) {
-                        send.prompt(e, await picmodle.guess(e, { ...currentGame.ill, blur: 0, style: 0, }))
-                    }
-                    send.prompt(e, await getPic.GetSongsInfoAtlas(e, currentGame.songId))
-                    return true
-                }
+        if (!currentGame) return false
+        const resolution = resolveSongGuess(msg, [currentGame.songId])
+        if (resolution.status === 'none') return false
+
+        if (resolution.status === 'correct') {
+            const replay = this.replayCommand(group_id, gameList)
+            gameover(group_id, gameList)
+            await sendGameStatus(
+                e,
+                '**恭喜你，答对啦！**',
+                '恭喜你，答对啦！',
+                this.config,
+                'replay',
+                replay,
+            )
+            if (currentGame.tipNum > currentGame.tips.length) {
+                await send.reply(e, await picmodle.guess(e, { ...currentGame.ill, blur: 0, style: 0 }))
             }
-            if (songId[1]) {
-                send.promptWithAt(e, `不是 ${msg} 哦喵！≧ ﹏ ≦`, true, { recallMsg: 5 })
-            } else {
-                send.promptWithAt(e, `不是 ${getInfo.info(songId[0])?.song ?? songId[0]} 哦喵！≧ ﹏ ≦`, true, { recallMsg: 5 })
-            }
-            return false
+            await send.reply(e, await getPic.GetSongsInfoAtlas(e, currentGame.songId))
+            return true
         }
-        return false
+
+        const name = resolution.status === 'ambiguous' ? msg : (getInfo.info(resolution.ids[0])?.song || msg)
+        await sendGameStatus(
+            e,
+            `**不是「${name}」**\n\n再想想，或者发送“提示”。`,
+            `不是「${name}」。再想想，或者发送“提示”。`,
+            this.config,
+            'answer-hint',
+        )
+        return true
     }
 
-    /**
-     * 结束游戏
-     * @param {any} e 事件对象
-     * @param {GameList} gameList 进行中的游戏列表
-     */
     async ans(e, gameList) {
-        const { group_id } = e;
+        const { group_id } = e
         const currentGame = tipsGameData[group_id]
-        if (!currentGame) {
-            return false
-        }
+        if (!currentGame) return false
         const info = getInfo.info(currentGame.songId)
-        /** 先结束游戏，避免发送结算消息期间并发的 ans 重复结算 */
+        const replay = this.replayCommand(group_id, gameList)
         gameover(group_id, gameList)
-        send.prompt(e, [
-            `好吧，下面开始公布答案。正确答案是：${info?.song}`,
-            currentGame.tipNum > currentGame.tips.length ? await picmodle.guess(e, { ...currentGame.ill, blur: 0, style: 1, }) : false
-        ])
-        send.prompt(e, await getPic.GetSongsInfoAtlas(e, currentGame.songId))
-        gameover(group_id, gameList)
+        await sendGameStatus(
+            e,
+            `**游戏已结束**\n\n正确答案是：${info?.song}`,
+            `游戏已结束。正确答案是：${info?.song}`,
+            this.config,
+            'replay',
+            replay,
+        )
+        if (currentGame.tipNum > currentGame.tips.length) {
+            await send.reply(e, await picmodle.guess(e, { ...currentGame.ill, blur: 0, style: 1 }))
+        }
+        await send.reply(e, await getPic.GetSongsInfoAtlas(e, currentGame.songId))
+        return true
     }
 }
 
-/**
- * 结束游戏
- * @param {string} group_id 
- * @param {GameList} gameList 
- */
 function gameover(group_id, gameList) {
-    delete tipsGameData[group_id];
-    delete gameList[group_id];
+    delete tipsGameData[group_id]
+    delete gameList[group_id]
 }

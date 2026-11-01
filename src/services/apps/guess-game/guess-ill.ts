@@ -1,6 +1,4 @@
 // @ts-nocheck
-import { PHI_COMMAND_HEAD } from '../../../constants'
-
 import common from '../../common'
 import logger from '../../../utils/logger'
 import getInfo from '../../../domain/game/get-info'
@@ -9,6 +7,8 @@ import picmodle from "../../../render/pic-model";
 import SongsInfo from '../../../domain/game/songs-info'
 import fCompute from '../../../domain/game/f-compute'
 import getPic from '../../../render/get-pic'
+import { resolveSongGuess } from './game-interaction'
+import { sendGameStatus } from './game-message'
 
 let songIdList = getInfo.illlist || [] //所有有曲绘的曲目列表
 
@@ -144,7 +144,7 @@ export default class guessIll {
         }
 
         ansList[group_id] = songs_info.id
-        gameList[group_id] = { gameType: "guessIll" }
+        gameList[group_id] = { gameType: 'guessIll', replayCommand: e.replayCommand || '/phi guess' }
         eList[group_id] = e
 
         let w_ = fCompute.randInt(100, 140)
@@ -253,15 +253,16 @@ export default class guessIll {
         }
         logger.info(data)
 
-        send.prompt(e,
-            [`下面开始进行猜曲绘哦！回答可以直接发送哦！每过${this.config.GuessTipCd}秒后将会给出进一步提示。`,
-            `发送 /${PHI_COMMAND_HEAD} ans 结束游戏`,
-            `本局难度：${level}，当前干扰类型：${data.chosenInterferences.length ? data.chosenInterferences.join('、') : '无干扰'}`].join('\n')
-        )
+        const intro = [
+            `下面开始进行猜曲绘哦！直接回复曲名作答，每过 ${this.config.GuessTipCd}s 会给出进一步提示。`,
+            '发送“不玩了”可以提前结束游戏。',
+            `本局难度：${level}，当前干扰类型：${data.chosenInterferences.length ? data.chosenInterferences.join('、') : '无干扰'}`,
+        ].join('\n')
+        await sendGameStatus(e, intro, intro, this.config, 'answer')
         if (this.config.GuessTipRecall)
-            await send.prompt(e, await picmodle.guess(e, data), false, { recallMsg: this.config.GuessTipCd })
+            await send.reply(e, await picmodle.guess(e, data), false, { recallMsg: this.config.GuessTipCd })
         else
-            await send.prompt(e, await picmodle.guess(e, data))
+            await send.reply(e, await picmodle.guess(e, data))
 
         /**单局时间不超过4分半 */
         const time = this.config.GuessTipCd
@@ -332,7 +333,6 @@ export default class guessIll {
             if (known_info.chart) tipmsg += known_info.chart
             remsg = []
             remsg.push(await picmodle.guess(e, data))
-            remsg.push(tipmsg)
 
             e = eList[group_id]
 
@@ -346,10 +346,11 @@ export default class guessIll {
                 return true
             }
 
+            await sendGameStatus(e, tipmsg, tipmsg, this.config, 'answer')
             if (this.config.GuessTipRecall)
-                send.prompt(e, remsg, false, { recallMsg: this.config.GuessTipCd + 1 })
+                send.reply(e, remsg, false, { recallMsg: this.config.GuessTipCd + 1 })
             else
-                send.prompt(e, remsg)
+                send.reply(e, remsg)
 
         }
 
@@ -372,11 +373,18 @@ export default class guessIll {
         e = eList[group_id]
 
         const t = ansList[group_id]
+        const replay = gameList[group_id]?.replayCommand || '/phi guess'
         delete ansList[group_id]
         delete gameList[group_id]
-        await send.prompt(e, "呜，怎么还没有人答对啊QAQ！只能说答案了喵……")
-
-        await send.prompt(e, await getPic.GetSongsInfoAtlas(e, t))
+        await sendGameStatus(
+            e,
+            '**很遗憾，这一局没有人答对**\n\n正确答案如下。',
+            '很遗憾，这一局没有人答对。正确答案如下。',
+            this.config,
+            'replay',
+            replay,
+        )
+        await send.reply(e, await getPic.GetSongsInfoAtlas(e, t))
         await gameover(e, data)
 
         return true
@@ -389,34 +397,36 @@ export default class guessIll {
      */
     async guess(e, gameList) {
         const group_id = groupKey(e)
-        const { msg } = e
-        if (ansList[group_id]) {
-            eList[group_id] = e
-            if (typeof msg === 'string') {
-                const ans = msg.replace(/[#/](我)?猜(\s*)/g, '')
-                const ids = getInfo.fuzzysongsnick(ans, 0.95)
-                if (ids[0]) {
-                    for (let i in ids) {
-                        if (ansList[group_id] == ids[i]) {
-                            const t = ansList[group_id]
-                            delete ansList[group_id]
-                            delete gameList[group_id]
-                            delete eList[group_id]
-                            send.promptWithAt(e, '恭喜你，答对啦喵！ヾ(≧▽≦*)o', true)
-                            await send.prompt(e, await getPic.GetSongsInfoAtlas(e, t))
-                            return true
-                        }
-                    }
-                    if (ids[1]) {
-                        send.promptWithAt(e, `不是 ${ans} 哦喵！≧ ﹏ ≦`, true, { recallMsg: 5 })
-                    } else {
-                        send.promptWithAt(e, `不是 ${getInfo.info(ids[0])?.song ?? ids[0]} 哦喵！≧ ﹏ ≦`, true, { recallMsg: 5 })
-                    }
-                    return false
-                }
-            }
+        const answerId = ansList[group_id]
+        if (!answerId) return false
+        eList[group_id] = e
+        const resolution = resolveSongGuess(e.msg, [answerId])
+        if (resolution.status === 'none') return false
+        if (resolution.status === 'correct') {
+            const replay = gameList[group_id]?.replayCommand || '/phi guess'
+            delete ansList[group_id]
+            delete gameList[group_id]
+            delete eList[group_id]
+            await sendGameStatus(
+                e,
+                '**恭喜你，答对啦！**',
+                '恭喜你，答对啦！',
+                this.config,
+                'replay',
+                replay,
+            )
+            await send.reply(e, await getPic.GetSongsInfoAtlas(e, answerId))
+            return true
         }
-        return false
+        const name = resolution.status === 'ambiguous' ? e.msg : (getInfo.info(resolution.ids[0])?.song || e.msg)
+        await sendGameStatus(
+            e,
+            `**不是「${name}」**\n\n再想想，或者发送“不玩了”查看答案。`,
+            `不是「${name}」。再想想，或者发送“不玩了”查看答案。`,
+            this.config,
+            'answer',
+        )
+        return true
     }
 
     /**
@@ -427,16 +437,22 @@ export default class guessIll {
      */
     async ans(e, gameList) {
         const group_id = groupKey(e)
-        if (ansList[group_id]) {
-            const t = ansList[group_id]
-            delete ansList[group_id]
-            delete gameList[group_id]
-            delete eList[group_id]
-            await send.prompt(e, '好吧，下面开始公布答案。', true)
-            await send.prompt(e, await getPic.GetSongsInfoAtlas(e, t))
-            return true
-        }
-        return false
+        const answerId = ansList[group_id]
+        if (!answerId) return false
+        const replay = gameList[group_id]?.replayCommand || '/phi guess'
+        delete ansList[group_id]
+        delete gameList[group_id]
+        delete eList[group_id]
+        await sendGameStatus(
+            e,
+            '**游戏已结束**\n\n正确答案如下。',
+            '游戏已结束。正确答案如下。',
+            this.config,
+            'replay',
+            replay,
+        )
+        await send.reply(e, await getPic.GetSongsInfoAtlas(e, answerId))
+        return true
     }
 
     /**
@@ -478,7 +494,7 @@ async function gameover(e, data) {
     data.filterStyle = buildFilterStyle(data)
     data.ans = data.illustration
     data.style = 1
-    await send.prompt(e, await picmodle.guess(e, data))
+    await send.reply(e, await picmodle.guess(e, data))
     delete eList[groupKey(e)]
 }
 

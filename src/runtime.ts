@@ -129,6 +129,7 @@ export async function createEngine(ctx: Context, config: Config, h: typeof H): P
 
     const { createApps } = require('./services/apps/index.ts')
     const apps = createApps(runtime)
+    ctx.middleware((session, next) => apps.guessGame.handleMessage(session, next), true)
     const { registerAliasProposalTask } = require('./services/apps/alias-proposal.ts')
     registerAliasProposalTask(ctx, config)
 

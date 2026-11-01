@@ -127,13 +127,13 @@
  * @typedef {'GuessTipChartCombo'} GuessTipChartCombo 谱面物量提示开关
  * @typedef {'GuessTipChartCharter'} GuessTipChartCharter 谱师提示开关
  * 开字母设置
- * @typedef {'LetterNum'} LetterNum 字母条数
+ * @typedef {'LetterNum'} LetterNum 曲目条数
  * @typedef {'LetterMarkdown'} LetterMarkdown Markdown格式
  * @typedef {'LetterIllustration'} LetterIllustration 发送曲绘
- * @typedef {'LetterRevealCd'} LetterRevealCd 字母提示间隔
- * @typedef {'LetterGuessCd'} LetterGuessCd 字母开启间隔
- * @typedef {'LetterTipCd'} LetterTipCd 字母提示间隔
- * @typedef {'LetterTimeLength'} LetterTimeLength 猜字母最长时长
+ * @typedef {'LetterRevealCd'} LetterRevealCd 开字母/开歌间隔
+ * @typedef {'LetterGuessCd'} LetterGuessCd 直接猜题间隔
+ * @typedef {'LetterTipCd'} LetterTipCd 随机提示间隔
+ * @typedef {'LetterTimeLength'} LetterTimeLength 开字母待机时长
  * 提示猜歌设置
  * @typedef {'GuessTipsTipCD'} GuessTipsTipCD 提示冷却
  * @typedef {'GuessTipsTipNum'} GuessTipsTipNum 提示条数

@@ -220,12 +220,12 @@ export const Config: Schema<Config> = Schema.intersect([
     GuessTipChartCharter: Schema.boolean().default(true).description("谱师提示"),
   }).description("猜曲绘设置"),
   Schema.object({
-    LetterNum: Schema.number().min(1).max(99999).default(8).description("字母条数"),
+    LetterNum: Schema.number().min(1).max(99999).default(8).description("曲目条数"),
     LetterIllustration: Schema.union([Schema.const("水印版").description("水印版"), Schema.const("原版").description("原版"), Schema.const("不发送").description("不发送")]).default("水印版").description("发送曲绘"),
-    LetterRevealCd: Schema.number().min(0).max(120).default(0).description("翻开字母间隔，单位：秒"),
-    LetterGuessCd: Schema.number().min(0).max(120).default(0).description("猜字母回答间隔，单位：秒"),
-    LetterTipCd: Schema.number().min(0).max(120).default(0).description("字母提示间隔，单位：秒"),
-    LetterTimeLength: Schema.number().min(0).max(9999999).default(300).description("猜字母待机时长，单位：秒"),
+    LetterRevealCd: Schema.number().min(0).max(120).default(0).description("开字母/开歌间隔，单位：秒"),
+    LetterGuessCd: Schema.number().min(0).max(120).default(0).description("直接猜题间隔，单位：秒"),
+    LetterTipCd: Schema.number().min(0).max(120).default(0).description("随机提示间隔，单位：秒"),
+    LetterTimeLength: Schema.number().min(0).max(9999999).default(300).description("开字母待机时长，单位：秒"),
   }).description("开字母设置"),
   Schema.object({
     GuessTipsTipCD: Schema.number().min(0).max(120).default(5).description("提示冷却，单位：秒"),

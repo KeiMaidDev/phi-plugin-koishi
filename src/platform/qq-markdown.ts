@@ -8,7 +8,7 @@ import {
 export interface QqKeyboardCommand {
     command?: string
     label: string
-    type?: 'command' | 'link' | 'callback'
+    type?: 'command' | 'input' | 'link' | 'callback'
     href?: string
     enter?: boolean
     reply?: boolean
@@ -57,6 +57,7 @@ export function isQqMarkdownPlatform(event: any) {
 }
 
 function keyboardData(item: QqKeyboardCommand) {
+    if (item.type === 'input') return ' '
     return String(item.type === 'link' ? item.href || item.command || '' : item.command || '').trim()
 }
 
@@ -71,7 +72,7 @@ function normalizeKeyboardCommands(commands: QqKeyboardCommand[]) {
         result.push({
             command,
             label,
-            type: item.type === 'link' || item.type === 'callback' ? item.type : 'command',
+            type: item.type === 'input' || item.type === 'link' || item.type === 'callback' ? item.type : 'command',
             ...(item.type === 'link' && item.href ? { href: item.href } : {}),
             ...(typeof item.enter === 'boolean' ? { enter: item.enter } : {}),
             ...(typeof item.reply === 'boolean' ? { reply: item.reply } : {}),
@@ -105,6 +106,7 @@ export function buildQqKeyboard(
             buttons: normalized.slice(index, index + columns).map((item, offset) => {
                 const isLink = item.type === 'link'
                 const isCallback = item.type === 'callback'
+                const isInput = item.type === 'input'
                 const action = isLink
                     ? {
                         type: 0,
@@ -119,6 +121,15 @@ export function buildQqKeyboard(
                             data: keyboardData(item),
                             unsupport_tips: '当前 QQ 版本不支持回调按钮，请发送 /phi 重新打开菜单。',
                         }
+                        : isInput
+                            ? {
+                                type: 2,
+                                permission: { type: 2 },
+                                data: keyboardData(item),
+                                reply: false,
+                                enter: false,
+                                unsupport_tips: '当前 QQ 版本不支持输入按钮，请手动输入答案后发送。',
+                            }
                     : {
                         type: 2,
                         permission: { type: 2 },
