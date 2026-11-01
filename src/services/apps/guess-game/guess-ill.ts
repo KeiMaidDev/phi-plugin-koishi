@@ -387,16 +387,17 @@ export default class guessIll {
         const replay = gameList[group_id]?.replayCommand || '/phi guess'
         delete ansList[group_id]
         delete gameList[group_id]
-        await sendGameStatus(
+        const resultImage = await getPic.GetSongsInfoAtlas(e, t)
+        await sendGameStatusWithImage(
             e,
             '**很遗憾，这一局没有人答对**\n\n正确答案如下。',
             '很遗憾，这一局没有人答对。正确答案如下。',
+            resultImage,
             this.config,
             'replay',
             replay,
         )
-        await send.reply(e, await getPic.GetSongsInfoAtlas(e, t))
-        await gameover(e, data)
+        delete eList[group_id]
 
         return true
     }
@@ -418,15 +419,16 @@ export default class guessIll {
             delete ansList[group_id]
             delete gameList[group_id]
             delete eList[group_id]
-            await sendGameStatus(
+            const resultImage = await getPic.GetSongsInfoAtlas(e, answerId)
+            await sendGameStatusWithImage(
                 e,
                 '**恭喜你，答对啦！**',
                 '恭喜你，答对啦！',
+                resultImage,
                 this.config,
                 'replay',
                 replay,
             )
-            await send.reply(e, await getPic.GetSongsInfoAtlas(e, answerId))
             return true
         }
         const name = resolution.status === 'ambiguous' ? e.msg : (getInfo.info(resolution.ids[0])?.song || e.msg)
@@ -454,15 +456,16 @@ export default class guessIll {
         delete ansList[group_id]
         delete gameList[group_id]
         delete eList[group_id]
-        await sendGameStatus(
+        const resultImage = await getPic.GetSongsInfoAtlas(e, answerId)
+        await sendGameStatusWithImage(
             e,
             '**游戏已结束**\n\n正确答案如下。',
             '游戏已结束。正确答案如下。',
+            resultImage,
             this.config,
             'replay',
             replay,
         )
-        await send.reply(e, await getPic.GetSongsInfoAtlas(e, answerId))
         return true
     }
 
