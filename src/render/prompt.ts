@@ -24,11 +24,34 @@ export interface PromptAction extends QqKeyboardCommand {
 }
 
 const DEFAULT_MARKDOWN_ACTIONS: PromptAction[] = [
-  { command: `/${PHI_COMMAND_HEAD} list`, label: '我也要查' },
   { command: `/${PHI_COMMAND_HEAD} b27`, label: 'B27成绩' },
   { command: `/${PHI_COMMAND_HEAD} myset`, label: '用户设置' },
   { command: `/${PHI_COMMAND_HEAD}`, label: '帮助' },
 ]
+
+function escapeRegExp(value: string) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** 按当前消息生成“我也要查”按钮，保留筛选参数并去掉代查他人的 -id。 */
+function currentQueryAction(event: any): PromptAction {
+  const head = String(PHI_COMMAND_HEAD)
+  let rest = String(event?.msg || event?.text || event?.session?.stripped?.content || event?.session?.content || '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  rest = rest.replace(new RegExp(`^(?:[#/杠刚钢纲]\\s*)?${escapeRegExp(head)}\\s*`, 'i'), '')
+  rest = rest.replace(/(?:^|\s)-id\s+\d+\b/gi, ' ').replace(/\s+/g, ' ').trim()
+  return {
+    command: rest ? `/${head} ${rest}` : `/${head}`,
+    label: '我也要查',
+  }
+}
+
+function defaultMarkdownActions(event: any): PromptAction[] {
+  return [currentQueryAction(event), ...DEFAULT_MARKDOWN_ACTIONS]
+}
 
 export interface PromptOptions {
   kind?: PromptKind
@@ -221,7 +244,7 @@ export async function sendPrompt(event: any, content: unknown, options: PromptOp
     const markdown = await contentToMarkdown(content, { ...options, assets })
     if (!markdown.trim()) return sendFallback(wrapped, content, options)
     const prefix = options.mention ? promptMentionPrefix(wrapped) : ''
-    const actions = options.actions?.length ? promptActions(options.actions) : DEFAULT_MARKDOWN_ACTIONS
+    const actions = options.actions?.length ? promptActions(options.actions) : defaultMarkdownActions(wrapped)
     const keyboard = options.keyboard === false
       ? undefined
       : options.keyboard ?? buildQqKeyboard(actions, undefined, options.buttonsPerRow)
