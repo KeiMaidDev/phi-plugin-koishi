@@ -1,5 +1,6 @@
 import type { Context } from 'koishi'
 import type { EngineRuntime } from '../runtime'
+import { parsePhiMenuCallbackData } from '../constants'
 import { engineCommands, aliasProposalCommands, type EngineCommandSpec } from './spec'
 
 const helpSpec: EngineCommandSpec = {
@@ -52,6 +53,21 @@ async function sendCommandResult(runtime: EngineRuntime, session: any, result: a
   return undefined
 }
 
+export async function dispatchMenuCallback(runtime: EngineRuntime, session: any) {
+  const page = parsePhiMenuCallbackData(session?.event?.button?.data)
+  if (!page) return false
+
+  const app = runtime.apps.help
+  const method = page === 'game' ? app?.gameMenu : app?.showMenu
+  if (typeof method !== 'function') throw new Error(`Phi menu callback not found: ${page}`)
+
+  const event = runtime.adapter.fromSession(session)
+  app.e = event
+  if (page === 'game') await method.call(app, event)
+  else await method.call(app, event, page)
+  return true
+}
+
 export function registerEngineCommands(ctx: Context, runtime: EngineRuntime) {
   const root = ctx.command('phi', 'Phi 相关功能', { slash: false, checkArgCount: true })
 
@@ -84,6 +100,14 @@ export function registerEngineCommands(ctx: Context, runtime: EngineRuntime) {
       ctx.logger('phi-plugin').error(error)
       const message = `Phi 功能执行失败：${error instanceof Error ? error.message : String(error)}`
       await sendCommandResult(runtime, argv.session, message, 'error')
+    }
+  })
+
+  ctx.on('interaction/button', async (session) => {
+    try {
+      await dispatchMenuCallback(runtime, session)
+    } catch (error) {
+      ctx.logger('phi-plugin').error(error)
     }
   })
 }

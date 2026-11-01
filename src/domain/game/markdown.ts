@@ -2,7 +2,7 @@
 import { performance } from 'node:perf_hooks'
 import { h } from 'koishi'
 
-import { PHI_COMMAND_HEAD } from '../../constants'
+import { PHI_COMMAND_HEAD, phiMenuCallbackData } from '../../constants'
 
 import send from '../../render/send'
 import { escapePromptText } from '../../render/prompt'
@@ -243,15 +243,31 @@ export async function sendScoreImage(e, image, elapsedMs, options = {}) {
     })
 }
 
-/** 帮助页：按功能类别提供最常用的入口。 */
+/** 查询页：成绩、存档、曲目与排行入口。 */
 export function helpQuickCommands(commandHead) {
     return [
         { command: pageCommand(commandHead, 'b27'), label: '📊B27成绩' },
-        { command: pageCommand(commandHead, 'p30'), label: '💯P30成绩' },
         { command: pageCommand(commandHead, 'info'), label: '👤个人信息' },
         { command: pageCommand(commandHead, 'update'), label: '🔄更新存档' },
-        { command: pageCommand(commandHead, 'myset'), label: '⚙️用户设置' },
+        { command: pageCommand(commandHead, 'song'), label: '🎵曲目图鉴' },
+        { command: pageCommand(commandHead, 'ranklist'), label: '🏆排行榜' },
+        { command: pageCommand(commandHead, 'theorytable'), label: '📐理论分表' },
+        { command: pageCommand(commandHead, 'rand'), label: '🎲随机曲目' },
+        { command: phiMenuCallbackData('game'), type: 'callback', label: '🎮游戏功能' },
+    ]
+}
+
+/** 游戏页：日常玩法与猜歌游戏入口。 */
+export function gameQuickCommands(commandHead) {
+    return [
+        { command: pageCommand(commandHead, 'sign'), label: '✅签到' },
+        { command: pageCommand(commandHead, 'task'), label: '📋每日任务' },
+        { command: pageCommand(commandHead, 'jrrp'), label: '🍀今日人品' },
+        { command: pageCommand(commandHead, 'guess'), label: '🖼猜曲绘' },
+        { command: pageCommand(commandHead, 'ltr'), label: '🔤猜字母' },
+        { command: pageCommand(commandHead, 'fri'), label: '🧩弗一把' },
         { command: pageCommand(commandHead, 'market'), label: '🎨主题市场' },
+        { command: phiMenuCallbackData('query'), type: 'callback', label: '↩️返回查询' },
     ]
 }
 

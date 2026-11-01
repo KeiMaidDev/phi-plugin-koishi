@@ -8,7 +8,7 @@ import {
 export interface QqKeyboardCommand {
     command?: string
     label: string
-    type?: 'command' | 'link'
+    type?: 'command' | 'link' | 'callback'
     href?: string
     enter?: boolean
     reply?: boolean
@@ -71,7 +71,7 @@ function normalizeKeyboardCommands(commands: QqKeyboardCommand[]) {
         result.push({
             command,
             label,
-            type: item.type === 'link' ? 'link' : 'command',
+            type: item.type === 'link' || item.type === 'callback' ? item.type : 'command',
             ...(item.type === 'link' && item.href ? { href: item.href } : {}),
             ...(typeof item.enter === 'boolean' ? { enter: item.enter } : {}),
             ...(typeof item.reply === 'boolean' ? { reply: item.reply } : {}),
@@ -81,7 +81,7 @@ function normalizeKeyboardCommands(commands: QqKeyboardCommand[]) {
     return result
 }
 
-/** 构建 QQ 指令/链接键盘；默认每行 2 个，超过 5 行时按调用方顺序截断。 */
+/** 构建 QQ 指令/链接/回调键盘；默认每行 2 个，超过 5 行时按调用方顺序截断。 */
 export function buildQqKeyboard(
     commands: QqKeyboardCommand[],
     onOverflow?: (count: number) => void,
@@ -104,6 +104,7 @@ export function buildQqKeyboard(
         rows.push({
             buttons: normalized.slice(index, index + columns).map((item, offset) => {
                 const isLink = item.type === 'link'
+                const isCallback = item.type === 'callback'
                 const action = isLink
                     ? {
                         type: 0,
@@ -111,6 +112,13 @@ export function buildQqKeyboard(
                         data: keyboardData(item),
                         unsupport_tips: '当前 QQ 版本不支持链接按钮，请手动打开链接。',
                     }
+                    : isCallback
+                        ? {
+                            type: 1,
+                            permission: { type: 2 },
+                            data: keyboardData(item),
+                            unsupport_tips: '当前 QQ 版本不支持回调按钮，请发送 /phi 重新打开菜单。',
+                        }
                     : {
                         type: 2,
                         permission: { type: 2 },

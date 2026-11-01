@@ -12,7 +12,7 @@ import phiPluginBase from '../base-class';
 import getNotes from '../../domain/user/get-notes'
 import getInfo from '../../domain/game/get-info'
 import { getApiAccessState } from '../../domain/user/api-permission'
-import { buildHelpMenuMarkdown, helpQuickCommands, apiHelpQuickCommands, isOfficialBot, sendQuickCommandMarkdown } from '../../domain/game/markdown'
+import { buildHelpMenuMarkdown, helpQuickCommands, gameQuickCommands, apiHelpQuickCommands, isOfficialBot, sendQuickCommandMarkdown } from '../../domain/game/markdown'
 
 /**@import {botEvent} from '../base-class' */
 
@@ -63,8 +63,7 @@ export class phihelp extends phiPluginBase {
      * @param {botEvent} e 
      * @returns 
      */
-    async help(e) {
-
+    async showMenu(e, page = 'query') {
         if (await getBanGroup.get(e, 'help')) {
             send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
             return false
@@ -72,9 +71,16 @@ export class phihelp extends phiPluginBase {
 
         let head = PHI_COMMAND_HEAD
         head = head.match(RegExp(head))[0]
+        const commands = page === 'game'
+            ? gameQuickCommands(head || PHI_COMMAND_HEAD)
+            : helpQuickCommands(head || PHI_COMMAND_HEAD)
+        const markdown = buildHelpMenuMarkdown('Phi-plugin', '这是一个查询 Phigros 成绩及相关信息的功能。')
         if (this.config.LetterMarkdown && isOfficialBot(e)) {
-            const markdown = buildHelpMenuMarkdown('Phi-plugin', '这是一个查询 Phigros 成绩及相关信息的功能。')
-            await sendQuickCommandMarkdown(e, markdown, helpQuickCommands(head || PHI_COMMAND_HEAD), this.config, 2)
+            await sendQuickCommandMarkdown(e, markdown, commands, this.config, 2)
+            return true
+        }
+        if (page === 'game') {
+            send.prompt(e, markdown, { kind: 'help', actions: commands, buttonsPerRow: 2 })
             return true
         }
         const helpData = await loadHelpData()
@@ -87,6 +93,22 @@ export class phihelp extends phiPluginBase {
             theme: pluginData?.theme || 'star'
         }), true)
         return true
+    }
+
+    /**
+     * 根命令打开查询页，QQ Keyboard 回调可切换到游戏页。
+     * @param {botEvent} e
+     */
+    async help(e) {
+        return await this.showMenu(e, 'query')
+    }
+
+    /**
+     * 打开游戏页，仅供 QQ Keyboard 回调调用。
+     * @param {botEvent} e
+     */
+    async gameMenu(e) {
+        return await this.showMenu(e, 'game')
     }
 
     /**
