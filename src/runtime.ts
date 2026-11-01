@@ -129,7 +129,7 @@ export async function createEngine(ctx: Context, config: Config, h: typeof H): P
 
     const { createApps } = require('./services/apps/index.ts')
     const apps = createApps(runtime)
-    ctx.middleware((session, next) => apps.guessGame.handleMessage(session, next), true)
+    apps.guessGame.configureInteraction(adapter, ctx)
     const { registerAliasProposalTask } = require('./services/apps/alias-proposal.ts')
     registerAliasProposalTask(ctx, config)
 
@@ -147,6 +147,7 @@ export async function createEngine(ctx: Context, config: Config, h: typeof H): P
                 await picmodle.endSession(ctx)
             } finally {
                 const closers = [
+                    () => apps.guessGame.dispose?.(),
                     () => getInfo.close?.(),
                     () => data.close(),
                     () => botApiAuth.dispose(),

@@ -26,7 +26,21 @@ const games = [
 ].join('|')
 
 /** @type {Record<string, { gameType: string, replayCommand?: string }>} */
-let gameList = {}
+const gameStore = {}
+let gameListOwner = null
+
+const gameList = new Proxy(gameStore, {
+  set(target, property, value) {
+    target[property] = value
+    gameListOwner?.syncInteractionMiddleware?.()
+    return true
+  },
+  deleteProperty(target, property) {
+    const deleted = Reflect.deleteProperty(target, property)
+    if (deleted) gameListOwner?.syncInteractionMiddleware?.()
+    return deleted
+  },
+})
 
 function parseGameStart(message) {
   const matched = String(message ?? '').match(new RegExp(`^[#/](${PHI_COMMAND_HEAD})(\\s*)(?:${games})$`))
@@ -40,6 +54,9 @@ export class phiGames extends phiPluginBase {
   guessIll
   frib19
   runtime
+  adapter
+  ctx
+  middlewareDispose
   queues = new Map()
 
   constructor(runtime: PhiRuntime) {
@@ -53,10 +70,42 @@ export class phiGames extends phiPluginBase {
       rule: [],
     })
     this.runtime = runtime
+    gameListOwner = this
     this.guessTips = new GuessTips(runtime)
     this.guessLetter = new GuessLetter(runtime)
     this.guessIll = new GuessIll(runtime)
     this.frib19 = new Frib19(runtime)
+  }
+
+  configureInteraction(adapter, ctx) {
+    this.adapter = adapter
+    this.ctx = ctx
+    this.syncInteractionMiddleware()
+  }
+
+  syncInteractionMiddleware() {
+    if (Object.keys(gameStore).length) this.enableInteractionMiddleware()
+    else this.disableInteractionMiddleware()
+  }
+
+  enableInteractionMiddleware() {
+    if (this.middlewareDispose || !this.ctx || !this.adapter) return
+    this.middlewareDispose = this.ctx.middleware(
+      (session, next) => this.handleMessage(session, next),
+      true,
+    )
+  }
+
+  disableInteractionMiddleware() {
+    if (!this.middlewareDispose) return
+    const dispose = this.middlewareDispose
+    this.middlewareDispose = undefined
+    dispose()
+  }
+
+  dispose() {
+    this.disableInteractionMiddleware()
+    if (gameListOwner === this) gameListOwner = null
   }
 
   async serialized(groupId, operation) {
@@ -75,7 +124,11 @@ export class phiGames extends phiPluginBase {
   }
 
   async startGame(e, starter) {
-    return starter()
+    try {
+      return await starter()
+    } finally {
+      this.syncInteractionMiddleware()
+    }
   }
 
   async start(e) {
@@ -86,6 +139,7 @@ export class phiGames extends phiPluginBase {
       return false
     }
     if (gameList[groupId]) {
+      this.enableInteractionMiddleware()
       send.promptWithAt(e, `当前存在未结束的游戏喵！发送“${GAME_STOP_KEYWORD}”结束后再开始新游戏。`)
       return false
     }
@@ -217,9 +271,9 @@ export class phiGames extends phiPluginBase {
     if (session.event?.user?.isBot) return next()
     const content = String(session.stripped?.content ?? session.content ?? '').trim()
     if (!content || content.startsWith('/') || content.startsWith('#')) return next()
-    const event = this.runtime.adapter.fromSession(session)
-    const groupId = String(event.group_id || '')
+    const groupId = String(session.guildId || session.channelId || '')
     if (!groupId || !gameList[groupId]) return next()
+    const event = this.adapter.fromSession(session)
     event.replayCommand = gameList[groupId]?.replayCommand
     this.e = event
     const handled = await this.serialized(groupId, () => this.interact(event))
