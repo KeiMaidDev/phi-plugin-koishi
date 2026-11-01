@@ -3,6 +3,7 @@ import saveHistory from '../../domain/save/save-history';
 import phiApiClient from './phi-api-client';
 import logger from '../../utils/logger';
 import { sendPromptWithAt } from '../../render/prompt';
+import { BINDING_REMINDER, bindingPromptActions } from '../../render/binding-prompt';
 import { APII18NCN } from '../../domain/game/const-num';
 import { getPhiApiUserMessage, hasPhiApiUserMessage } from './phi-api-errors';
 
@@ -26,6 +27,13 @@ import { getPhiApiUserMessage, hasPhiApiUserMessage } from './phi-api-errors';
  * @property {boolean} [notifyUser] 是否通知用户
  * @property {string} [errorPrefix] 用户提示前缀
  */
+
+const BINDING_ERROR_CODES = new Set([
+    'binding_not_found',
+    'bot_user_credential_required',
+    'binding_conflict_requires_sstk',
+    'user_id_binding_disabled',
+])
 
 /** @type {Record<string, {logTag: string, loggerLevel: 'warn'|'error'}>} */
 const ENDPOINT_ERROR_LOGGING = {
@@ -414,10 +422,13 @@ export default class makeRequest {
 
         if (notifyUser && userMessage) {
             const prefix = errorPrefix ? `${errorPrefix}\n` : ''
+            const bindingRequired = BINDING_ERROR_CODES.has(String(error?.code || ''))
             sendPromptWithAt(
                 event,
-                `${prefix}${userMessage || `错误信息：${errorMessage}`}`,
-                { kind: 'error' },
+                bindingRequired ? `${prefix}${BINDING_REMINDER}` : `${prefix}${userMessage || `错误信息：${errorMessage}`}`,
+                bindingRequired
+                    ? { kind: 'error', actions: bindingPromptActions() }
+                    : { kind: 'error' },
             )
         }
         if (logTag) logger[loggerLevel](`[phi-plugin] ${logTag}`, error)

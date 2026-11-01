@@ -80,6 +80,11 @@ export class phiupdate extends phiPluginBase {
         });
     }
 
+    /** 曲绘更新提示不挂 Keyboard，避免管理员操作出现无关按钮。 */
+    replyIll(msg = '', quote = false, data = {}) {
+        return this.reply(msg, quote, { ...data, keyboard: false })
+    }
+
     /**
      * rule - 更新phi-plugin
      * @returns
@@ -117,7 +122,7 @@ export class phiupdate extends phiPluginBase {
             try {
                 await this.ill_update()
             } catch (err) {
-                this.reply("曲绘文件更新失败QAQ!" + err)
+                this.replyIll("曲绘文件更新失败QAQ!" + err)
                 console.error(err)
             }
         }
@@ -284,18 +289,18 @@ export class phiupdate extends phiPluginBase {
      */
     async ill_update() {
         if (!this.e.isMaster) {
-            this.reply("无权限");
+            this.replyIll("无权限");
             return false;
         }
 
         /** 检查是否正在更新中 */
         if (uping) {
-            await this.reply("已有命令更新中..请勿重复操作");
+            await this.replyIll("已有命令更新中..请勿重复操作");
             return;
         }
 
         /** 检查git安装 */
-        if (!(await this.checkGit())) return;
+        if (!(await this.checkGit({ keyboard: false }))) return;
 
         const isForce = 1
 
@@ -311,7 +316,7 @@ export class phiupdate extends phiPluginBase {
 
         /** 是否成功 */
         if (this.isUp) {
-            await this.reply("更新完毕")
+            await this.replyIll("更新完毕")
         }
     }
 
@@ -327,7 +332,7 @@ export class phiupdate extends phiPluginBase {
         const entries = fs.readdirSync(originalIllPath);
         const canReset = entries.length === 0 || (entries.length === 1 && entries[0] === ".git");
         if (!canReset) {
-            await this.reply(`检测到未完成的曲绘目录，请先手动删除：${originalIllPath}`);
+            await this.replyIll(`检测到未完成的曲绘目录，请先手动删除：${originalIllPath}`);
             return false;
         }
 
@@ -338,7 +343,7 @@ export class phiupdate extends phiPluginBase {
     async ill_clone() {
         let command = `git clone --progress --depth=1 ${this.getDownIllUrl()} ${shellPath(originalIllPath)}`;
 
-        this.reply("开始下载曲绘文件");
+        this.replyIll("开始下载曲绘文件");
 
         uping = true;
         let ret;
@@ -349,7 +354,7 @@ export class phiupdate extends phiPluginBase {
         }
         if (ret.error) {
             logger.mark(`${this.e.logFnc} 曲绘文件更新失败QAQ!`);
-            this.gitErr(ret.error, [ret.stdout, ret.stderr].filter(Boolean).join("\n"));
+            this.gitErr(ret.error, [ret.stdout, ret.stderr].filter(Boolean).join("\n"), { keyboard: false });
             return false;
         }
 
@@ -357,9 +362,9 @@ export class phiupdate extends phiPluginBase {
         let time = await this.ill_getTime();
 
         if (/(Already up[ -]to[ -]date|已经是最新的)/.test(ret.stdout)) {
-            await this.reply(`曲绘文件已经是最新版本\n最后更新时间：${time}`);
+            await this.replyIll(`曲绘文件已经是最新版本\n最后更新时间：${time}`);
         } else {
-            await this.reply(`phi-plugin-ill\n最后更新时间：${time}`);
+            await this.replyIll(`phi-plugin-ill\n最后更新时间：${time}`);
             this.isUp = true;
             /** 获取phi-plugin-ill的更新日志 */
             let log = await this.ill_getLog();
@@ -402,14 +407,14 @@ export class phiupdate extends phiPluginBase {
             `git -C ${repoPath} reflog expire --expire=now --expire-unreachable=now --all`,
             `git -C ${repoPath} repack -a -d -q`
         ].join(" && ");
-        this.reply("开始更新曲绘文件，请稍等");
+        this.replyIll("开始更新曲绘文件，请稍等");
 
         /** 获取上次提交的commitId，用于获取日志时判断新增的更新日志 */
         try {
             this.oldCommitId = await this.ill_getcommitId();
         } catch (error) {
             logger.warn(`[phi-plugin][曲绘] 读取本地版本失败`, error);
-            await this.reply("读取本地曲绘版本失败，请稍后重试");
+            await this.replyIll("读取本地曲绘版本失败，请稍后重试");
             return false;
         }
         uping = true;
@@ -422,7 +427,7 @@ export class phiupdate extends phiPluginBase {
 
         if (ret.error) {
             logger.mark(`${this.e.logFnc} 曲绘文件更新失败QAQ!`);
-            this.gitErr(ret.error, [ret.stdout, ret.stderr].filter(Boolean).join("\n"));
+            this.gitErr(ret.error, [ret.stdout, ret.stderr].filter(Boolean).join("\n"), { keyboard: false });
             return false;
         }
 
@@ -430,9 +435,9 @@ export class phiupdate extends phiPluginBase {
         let time = await this.ill_getTime();
 
         if (/(Already up[ -]to[ -]date|已经是最新的)/.test(ret.stdout)) {
-            await this.reply(`曲绘文件已经是最新版本\n最后更新时间：${time}`);
+            await this.replyIll(`曲绘文件已经是最新版本\n最后更新时间：${time}`);
         } else {
-            await this.reply(`phi-plugin-ill\n最后更新时间：${time}`);
+            await this.replyIll(`phi-plugin-ill\n最后更新时间：${time}`);
             this.isUp = true;
             /** 获取phi-plugin-ill的更新日志 */
             let log = await this.ill_getLog();
@@ -544,9 +549,10 @@ export class phiupdate extends phiPluginBase {
      * 处理更新失败的相关函数
      * @param {string} err
      * @param {string} stdout
+     * @param {Record<string, unknown>} [replyData] 回复附加参数
      * @returns
      */
-    async gitErr(err, stdout) {
+    async gitErr(err, stdout, replyData = {}) {
         let msg = "更新失败QAQ！";
         let errMsg = err.toString();
         stdout = stdout.toString();
@@ -554,13 +560,13 @@ export class phiupdate extends phiPluginBase {
 
         if (details.includes("Timed out")) {
             let remote = details.match(/'([^']+)'/)?.[1] || "远端";
-            await this.reply(msg + `\n连接超时：${remote}`);
+            await this.reply(msg + `\n连接超时：${remote}`, false, replyData);
             return;
         }
 
         if (/Failed to connect|unable to access/g.test(details)) {
             let remote = details.match(/'([^']+)'/)?.[1] || "远端";
-            await this.reply(msg + `\n连接失败：${remote}`);
+            await this.reply(msg + `\n连接失败：${remote}`, false, replyData);
             return;
         }
 
@@ -639,12 +645,13 @@ export class phiupdate extends phiPluginBase {
 
     /**
      * 检查git是否安装
+     * @param {Record<string, unknown>} [replyData] 回复附加参数
      * @returns
      */
-    async checkGit() {
+    async checkGit(replyData = {}) {
         let ret = await execSync("git --version", { encoding: "utf-8" });
         if (!ret || !ret.includes("git version")) {
-            await this.reply("请先安装git");
+            await this.reply("请先安装git", false, replyData);
             return false;
         }
         return true;

@@ -4,6 +4,7 @@ import { PHI_COMMAND_HEAD } from '../../constants'
 
 import logger from '../../utils/logger'
 import { sendPromptWithAt } from '../../render/prompt'
+import { BINDING_REMINDER, bindingPromptActions } from '../../render/binding-prompt'
 import PhigrosUser from '../../vendor/phigros/phigros-user'
 import { canUseApi } from './api-permission'
 import { PhiApiError } from '../../providers/phi-api/phi-api-errors'
@@ -759,7 +760,7 @@ export class UserCredentials {
         }
 
         if (old?.session && old.session !== user.session) {
-            notifyUser(event, `检测到新的sessionToken，将自动更换本地绑定。如果需要删除当前 Bot 本地保存的存档和历史，请使用 ⌈/${PHI_COMMAND_HEAD} unbind⌋。`)
+            notifyUser(event, `检测到新的sessionToken，将自动更换本地绑定。如果需要删除当前 Bot 本地保存的存档和历史，请使用 ⌈/${PHI_COMMAND_HEAD} unbind⌋。`, { keyboard: false })
         }
 
         const now = new Save(user)
@@ -798,7 +799,7 @@ export class UserCredentials {
         /**API 功能关闭时不做同步，直接使用本地历史记录 */
         if (!await canUseApi(autoSeekApi.config, event)) {
             if (!sessionToken) {
-                notifyUser(event, '请先绑定sessionToken哦！')
+                notifyUser(event, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
                 return null
             }
             return this.getLocalHistory()
@@ -807,7 +808,7 @@ export class UserCredentials {
         if (!sessionToken) {
             const remoteHistory = await this.getCloudHistory(fields, options)
             if (!remoteHistory && !options.ignoreUnboundError) {
-                notifyUser(event, '从API获取历史记录失败，请稍后重试或绑定sessionToken后重试哦')
+                notifyUser(event, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
             }
             return remoteHistory
         }
@@ -890,6 +891,6 @@ async function buildingRecord(old = undefined, now, e) {
  * @param {botEvent} event 当前平台事件
  * @param {string} message 提示内容
  */
-function notifyUser(event, message) {
-    return sendPromptWithAt(event, message, { kind: 'info' })
+function notifyUser(event, message, options = {}) {
+    return sendPromptWithAt(event, message, { kind: 'info', ...options })
 }

@@ -7,6 +7,7 @@ import logger from "../utils/logger";
 import { canUseApi } from '../domain/user/api-permission';
 import platform from "../platform/index";
 import { configurePrompts, sendPrompt, sendPromptWithAt, type PromptOptions } from './prompt'
+import { BINDING_REMINDER, bindingPromptActions } from './binding-prompt'
 
 class send {
 
@@ -95,7 +96,7 @@ class send {
 
         if (!sessionToken) {
             if (send) {
-                await this.promptWithAt(e, `请先绑定sessionToken哦！如果不知道自己的sessionToken可以尝试点击登录链接绑定嗷！\n帮助：/${PHI_COMMAND_HEAD} tk help\n获取登录链接：/${PHI_COMMAND_HEAD} bind qrcode\n普通绑定：/${PHI_COMMAND_HEAD} bind <sessionToken>`, { kind: 'info', actions: [{ command: `/${PHI_COMMAND_HEAD} tk help`, label: '绑定帮助' }, { command: `/${PHI_COMMAND_HEAD} bind qrcode`, label: 'TapTap' }] })
+                await this.promptWithAt(e, BINDING_REMINDER, { kind: 'info', actions: bindingPromptActions() })
             }
             return false
         }

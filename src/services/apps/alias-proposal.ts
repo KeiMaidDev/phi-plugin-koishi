@@ -4,6 +4,7 @@ import { PHI_COMMAND_HEAD } from '../../constants'
 
 import phiPluginBase from '../base-class'
 import send from '../../render/send'
+import { BINDING_REMINDER, bindingPromptActions } from '../../render/binding-prompt'
 import getInfo from '../../domain/game/get-info'
 import aliasProposalService from '../../providers/phi-api/alias-proposal-service'
 import botSyncService from '../../providers/phi-api/bot-sync-service'
@@ -143,10 +144,11 @@ export class aliasProposal extends phiPluginBase {
         try {
             return await operation()
         } catch (error) {
-            const message = error instanceof Error && error.message === '请先绑定 sessionToken。'
-                ? error.message
-                : '别名服务暂时不可用，请稍后重试。'
-            send.promptWithAt(e, message)
+            if (error instanceof Error && error.message === '请先绑定 sessionToken。') {
+                send.promptWithAt(e, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
+            } else {
+                send.promptWithAt(e, '别名服务暂时不可用，请稍后重试。', { kind: 'error', keyboard: false })
+            }
             return null
         }
     }

@@ -3,6 +3,7 @@ import type { PhiRuntime } from '../../runtime-context'
 import { PHI_COMMAND_HEAD } from '../../constants'
 
 import send from '../../render/send'
+import { BINDING_REMINDER, bindingPromptActions } from '../../render/binding-prompt'
 import makeRequest from '../../providers/phi-api/make-request'
 import ProgressBar from "../../render/progress-bar";
 import { USER_API_SETTING_META, USER_API_SETTING_OPTIONS } from '../../domain/game/const-num'
@@ -180,7 +181,7 @@ export class phihelp extends phiPluginBase {
         const sessionToken = await credentials.getSessionToken()
 
         if (!sessionToken) {
-            send.promptWithAt(e, `本地没有您的tk记录嗷！请先尝试使用tk绑定呐！`)
+            send.promptWithAt(e, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
             return false
         }
 
@@ -221,7 +222,7 @@ export class phihelp extends phiPluginBase {
 
         const sessionToken = await credentials.getSessionToken()
         if (!sessionToken) {
-            send.promptWithAt(e, `本地没有您的tk记录嗷！请先尝试使用tk绑定呐！`)
+            send.promptWithAt(e, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
             return;
         }
         const tokenList = await credentials.listPlatformBindings()
@@ -284,7 +285,7 @@ export class phihelp extends phiPluginBase {
 
         const apiId = await credentials.getApiId()
         if (!apiId) {
-            send.promptWithAt(e, `本地没有您的apiId记录嗷！请尝试重新绑定呐！`)
+            send.promptWithAt(e, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
             return;
         }
         const sessionToken = await credentials.authenticateApiToken(apiToken)
@@ -315,7 +316,7 @@ export class phihelp extends phiPluginBase {
 
         const sessionToken = await credentials.getSessionToken()
         if (!sessionToken) {
-            send.promptWithAt(e, '注销 phi-api 账号需要 Phigros SSTK 权限，请先使用 SSTK 绑定。')
+            send.promptWithAt(e, `注销 phi-api 账号需要 Phigros SSTK 权限。\n\n${BINDING_REMINDER}`, { kind: 'warning', actions: bindingPromptActions() })
             return false;
         }
 
@@ -336,7 +337,7 @@ export class phihelp extends phiPluginBase {
 
         const sessionToken = await credentials.getSessionToken()
         if (!sessionToken) {
-            send.promptWithAt(e, '注销 phi-api 账号需要 Phigros SSTK 权限，请先使用 SSTK 绑定。')
+            send.promptWithAt(e, `注销 phi-api 账号需要 Phigros SSTK 权限。\n\n${BINDING_REMINDER}`, { kind: 'warning', actions: bindingPromptActions() })
             this.finish('confirmClearApiData', false)
             return false
         }
@@ -474,7 +475,7 @@ export class phihelp extends phiPluginBase {
 
         const token = await credentials.getSessionToken()
         if (!token) {
-            send.promptWithAt(e, `本地没有您的tk记录嗷！请先尝试使用tk绑定呐！`)
+            send.promptWithAt(e, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
             return true;
         }
 

@@ -4,6 +4,7 @@ import { PHI_COMMAND_HEAD } from '../../constants'
 
 import getInfo from "../../domain/game/get-info";
 import send from "../../render/send";
+import { BINDING_REMINDER, bindingPromptActions } from "../../render/binding-prompt";
 import picmodle from '../../render/pic-model'
 import getBanGroup from '../../domain/user/get-ban-group';
 import phiPluginBase from '../base-class';
@@ -442,7 +443,7 @@ export class phihelp extends phiPluginBase {
 
     const sessionToken = await credentials.getSessionToken()
     if (!sessionToken) {
-      send.promptWithAt(e, '权限不足，请尝试使用登录链接或 sessionToken 进行绑定哦~', { quote: true, kind: 'error', actions: [{ command: `/${PHI_COMMAND_HEAD} bind qrcode`, label: 'TapTap' }] });
+      send.promptWithAt(e, BINDING_REMINDER, { quote: true, kind: 'error', actions: bindingPromptActions() });
       return false;
     }
 
