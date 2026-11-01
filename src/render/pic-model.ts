@@ -539,6 +539,7 @@ export class PicModel {
      */
     async render(renderPath, params, cfg) {
         const id = this.tot++
+        const startedAt = Date.now()
         const waitingTimeout = this.config.waitingTimeout
 
         /** 事件驱动地等待一个空闲渲染器，替代原本每 100ms 轮询一次的忙等 */
@@ -610,7 +611,15 @@ export class PicModel {
             const img = await renderer.screenshot(`${Plugin_Name}/${app}/${tpl}`, data)
             if (!img) throw new Error('截图返回为空')
             this.pressureCompleted += 1
-            return Array.isArray(img) ? img.map(image => segment.image(image)) : segment.image(img)
+            const renderMs = Math.max(0, Date.now() - startedAt)
+            const toImage = (image) => {
+                const result = segment.image(image)
+                if (result && typeof result === 'object') {
+                    result.attrs = { ...(result.attrs || {}), renderMs }
+                }
+                return result
+            }
+            return Array.isArray(img) ? img.map(toImage) : toImage(img)
         } catch (err) {
             this.pressureFailed += 1
             logger.error(`[Phi-Plugin][渲染失败]`, id)

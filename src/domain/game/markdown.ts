@@ -70,7 +70,7 @@ export async function sendQuickCommandMarkdown(e, markdown, commands, config, bu
  * @param {botEvent} e
  * @param {unknown} content
  * @param {{command:string,label:string}[]} commands
- * @param {{config?:any,kind?:string,markdown?:boolean,buttonsPerRow?:number,fallback?:unknown}} [options]
+ * @param {{config?:any,kind?:string,markdown?:boolean,buttonsPerRow?:number,fallback?:unknown,keyboard?:any}} [options]
  */
 export async function sendResultWithQuickCommands(e, content, commands, options = {}) {
     return await send.promptWithAt(e, content, {
@@ -78,6 +78,7 @@ export async function sendResultWithQuickCommands(e, content, commands, options 
         markdown: options.markdown === true,
         actions: commands,
         buttonsPerRow: options.buttonsPerRow,
+        keyboard: options.keyboard,
         config: options.config,
         label: false,
         fallback: options.fallback ?? content,
@@ -221,11 +222,15 @@ export async function sendScoreImage(e, image, elapsedMs, options = {}) {
     }
 
     const extra = rawExtra.map(value => escapePromptText(value).trim()).filter(Boolean)
+    const imageWithAlt = scoreImageElement(image, options.alt || '成绩图')
+    const attachedRenderMs = Number(image.attrs?.renderMs)
     const content = [
         '**查询结果**\n\n',
-        scoreImageElement(image, options.alt || '成绩图'),
-        `\n\n> 生成时间：${Math.max(0, Math.round(Number(elapsedMs) || 0))}ms`,
+        imageWithAlt,
     ]
+    if (!Number.isFinite(attachedRenderMs)) {
+        content.push(`\n\n> 渲染耗时：${Math.max(0, Math.round(Number(elapsedMs) || 0))}ms`)
+    }
     for (const line of extra) content.push(`\n\n${line}`)
 
     return await send.promptWithAt(e, content, {
@@ -343,20 +348,13 @@ export function updateQuickCommands(commandHead) {
 }
 
 /** 成绩筛选页。 */
-export function userListQuickCommands(commandHead, limit) {
-    const count = Number(limit)
-    const result = []
-    if (Number.isSafeInteger(count) && count > 0) {
-        result.push({ command: pageCommand(commandHead, `list ${count}`), label: `前 ${count} 条` })
-    } else {
-        result.push({ command: pageCommand(commandHead, 'list'), label: '全部成绩' })
-    }
-    result.push(
+export function userListQuickCommands(commandHead) {
+    return [
+        { command: pageCommand(commandHead, 'list'), label: '我也要查' },
         { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
         { command: pageCommand(commandHead, 'info'), label: '个人信息' },
         { command: pageRoot(commandHead), label: '帮助' },
-    )
-    return result
+    ]
 }
 
 /** 存档历史页。 */

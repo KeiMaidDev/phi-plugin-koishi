@@ -633,7 +633,7 @@ export class phiuser extends phiPluginBase {
         const content = truncated
             ? [image, `命中 ${total} 条谱面，显示定数最高的前 ${requestedLimit} 条。`]
             : image
-        await sendResultWithQuickCommands(e, content, userListQuickCommands(PHI_COMMAND_HEAD, maxListSize), {
+        await sendResultWithQuickCommands(e, content, userListQuickCommands(PHI_COMMAND_HEAD), {
             config: this.config,
         })
         return true

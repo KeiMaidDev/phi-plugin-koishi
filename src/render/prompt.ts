@@ -3,6 +3,7 @@ import platform from '../platform'
 import { buildQqKeyboard, createQqMarkdownElement, isQqMarkdownPlatform, type QqKeyboard, type QqKeyboardCommand } from '../platform/qq-markdown'
 import { formatMarkdownImage, getMarkdownImageDimensions, isPublicHttpUrl, type MarkdownImageAssets, type MarkdownImageLogger } from '../platform/markdown-images'
 import logger from '../utils/logger'
+import { PHI_COMMAND_HEAD } from '../constants'
 
 const platformApi = platform as any
 const promptLogger = logger as MarkdownImageLogger
@@ -22,6 +23,13 @@ export interface PromptAction extends QqKeyboardCommand {
   type?: 'command' | 'link'
 }
 
+const DEFAULT_MARKDOWN_ACTIONS: PromptAction[] = [
+  { command: `/${PHI_COMMAND_HEAD} list`, label: '我也要查' },
+  { command: `/${PHI_COMMAND_HEAD} b27`, label: 'B27成绩' },
+  { command: `/${PHI_COMMAND_HEAD} myset`, label: '用户设置' },
+  { command: `/${PHI_COMMAND_HEAD}`, label: '帮助' },
+]
+
 export interface PromptOptions {
   kind?: PromptKind
   label?: boolean
@@ -29,7 +37,7 @@ export interface PromptOptions {
   mention?: boolean
   quote?: boolean
   actions?: PromptAction[]
-  keyboard?: QqKeyboard
+  keyboard?: QqKeyboard | false
   buttonsPerRow?: number
   recallMsg?: number
   data?: Record<string, unknown>
@@ -141,7 +149,11 @@ async function elementToMarkdown(element: any, assets?: MarkdownImageAssets): Pr
       const dimensions = Number.isInteger(width) && width > 0 && Number.isInteger(height) && height > 0
         ? { width, height }
         : await getMarkdownImageDimensions(String(source))
-      return formatMarkdownImage(alt, resolved, dimensions)
+      const renderMs = Number(element.attrs?.renderMs)
+      const timing = Number.isFinite(renderMs)
+        ? `\n\n> 渲染耗时：${Math.max(0, Math.round(renderMs))}ms`
+        : ''
+      return `${formatMarkdownImage(alt, resolved, dimensions)}${timing}`
     }
     case 'a': {
       const href = element.attrs?.href
@@ -257,9 +269,10 @@ export async function sendPrompt(event: any, content: unknown, options: PromptOp
     )
     if (!markdown.trim()) return sendFallback(wrapped, content, options)
     const prefix = options.mention ? promptMentionPrefix(wrapped) : ''
-    const keyboard = options.keyboard ?? (options.actions?.length
-      ? buildQqKeyboard(promptActions(options.actions) || [], undefined, options.buttonsPerRow)
-      : undefined)
+    const actions = options.actions?.length ? promptActions(options.actions) : DEFAULT_MARKDOWN_ACTIONS
+    const keyboard = options.keyboard === false
+      ? undefined
+      : options.keyboard ?? buildQqKeyboard(actions, undefined, options.buttonsPerRow)
     const message = await createQqMarkdownElement(
       `${prefix}${markdown}`,
       keyboard,
