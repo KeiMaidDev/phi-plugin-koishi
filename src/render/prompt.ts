@@ -46,39 +46,6 @@ export interface PromptOptions {
   config?: { LetterMarkdown?: boolean }
 }
 
-interface PromptLocale {
-  info: string
-  error: string
-  warning: string
-  success: string
-  confirm: string
-  status: string
-}
-
-const PROMPT_LOCALES: Record<'zh' | 'en', PromptLocale> = {
-  zh: {
-    info: '提示',
-    error: '错误',
-    warning: '注意',
-    success: '成功',
-    confirm: '确认',
-    status: '状态',
-  },
-  en: {
-    info: 'Tip',
-    error: 'Error',
-    warning: 'Warning',
-    success: 'Success',
-    confirm: 'Confirm',
-    status: 'Status',
-  },
-}
-
-function eventLocale(event: any) {
-  const value = String(event?.locale || event?.session?.locale || event?.session?.bot?.locale || '')
-  return value.toLowerCase().startsWith('en') ? 'en' : 'zh'
-}
-
 /** 保留换行，同时转义纯文本中的 Markdown 语法。 */
 export function escapePromptText(value: unknown) {
   return String(value ?? '')
@@ -202,25 +169,6 @@ async function contentToMarkdown(content: unknown, options: PromptOptions) {
   return result
 }
 
-function inferPromptKind(markdown: string): PromptKind {
-  if (/失败|错误|未找到|没有找到|无法|禁止|无权限|不足|超时|QAQ|报错|error|failed|not found|invalid|timeout|insufficient|unauthorized/i.test(markdown)) return 'error'
-  if (/恭喜|成功|已完成|已绑定|已更新|更新完毕|success|completed|done/i.test(markdown)) return 'success'
-  if (/确认|取消|是否|请选择|confirm|cancel|are you sure/i.test(markdown)) return 'confirm'
-  if (/注意|请勿|警告|warning|caution|do not/i.test(markdown)) return 'warning'
-  if (/正在|请稍等|开始|loading|starting|please wait/i.test(markdown)) return 'status'
-  return 'info'
-}
-
-function applyPromptKind(event: any, markdown: string, kind?: PromptKind, label = true) {
-  if (!markdown) return markdown
-  // 纯图片结果是业务产物，不额外套“提示”标签。
-  if (!markdown.replace(/!\[[^\]]*\]\([^)]*\)/g, '').trim()) return markdown
-  const resolved = kind ?? inferPromptKind(markdown)
-  if (resolved === 'help' || !label) return markdown
-  const labelText = PROMPT_LOCALES[eventLocale(event)][resolved]
-  return labelText ? `**${labelText}**：${markdown}` : markdown
-}
-
 function promptReplyData(options: PromptOptions) {
   const data = { ...(options.data || {}) }
   if (options.recallMsg) data.recallMsg = options.recallMsg
@@ -261,12 +209,7 @@ export async function sendPrompt(event: any, content: unknown, options: PromptOp
   }
 
   try {
-    const markdown = applyPromptKind(
-      wrapped,
-      await contentToMarkdown(content, { ...options, assets }),
-      options.kind,
-      options.label,
-    )
+    const markdown = await contentToMarkdown(content, { ...options, assets })
     if (!markdown.trim()) return sendFallback(wrapped, content, options)
     const prefix = options.mention ? promptMentionPrefix(wrapped) : ''
     const actions = options.actions?.length ? promptActions(options.actions) : DEFAULT_MARKDOWN_ACTIONS
