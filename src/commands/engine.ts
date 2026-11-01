@@ -1,6 +1,7 @@
 import type { Context } from 'koishi'
 import type { EngineRuntime } from '../runtime'
-import { parsePhiMarketCallbackData, parsePhiMenuCallbackData } from '../constants'
+import { parsePhiMarketCallbackData, parsePhiMenuCallbackData, PHI_COMMAND_HEAD } from '../constants'
+import { getPhiSubcommand } from '../utils/phi-command'
 import { engineCommands, aliasProposalCommands, type EngineCommandSpec } from './spec'
 
 const helpSpec: EngineCommandSpec = {
@@ -36,6 +37,7 @@ async function invokeEngine(runtime: EngineRuntime, spec: EngineCommandSpec, ses
   if (typeof method !== 'function') throw new Error(`Phi engine method not found: ${spec.app}.${spec.method}`)
   const event = runtime.adapter.fromSession(session)
   event.msg = event.text = buildLegacyMessage(session, `phi.${spec.path}`, spec.legacy)
+  event.phiSubcommand = getPhiSubcommand(session?.stripped?.content ?? session?.content, PHI_COMMAND_HEAD)
   app.e = event
   return await method.call(app, event)
 }
@@ -48,7 +50,7 @@ async function invokeRootHelp(runtime: EngineRuntime, session: any) {
 async function sendCommandResult(runtime: EngineRuntime, session: any, result: any, kind?: 'info' | 'error') {
   if (typeof result !== 'string' || !result) return typeof result === 'boolean' ? undefined : result
   const event = runtime.adapter.fromSession(session)
-  const { default: send } = await import('../render/send')
+  const { default: send } = await import('../render/send.ts')
   await send.prompt(event, result, { kind })
   return undefined
 }

@@ -20,7 +20,7 @@ export function bindingPromptActions(): PromptAction[] {
 export function bindingSuccessActions(): PromptAction[] {
   return [
     { command: `/${PHI_COMMAND_HEAD} update`, label: '更新存档' },
-    { command: `/${PHI_COMMAND_HEAD} b27`, label: 'B27成绩' },
+    { command: `/${PHI_COMMAND_HEAD} pgr`, label: 'B30成绩' },
     { command: `/${PHI_COMMAND_HEAD} myset`, label: '用户设置' },
   ]
 }

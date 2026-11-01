@@ -761,7 +761,7 @@ export class phib19 extends phiPluginBase {
                 dif: difArgs,
                 unRank: unRankArgs,
                 orderBy: orderByArgs
-            })
+            }, this.config)
         }
         return true
     }

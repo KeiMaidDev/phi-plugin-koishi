@@ -17,7 +17,6 @@ export const engineCommands: EngineCommandSpec[] = [
   { path: 'clean', legacy: 'clean', app: 'session', method: 'clean', description: '清除本地记录' },
   { path: 'sessiontoken', legacy: 'sessiontoken', app: 'session', method: 'getSstk', description: '查看 sessionToken' },
   { path: 'b30', legacy: 'b30', app: 'b19', method: 'b19', description: '查询 Best30', aliases: ['rks', 'pgr'] },
-  { path: 'b27', legacy: 'b27', app: 'b19', method: 'b19', description: '查询 Best27' },
   { path: 'p30', legacy: 'p30', app: 'b19', method: 'p30', description: '查询 P30' },
   { path: 'ab30', legacy: 'ab30', app: 'b19', method: 'arcgrosB19', description: '查询 Arcaea 风格 B30' },
   { path: 'lmtacc', legacy: 'lmtacc', app: 'b19', method: 'lmtAcc', description: '按最低 ACC 计算 RKS' },

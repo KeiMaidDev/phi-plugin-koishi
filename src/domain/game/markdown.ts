@@ -7,6 +7,7 @@ import { PHI_COMMAND_HEAD, phiMarketCallbackData, phiMenuCallbackData } from '..
 import send from '../../render/send'
 import { escapePromptText } from '../../render/prompt'
 import { isQqMarkdownPlatform } from '../../platform/qq-markdown'
+import { normalizePhiCommandHead, phiSubcommandCommand } from '../../utils/phi-command'
 
 
 /** @import {botEvent} from '../../services/base-class' */
@@ -131,50 +132,32 @@ export async function sendQuickCommandSections(e, sections, title = '快捷操�
     return await sendQuickCommandMarkdown(e, markdown, commands, config)
 }
 
-/** @param {string} commandHead */
-function normalizeCommandHead(commandHead) {
-    return String(commandHead ?? '').replace(/^[/#]+/, '').trim()
-}
-
 /** @param {string} commandHead @param {string} command */
 function pageCommand(commandHead, command) {
-    const head = normalizeCommandHead(commandHead)
+    const head = normalizePhiCommandHead(commandHead)
     return head && command ? `/${head} ${command}` : ''
 }
 
 /** @param {string} commandHead */
 function pageRoot(commandHead) {
-    const head = normalizeCommandHead(commandHead)
+    const head = normalizePhiCommandHead(commandHead)
     return head ? `/${head}` : ''
 }
 
-/** @param {string} value */
-function escapeRegExp(value) {
-    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
 /**
- * 把当前消息改写成可再次执行的本插件指令，并去掉代查他人的 `-id` 参数。
+ * 把当前消息改写成只含原始子命令的本插件指令。
  * @param {string} commandHead
  * @param {string} currentCommand
+ * @param {string} [subcommand]
  */
-export function replayableScoreCommand(commandHead, currentCommand) {
-    const head = normalizeCommandHead(commandHead)
-    if (!head) return ''
-    let rest = String(currentCommand ?? '')
-        .replace(/\r\n?/g, '\n')
-        .replace(/[\u0000-\u001f\u007f]+/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-    rest = rest.replace(new RegExp(`^(?:[#/杠刚钢纲]\\s*)?${escapeRegExp(head)}\\s*`, 'i'), '')
-    rest = rest.replace(/(?:^|\s)-id\s+\d+\b/gi, ' ').replace(/\s+/g, ' ').trim()
-    return rest ? `/${head} ${rest}` : `/${head}`
+export function replayableScoreCommand(commandHead, currentCommand, subcommand) {
+    return phiSubcommandCommand(commandHead, currentCommand, subcommand)
 }
 
 /** 成绩图底部的三个快捷动作。 */
-export function scoreImageQuickCommands(commandHead = PHI_COMMAND_HEAD, currentCommand = '') {
+export function scoreImageQuickCommands(commandHead = PHI_COMMAND_HEAD, currentCommand = '', subcommand = '') {
     return [
-        { command: replayableScoreCommand(commandHead, currentCommand), label: '我也要查' },
+        { command: replayableScoreCommand(commandHead, currentCommand, subcommand), label: '我也要查' },
         { command: pageCommand(commandHead, 'list'), label: '成绩筛选' },
         { command: pageCommand(commandHead, 'myset'), label: '查分设置' },
     ]
@@ -237,7 +220,7 @@ export async function sendScoreImage(e, image, elapsedMs, options = {}) {
         config: options.config,
         label: false,
         markdown: true,
-        actions: scoreImageQuickCommands(PHI_COMMAND_HEAD, options.command || e.msg),
+        actions: scoreImageQuickCommands(PHI_COMMAND_HEAD, options.command || e.msg, e.phiSubcommand),
         buttonsPerRow: 3,
         fallback: [image, ...rawExtra],
     })
@@ -246,7 +229,7 @@ export async function sendScoreImage(e, image, elapsedMs, options = {}) {
 /** 查询页：成绩、存档、曲目与排行入口。 */
 export function helpQuickCommands(commandHead) {
     return [
-        { command: pageCommand(commandHead, 'b27'), label: '📊B27成绩' },
+        { command: pageCommand(commandHead, 'pgr'), label: '📊B30成绩' },
         { command: pageCommand(commandHead, 'info'), label: '👤个人信息' },
         { command: pageCommand(commandHead, 'update'), label: '🔄更新存档' },
         { command: pageCommand(commandHead, 'song'), label: '🎵曲目图鉴' },
@@ -347,7 +330,7 @@ export function apiHelpQuickCommands(commandHead) {
         { command: pageCommand(commandHead, 'bind qrcode'), label: 'TapTap' },
         { command: pageCommand(commandHead, 'tkls'), label: '🔑Token列表' },
         { command: pageCommand(commandHead, 'apiset'), label: '🔧API设置' },
-        { command: pageCommand(commandHead, 'b27'), label: '📊B27成绩' },
+        { command: pageCommand(commandHead, 'pgr'), label: '📊B30成绩' },
         { command: pageRoot(commandHead), label: '❓全部帮助' },
     ]
 }
@@ -355,7 +338,7 @@ export function apiHelpQuickCommands(commandHead) {
 /** 更新存档结果页。 */
 export function updateQuickCommands(commandHead) {
     return [
-        { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
+        { command: pageCommand(commandHead, 'pgr'), label: 'B30成绩' },
         { command: pageCommand(commandHead, 'p30'), label: 'P30成绩' },
         { command: pageCommand(commandHead, 'info'), label: '个人信息' },
         { command: pageCommand(commandHead, 'list'), label: '成绩筛选' },
@@ -367,7 +350,7 @@ export function updateQuickCommands(commandHead) {
 export function userListQuickCommands(commandHead) {
     return [
         { command: pageCommand(commandHead, 'list'), label: '我也要查' },
-        { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
+        { command: pageCommand(commandHead, 'pgr'), label: 'B30成绩' },
         { command: pageCommand(commandHead, 'info'), label: '个人信息' },
         { command: pageRoot(commandHead), label: '帮助' },
     ]
@@ -378,7 +361,7 @@ export function historyQuickCommands(commandHead) {
     return [
         { command: pageCommand(commandHead, '2025history'), label: '年度总结' },
         { command: pageCommand(commandHead, 'hisb30'), label: 'B30历史' },
-        { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
+        { command: pageCommand(commandHead, 'pgr'), label: 'B30成绩' },
         { command: pageCommand(commandHead, 'info'), label: '个人信息' },
         { command: pageRoot(commandHead), label: '帮助' },
     ]
@@ -389,7 +372,7 @@ export function suggestQuickCommands(commandHead) {
     return [
         { command: pageCommand(commandHead, 'suggest'), label: '刷新建议' },
         { command: pageCommand(commandHead, 'list'), label: '成绩筛选' },
-        { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
+        { command: pageCommand(commandHead, 'pgr'), label: 'B30成绩' },
         { command: pageRoot(commandHead), label: '帮助' },
     ]
 }
@@ -399,7 +382,7 @@ export function chapterQuickCommands(commandHead) {
     return [
         { command: pageCommand(commandHead, 'chap ALL'), label: '全部章节' },
         { command: pageCommand(commandHead, 'chap help'), label: '章节帮助' },
-        { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
+        { command: pageCommand(commandHead, 'pgr'), label: 'B30成绩' },
         { command: pageCommand(commandHead, 'list'), label: '成绩筛选' },
         { command: pageRoot(commandHead), label: '帮助' },
     ]
@@ -409,7 +392,7 @@ export function chapterQuickCommands(commandHead) {
 export function achievementQuickCommands(commandHead) {
     return [
         { command: pageCommand(commandHead, 'achievement 1'), label: '查看低定数' },
-        { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
+        { command: pageCommand(commandHead, 'pgr'), label: 'B30成绩' },
         { command: pageCommand(commandHead, 'list'), label: '成绩筛选' },
         { command: pageCommand(commandHead, 'chap ALL'), label: '章节成绩' },
         { command: pageRoot(commandHead), label: '帮助' },
@@ -431,7 +414,7 @@ export function sessionQuickCommands(commandHead) {
 export function rankQuickCommands(commandHead) {
     return [
         { command: pageCommand(commandHead, 'ranklist'), label: '排行榜' },
-        { command: pageCommand(commandHead, 'b27'), label: 'B27成绩' },
+        { command: pageCommand(commandHead, 'pgr'), label: 'B30成绩' },
         { command: pageCommand(commandHead, 'info'), label: '个人信息' },
         { command: pageRoot(commandHead), label: '帮助' },
     ]
