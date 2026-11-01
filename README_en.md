@@ -16,11 +16,15 @@
 ![version](https://img.shields.io/badge/Koishi-4.8.11-9cf?style=flat-square&logo=dependabot)
 </div>
 
+> [!NOTE]
+> This project is developed with various AI tools and may have some issues. We appreciate your understanding and welcome PRs for better implementations.<br>
+> Suggestions are welcome in GitHub Issues!
+
 ### Introduction
 
 `phi-plugin-koishi` is a Koishi plugin for querying Phigros information, including b30, score, userinfo, and other Phigros-related features. It is ported from [phi-plugin](https://github.com/Catrong/phi-plugin). For suggestions and issues, please use this project's [Issues](../../issues); [PRs](../../pulls) are welcome.
 
-After installation, run `phi help` to view the detailed commands.
+After installation, run `phi` to view the detailed commands.
 
 ---
 
@@ -39,7 +43,7 @@ yarn clone https://github.com/KeiMaidDev/phi-plugin-koishi
 
 * [ ] Song selection via phi
 
-* [ ] Improve QR code sessionToken retrieval
+* [ ] Improve sessionToken retrieval from the login link
 
 * [ ] Modify some settings via commands
 
@@ -58,7 +62,7 @@ yarn clone https://github.com/KeiMaidDev/phi-plugin-koishi
 
 | **Command** | **Description** |
 | :- | :- |
-| `phi help` | Show help |
+| `phi` | Show help |
 | `phi bind <sessionToken>` | Bind sessionToken; supports CN/Global and defaults to CN |
 | `phi unbind` | Clear only the current Bot's locally stored sessionToken, API ID, save, and history; API platform bindings are unchanged |
 | `phi clean` | Delete all records |
@@ -70,7 +74,7 @@ yarn clone https://github.com/KeiMaidDev/phi-plugin-koishi
 | `phi chap <chapter name\|help>` | Get chapter scores |
 | `phi ahv <rating>[-v version]` | Get the constant rating table |
 | `phi 理论分表 [-v version]` | View the theoretical RKS table for the specified version (simulated data, save data not required) |
-| `phi list <-dif rating range> <-acc ACC range> <EZ\|HD\|IN\|AT> <NEW\|C\|B\|A\|S\|V\|FC\|PHI>` | Get the score of every song in the range |
+| `phi list [count] <-dif rating range> <-acc ACC range> <EZ\|HD\|IN\|AT> <NEW\|C\|B\|A\|S\|V\|FC\|PHI>` | Get the score of every song in the range; a bare number is the result count limit, while difficulty requires `-dif` |
 | `phi hisb30` | Calculate B30 changes from history |
 | `phi best1(+)` | Query a text b30 (or more), up to b99 |
 | `phi score <song> [-dif difficulty] [-or acc\|score\|fc\|time] [-unrank]` | Get a single song's score and improvement suggestions; the parameters control score ranking, currently available only after enabling the API |
@@ -78,10 +82,10 @@ yarn clone https://github.com/KeiMaidDev/phi-plugin-koishi
 | `phi ranklist [rank]` | Get the RKS leaderboard |
 | `phi rankfind <rks>` | Get how many users have a higher RKS than the queried RKS |
 | `phi data` | Get the user's data count |
-| `phi guess [-l <0-3>]` | Guess the song illustration. Reply directly without a command. The bot stays silent if the reply is not a song name and responds if it is an incorrect song name. Use `phi ans` to end |
-| `phi ltr` | Guess the song name from letters. Use `phi open <letter>` to reveal a letter, reply directly to answer, and use `phi ans` to get the answer |
-| `phi tipgame` | Guess the song name from hints. Use `phi tip` for the next hint and `phi ans` for the answer; reply directly to answer |
-| `phi fri [difficulty=EZ\|HD\|IN\|AT] [minimum rating]` | Friberg song guessing. Reply directly with a song name guess. Each guess compares the charters (verified names from daogemm.github.io; when both sides have verified names, one shared name among multiple charters counts as close), first-release version (including release time), chapter, exclusivity, difficulty, BPM, and note count against the answer. Use `phi ans` to get the answer. Difficulty and note count use the selected difficulty's chart. Answers have personal and group cooldowns, and more participants allow more guesses |
+| `phi guess [-l <0-3>]` | Guess the song illustration. Reply directly with a song name; the bot responds for recognized right or wrong answers. Send “不玩了” to end |
+| `phi ltr [song pool]` | Guess Phigros song names from letters. Reply directly to answer. Send “开字母 X” to reveal a character, “开歌 song” to open a song, “提示” for a random hint, or “不玩了” to end |
+| `phi tipgame` | Guess the song name from hints. Reply directly to answer. Send “提示” for the next hint or “不玩了” to end |
+| `phi fri [difficulty=EZ\|HD\|IN\|AT] [minimum rating]` | Friberg song guessing. Reply directly with a song name guess. Each guess compares the charters (verified names from daogemm.github.io; when both sides have verified names, one shared name among multiple charters counts as close), first-release version (including release time), chapter, exclusivity, difficulty, BPM, and note count against the answer. Send “不玩了” to end. Difficulty and note count use the selected difficulty's chart. Answers have personal and group cooldowns, and more participants allow more guesses |
 | `phi song <song>` | Query a Phigros song's info and supports aliases |
 | `phi chart <song> [difficulty=IN]` | Query detailed information about a Phigros chart |
 | `phi tag <song> [difficulty=IN] <tag>` | View chart tags; available tags are shown in the response, and the default difficulty is IN |
@@ -131,7 +135,7 @@ yarn clone https://github.com/KeiMaidDev/phi-plugin-koishi
 | Parameter | Feature | Affected Commands |
 | :- | :- | :- |
 | all | All features | All |
-| help | Help features | `phi help` `phi tkhelp` `phi myset` |
+| help | Help features | `phi` `phi tkhelp` `phi myset` |
 | bind | Binding features | `phi bind` `phi unbind` |
 | b19 | Image score queries | `phi b30` `phi update` `phi info` `phi list` `phi p30` `phi lmtacc` `phi score` `phi lvscore` `phi chap` `phi suggest` |
 | wb19 | Text score queries | `phi data` `phi best` |

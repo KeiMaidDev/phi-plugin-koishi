@@ -35,8 +35,23 @@ _Avoid_: skin, style
 _Avoid_: login, account
 
 **Phi Command**:
-用户在聊天中通过 `phi <子命令>` 触发的功能入口；中文名称可以保留，但不构成独立根指令。
+用户在聊天中通过根命令 `phi` 触发的功能入口；`phi` 直接打开帮助，子功能通过 `phi <子命令>` 执行。中文名称可以保留，但不构成独立根指令。
 _Avoid_: shortcut command, slash command, command head
+
+**Keyboard Menu**:
+正文只说明用途、可执行操作由 QQ Keyboard 按钮承载的 Markdown 回复。
+_Avoid_: command table, inline command link
+**Prompt**:
+Phi 自己产生的一条聊天可见提示，包括帮助、错误、确认、状态和游戏反馈；原始日志、文件内容和私聊文件不属于 Prompt。
+_Avoid_: message, reply, log
+
+**Link Button**:
+QQ Keyboard 中使用 action type 0 打开外部 URL 的按钮；绑定流程用其承载 TapTap 登录链接。
+_Avoid_: QR image, inline URL
+
+**Assets Direct Link**:
+由 assets 服务生成的公开 HTTP(S) URL，供显式接入的 Markdown 图片引用。
+_Avoid_: data URL, local path, file URL
 
 **Online API**:
 插件通过 phi-plugin-api 获取在线查分与同步能力的远程服务；不可用时本地功能仍然可用。

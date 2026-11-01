@@ -16,11 +16,15 @@
 ![version](https://img.shields.io/badge/Koishi-4.8.11-9cf?style=flat-square&logo=dependabot)
 </div>
 
+> [!NOTE]
+> 本项目由各种AI工具开发，存在一定的问题，见谅，如有更好的实现欢迎 PR<br>
+> 有好的提议欢迎提ISSUE！
+
 ### 介绍
 
 `phi-plugin-koishi` 为查询Phigros信息的插件，包括b30、score、userinfo以及更多Phigros相关功能，本项目移植自[phi-plugin](https://github.com/Catrong/phi-plugin)，有相关的建议和问题请在本项目[Issues](../../issues)中提出，欢迎[PR](../../pulls)。
 
-具体功能可在安装插件后通过 `phi help` 查看详细指令
+具体功能可在安装插件后通过 `phi` 查看详细指令
 
 ---
 
@@ -39,7 +43,7 @@ yarn clone https://github.com/KeiMaidDev/phi-plugin-koishi
 
 * [ ] 点phi的歌
 
-* [ ] 优化扫码获取sessionToken
+* [ ] 优化登录链接获取sessionToken
 
 * [ ] 指令修改部分设置
 
@@ -70,7 +74,7 @@ yarn clone https://github.com/KeiMaidDev/phi-plugin-koishi
 | `phi chap <章节名称\|help>` | 获取章节成绩
 | `phi ahv <定数>[-v 版本]` | 获取定数成绩表
 | `phi 理论分表 [-v 版本]` | 查看指定版本的理论RKS分表（模拟数据，不依赖存档）
-| `phi list <-dif 定数范围> <-acc ACC范围> <EZ\|HD\|IN\|AT> <NEW\|C\|B\|A\|S\|V\|FC\|PHI>` | 获取区间每首曲目的成绩
+| `phi list [数量] <-dif 定数范围> <-acc ACC范围> <EZ\|HD\|IN\|AT> <NEW\|C\|B\|A\|S\|V\|FC\|PHI>` | 获取区间每首曲目的成绩；裸数字表示本次最多显示数量，定数必须用 `-dif` 指定
 | `phi hisb30` | 根据历史记录计算B30变化情况
 | `phi best1(+)` | 查询文字版b30（或更多），最高b99
 | `phi score <曲名> [-dif 难度] [-or acc\|score\|fc\|time] [-unrank]` | 获取单曲成绩及这首歌的推分建议，参数为对分数排行的参数，目前仅开启API后有效
@@ -78,10 +82,10 @@ yarn clone https://github.com/KeiMaidDev/phi-plugin-koishi
 | `phi ranklist [名次]` | 获取 RKS 排行榜
 | `phi rankfind <rks>` | 获取有多少人大于查询 RKS
 | `phi data` | 获取用户data数量
-| `phi guess [-l <0-3>]` | 猜曲绘，回答无特殊命令，直接回复，如果不是曲名就不会说话，如果是不正确的曲名会回复。phi ans 结束
-| `phi ltr` | 根据字母猜曲名，`phi open <字母>` 开指定的字母，直接回复进行回答，phi ans 获取答案
-| `phi tipgame` | 根据提示猜曲名，`phi tip` 获得下一条提示，phi ans 获取答案，回答直接回复
-| `phi fri [难度=EZ\|HD\|IN\|AT] [定数下限]` | 弗一把猜歌，直接回复曲名猜测，每次猜测都会对比谱师（真实名录来源于 daogemm.github.io；双方都有真实名录时，多名谱师有一人重合即视为相近）、首次收录版本（含上线时间）、章节、是否独占、定数、BPM、物量与答案的异同，phi ans 获取答案；定数与物量以指定难度的谱面为准，回答有个人与群聊冷却，参与人数越多可猜次数越多
+| `phi guess [-l <0-3>]` | 猜曲绘，直接回复曲名作答；识别后回复正确或错误，发送“不玩了”结束
+| `phi ltr [曲库]` | 根据字母猜曲名，直接回复曲名作答；发送“开字母 X”翻开字符、“开歌 曲名”直接开出题目、“提示”随机翻开字符、“不玩了”结束
+| `phi tipgame` | 根据提示猜曲名，直接回复曲名作答；发送“提示”获取下一条线索，发送“不玩了”结束
+| `phi fri [难度=EZ\|HD\|IN\|AT] [定数下限]` | 弗一把猜歌，直接回复曲名猜测，每次猜测都会对比谱师（真实名录来源于 daogemm.github.io；双方都有真实名录时，多名谱师有一人重合即视为相近）、首次收录版本（含上线时间）、章节、是否独占、定数、BPM、物量与答案的异同，发送“不玩了”结束；定数与物量以指定难度的谱面为准，回答有个人与群聊冷却，参与人数越多可猜次数越多
 | `phi song <曲名>` | 查询phigros中某一曲目的图鉴，支持设定别名
 | `phi chart <曲名> [难度=IN]` | 查询phigros中某一谱面的详细信息
 | `phi tag <曲名> [难度=IN] <标签>` | 查看谱面标签，标签可选项见回复说明，难度默认为IN
@@ -131,7 +135,7 @@ yarn clone https://github.com/KeiMaidDev/phi-plugin-koishi
 | 参数 | 功能 | 影响指令
 | :- | :- | :-
 | 全部 | 全部功能 | 所有
-| help | 帮助功能 | `phi help` `phi tkhelp` `phi myset`
+| help | 帮助功能 | `phi` `phi tkhelp` `phi myset`
 | bind | 绑定功能 | `phi bind` `phi unbind`
 | b19 | 图片查分功能 | `phi b30` `phi update` `phi info` `phi list` `phi p30` `phi lmtacc` `phi score` `phi lvscore` `phi chap` `phi suggest`
 | wb19 | 文字查分功能 | `phi data` `phi best`
