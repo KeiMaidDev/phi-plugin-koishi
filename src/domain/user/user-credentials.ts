@@ -4,7 +4,7 @@ import { PHI_COMMAND_HEAD } from '../../constants'
 
 import logger from '../../utils/logger'
 import { sendPromptWithAt } from '../../render/prompt'
-import { BINDING_REMINDER, bindingPromptActions } from '../../render/binding-prompt'
+import { getBindingReminder, bindingPromptActions } from '../../render/binding-prompt'
 import PhigrosUser from '../../vendor/phigros/phigros-user'
 import { canUseApi } from './api-permission'
 import { PhiApiError } from '../../providers/phi-api/phi-api-errors'
@@ -799,7 +799,7 @@ export class UserCredentials {
         /**API 功能关闭时不做同步，直接使用本地历史记录 */
         if (!await canUseApi(autoSeekApi.config, event)) {
             if (!sessionToken) {
-                notifyUser(event, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
+                notifyUser(event, getBindingReminder(event, autoSeekApi.config), { kind: 'warning', actions: bindingPromptActions() })
                 return null
             }
             return this.getLocalHistory()
@@ -808,7 +808,7 @@ export class UserCredentials {
         if (!sessionToken) {
             const remoteHistory = await this.getCloudHistory(fields, options)
             if (!remoteHistory && !options.ignoreUnboundError) {
-                notifyUser(event, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
+                notifyUser(event, getBindingReminder(event, autoSeekApi.config), { kind: 'warning', actions: bindingPromptActions() })
             }
             return remoteHistory
         }

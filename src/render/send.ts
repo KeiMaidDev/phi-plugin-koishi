@@ -7,7 +7,7 @@ import logger from "../utils/logger";
 import { canUseApi } from '../domain/user/api-permission';
 import platform from "../platform/index";
 import { configurePrompts, sendPrompt, sendPromptWithAt, type PromptOptions } from './prompt'
-import { BINDING_REMINDER, bindingPromptActions } from './binding-prompt'
+import { getBindingReminder, bindingPromptActions } from './binding-prompt'
 
 class send {
 
@@ -96,7 +96,7 @@ class send {
 
         if (!sessionToken) {
             if (send) {
-                await this.promptWithAt(e, BINDING_REMINDER, { kind: 'info', actions: bindingPromptActions() })
+                await this.promptWithAt(e, getBindingReminder(e, this.config), { kind: 'info', actions: bindingPromptActions() })
             }
             return false
         }

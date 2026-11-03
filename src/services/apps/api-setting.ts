@@ -3,7 +3,7 @@ import type { PhiRuntime } from '../../runtime-context'
 import { PHI_COMMAND_HEAD } from '../../constants'
 
 import send from '../../render/send'
-import { BINDING_REMINDER, bindingPromptActions } from '../../render/binding-prompt'
+import { getBindingReminder, bindingPromptActions } from '../../render/binding-prompt'
 import makeRequest from '../../providers/phi-api/make-request'
 import ProgressBar from "../../render/progress-bar";
 import { USER_API_SETTING_META, USER_API_SETTING_OPTIONS } from '../../domain/game/const-num'
@@ -181,7 +181,7 @@ export class phihelp extends phiPluginBase {
         const sessionToken = await credentials.getSessionToken()
 
         if (!sessionToken) {
-            send.promptWithAt(e, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
+            send.promptWithAt(e, getBindingReminder(e, this.config), { kind: 'warning', actions: bindingPromptActions() })
             return false
         }
 
@@ -222,7 +222,7 @@ export class phihelp extends phiPluginBase {
 
         const sessionToken = await credentials.getSessionToken()
         if (!sessionToken) {
-            send.promptWithAt(e, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
+            send.promptWithAt(e, getBindingReminder(e, this.config), { kind: 'warning', actions: bindingPromptActions() })
             return;
         }
         const tokenList = await credentials.listPlatformBindings()
@@ -285,7 +285,7 @@ export class phihelp extends phiPluginBase {
 
         const apiId = await credentials.getApiId()
         if (!apiId) {
-            send.promptWithAt(e, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
+            send.promptWithAt(e, getBindingReminder(e, this.config), { kind: 'warning', actions: bindingPromptActions() })
             return;
         }
         const sessionToken = await credentials.authenticateApiToken(apiToken)
@@ -316,7 +316,7 @@ export class phihelp extends phiPluginBase {
 
         const sessionToken = await credentials.getSessionToken()
         if (!sessionToken) {
-            send.promptWithAt(e, `注销 phi-api 账号需要 Phigros SSTK 权限。\n\n${BINDING_REMINDER}`, { kind: 'warning', actions: bindingPromptActions() })
+            send.promptWithAt(e, `注销 phi-api 账号需要 Phigros SSTK 权限。\n\n${getBindingReminder(e, this.config)}`, { kind: 'warning', actions: bindingPromptActions() })
             return false;
         }
 
@@ -337,7 +337,7 @@ export class phihelp extends phiPluginBase {
 
         const sessionToken = await credentials.getSessionToken()
         if (!sessionToken) {
-            send.promptWithAt(e, `注销 phi-api 账号需要 Phigros SSTK 权限。\n\n${BINDING_REMINDER}`, { kind: 'warning', actions: bindingPromptActions() })
+            send.promptWithAt(e, `注销 phi-api 账号需要 Phigros SSTK 权限。\n\n${getBindingReminder(e, this.config)}`, { kind: 'warning', actions: bindingPromptActions() })
             this.finish('confirmClearApiData', false)
             return false
         }
@@ -475,7 +475,7 @@ export class phihelp extends phiPluginBase {
 
         const token = await credentials.getSessionToken()
         if (!token) {
-            send.promptWithAt(e, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
+            send.promptWithAt(e, getBindingReminder(e, this.config), { kind: 'warning', actions: bindingPromptActions() })
             return true;
         }
 

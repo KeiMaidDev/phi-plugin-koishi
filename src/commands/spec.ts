@@ -9,13 +9,13 @@ export interface EngineCommandSpec {
 }
 
 export const engineCommands: EngineCommandSpec[] = [
-  { path: 'tkhelp', legacy: 'tkhelp', app: 'help', method: 'tkhelp', description: '查看 sessionToken 帮助' },
+  { path: 'tkhelp', legacy: 'tkhelp', app: 'help', method: 'tkhelp', description: '查看绑定帮助' },
   { path: 'apihelp', legacy: 'api help', app: 'help', method: 'apihelp', description: '查看 API 帮助' },
-  { path: 'bind', legacy: 'bind', app: 'session', method: 'bind', description: '绑定 Phi 账号', aliases: ['绑定'] },
+  { path: 'bind', legacy: 'bind', app: 'session', method: 'bind', description: '绑定 Phigros 存档', aliases: ['绑定'] },
   { path: 'update', legacy: 'update', app: 'session', method: 'update', description: '更新存档', aliases: ['更新存档'] },
-  { path: 'unbind', legacy: 'unbind', app: 'session', method: 'unbind', description: '解绑 Phi 账号', aliases: ['解绑'] },
+  { path: 'unbind', legacy: 'unbind', app: 'session', method: 'unbind', description: '解绑当前 Phigros 绑定', aliases: ['解绑'] },
   { path: 'clean', legacy: 'clean', app: 'session', method: 'clean', description: '清除本地记录' },
-  { path: 'sessiontoken', legacy: 'sessiontoken', app: 'session', method: 'getSstk', description: '查看 sessionToken' },
+  { path: 'sessiontoken', legacy: 'sessiontoken', app: 'session', method: 'getSstk', description: '查看当前绑定信息' },
   { path: 'b30', legacy: 'b30', app: 'b19', method: 'b19', description: '查询 Best30', aliases: ['rks', 'pgr'] },
   { path: 'p30', legacy: 'p30', app: 'b19', method: 'p30', description: '查询 P30' },
   { path: 'ab30', legacy: 'ab30', app: 'b19', method: 'arcgrosB19', description: '查询 Arcaea 风格 B30' },

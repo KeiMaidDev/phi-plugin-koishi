@@ -5,7 +5,7 @@ import { PHI_COMMAND_HEAD } from '../../constants'
 // import get from '../model/getdata'
 import common from "../common"
 import send from '../../render/send'
-import { BINDING_REMINDER, bindingPromptActions } from '../../render/binding-prompt'
+import { getBindingReminder, bindingPromptActions } from '../../render/binding-prompt'
 import getInfo from '../../domain/game/get-info'
 import getPic from '../../render/get-pic'
 import picmodle from '../../render/pic-model'
@@ -958,7 +958,7 @@ export class phisong extends phiPluginBase {
         const sessionToken = await credentials.getSessionToken()
 
         if (!sessionToken) {
-            send.promptWithAt(e, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
+            send.promptWithAt(e, getBindingReminder(e, this.config), { kind: 'warning', actions: bindingPromptActions() })
             return true
         }
 
@@ -1160,7 +1160,7 @@ export class phisong extends phiPluginBase {
             }
 
             if (!sessionToken) {
-                send.promptWithAt(e, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
+                send.promptWithAt(e, getBindingReminder(e, this.config), { kind: 'warning', actions: bindingPromptActions() })
                 return true
             }
         }

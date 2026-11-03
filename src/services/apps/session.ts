@@ -23,7 +23,14 @@ import { canUseApi } from '../../domain/user/api-permission'
 import platform, { redis } from '../../platform/index'
 import { UserCredentials } from '../../domain/user/user-credentials'
 import { sendResultWithQuickCommands, sessionQuickCommands, updateQuickCommands } from '../../domain/game/markdown'
-import { BINDING_REMINDER, bindingPromptActions, bindingSuccessActions } from '../../render/binding-prompt'
+import {
+    getBindingReminder,
+    bindingPromptActions,
+    bindingSuccessActions,
+    unbindConfirmActions,
+    unbindFailureActions,
+    unbindResultActions,
+} from '../../render/binding-prompt'
 
 /**@import {botEvent} from '../base-class' */
 
@@ -72,7 +79,10 @@ export class phisstk extends phiPluginBase {
         const credentials = UserCredentials.fromEvent(e)
 
         if (await getBanGroup.get(e, 'bind')) {
-            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！', { keyboard: false })
+            send.promptWithAt(e, '当前群组已禁用绑定功能。', {
+                kind: 'error',
+                actions: [{ command: `/${PHI_COMMAND_HEAD}`, label: '帮助' }],
+            })
             return false
         }
 
@@ -99,21 +109,21 @@ export class phisstk extends phiPluginBase {
                     let updateData = await credentials.getUpdatedSaveFromApi()
                     let history = await credentials.getCloudHistory(['data', 'rks', 'scoreHistory'])
                     if (updateData && history) await build(this.config, e, updateData, history, sessionQuickCommands, '绑定页快捷操作', { simpleReply })
-                    else send.promptWithAt(e, '绑定已成功，但暂时无法读取 API 存档，请稍后执行更新。', { kind: 'success', actions: bindingSuccessActions() })
+                    else send.promptWithAt(e, `绑定成功，但暂时无法读取在线存档。请稍后发送 /${PHI_COMMAND_HEAD} update 重试。`, { kind: 'success', actions: bindingSuccessActions() })
                     return true
                 }
                 if (!result) {
-                    send.promptWithAt(e, `没有找到${apiId || ''}对应的用户。\n\n${BINDING_REMINDER}`, { kind: 'warning', actions: bindingPromptActions() })
+                    send.promptWithAt(e, `没有找到查分 ID ${apiId} 对应的用户，请检查后重试。\n\n${getBindingReminder(e, this.config)}`, { kind: 'warning', actions: bindingPromptActions() })
                     return false
                 }
             } else {
                 if (apiId) {
-                    send.promptWithAt(e, `这里没有连接查分平台，暂时不能使用 API ID 绑定。\n\n${BINDING_REMINDER}`, { kind: 'warning', actions: bindingPromptActions() })
+                    send.promptWithAt(e, `当前未连接查分 API，暂时无法使用查分 ID 绑定。\n\n${getBindingReminder(e, this.config)}`, { kind: 'warning', actions: bindingPromptActions() })
                     return false
                 }
             }
             if (!localPhigrosToken) {
-                send.promptWithAt(e, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
+                send.promptWithAt(e, getBindingReminder(e, this.config), { kind: 'warning', actions: bindingPromptActions() })
                 return false
             }
 
@@ -129,14 +139,14 @@ export class phisstk extends phiPluginBase {
                 let recallTime = qrcodeTimeOut
                 if (qrcodeTimeOut >= 60) recallTime = 60
                 if (this.config.TapTapLoginQRcode) {
-                    await send.promptWithAt(e, `请点击下方按钮进行登录嗷！请勿使用他人的链接。请注意，登录TapTap可能造成账号及财产损失，请在信任Bot来源的情况下登录。\n链接剩余时间:${qrcodeTimeOut}`, {
+                    await send.promptWithAt(e, `请点击下方按钮登录 TapTap。登录链接仅限本人使用；登录可能造成账号及财产损失，请仅在信任本 Bot 时操作。\n链接剩余时间：${qrcodeTimeOut} 秒`, {
                         kind: 'info',
                         actions: [{ type: 'link', href: qrcode, label: 'TapTap' }],
-                        fallback: async () => [segment.image(await getQRcode.getQRcode(qrcode)), `请识别二维码并按照提示进行登录嗷！请勿错扫他人二维码。请注意，登录TapTap可能造成账号及财产损失，请在信任Bot来源的情况下扫码登录。\n二维码剩余时间:${qrcodeTimeOut}`],
+                        fallback: async () => [segment.image(await getQRcode.getQRcode(qrcode)), `请使用 TapTap 扫描二维码完成登录。二维码仅限本人使用；登录可能造成账号及财产损失，请仅在信任本 Bot 时操作。\n二维码剩余时间：${qrcodeTimeOut} 秒`],
                         recallMsg: recallTime,
                     });
                 } else {
-                    await send.promptWithAt(e, `请点击链接进行登录嗷！请勿使用他人的链接。请注意，登录TapTap可能造成账号及财产损失，请在信任Bot来源的情况下登录。\n链接剩余时间:${qrcodeTimeOut}\n${qrcode}`, { kind: 'info', recallMsg: recallTime, keyboard: false });
+                    await send.promptWithAt(e, `请点击链接登录 TapTap。登录链接仅限本人使用；登录可能造成账号及财产损失，请仅在信任本 Bot 时操作。\n链接剩余时间：${qrcodeTimeOut} 秒\n${qrcode}`, { kind: 'info', recallMsg: recallTime, keyboard: false });
                 }
                 return
             }
@@ -144,19 +154,19 @@ export class phisstk extends phiPluginBase {
             let request = await getQRcode.getRequest(isGlobal);
             let qrCodeMsg;
             if (this.config.TapTapLoginQRcode) {
-                qrCodeMsg = await send.promptWithAt(e, '请点击下方按钮进行登录嗷！请勿使用他人的链接。请注意，登录TapTap可能造成账号及财产损失，请在信任Bot来源的情况下登录。', {
+                qrCodeMsg = await send.promptWithAt(e, '请点击下方按钮登录 TapTap。登录链接仅限本人使用；登录可能造成账号及财产损失，请仅在信任本 Bot 时操作。', {
                     kind: 'info',
                     actions: [{ type: 'link', href: request.data.qrcode_url, label: 'TapTap' }],
-                    fallback: async () => [segment.image(await getQRcode.getQRcode(request.data.qrcode_url)), '请识别二维码并按照提示进行登录嗷！请勿错扫他人二维码。请注意，登录TapTap可能造成账号及财产损失，请在信任Bot来源的情况下扫码登录。'],
+                    fallback: async () => [segment.image(await getQRcode.getQRcode(request.data.qrcode_url)), '请使用 TapTap 扫描二维码完成登录。二维码仅限本人使用；登录可能造成账号及财产损失，请仅在信任本 Bot 时操作。'],
                     recallMsg: 60,
                 });
             } else {
-                qrCodeMsg = await send.promptWithAt(e, `请点击链接进行登录嗷！请勿使用他人的链接。请注意，登录TapTap可能造成账号及财产损失，请在信任Bot来源的情况下登录。\n${request.data.qrcode_url}`, { kind: 'info', recallMsg: 60, keyboard: false });
+                qrCodeMsg = await send.promptWithAt(e, `请点击链接登录 TapTap。登录链接仅限本人使用；登录可能造成账号及财产损失，请仅在信任本 Bot 时操作。\n${request.data.qrcode_url}`, { kind: 'info', recallMsg: 60, keyboard: false });
             }
             let t1 = new Date().getTime();
             /**@type {any} */
             let result;
-            /**是否发送过已扫描提示 */
+            /**是否已处理首次扫码等待状态 */
             let flag = false;
             /**判断adapter是否为QQBot，如果是并且超时时间大于270秒则将超时时间改为270秒，以免被动消息回复超时**/
             let QRCodetimeout = request.data.expires_in
@@ -172,7 +182,6 @@ export class phisstk extends phiPluginBase {
                 }
                 if (!result.success) {
                     if (result.data.error == "authorization_waiting" && !flag) {
-                        if (!simpleReply) send.promptWithAt(e, `登录页已打开，请确认登录`, false, { recallMsg: 10, keyboard: false });
                         platform.recall(e, qrCodeMsg)
                         flag = true;
                     }
@@ -186,14 +195,14 @@ export class phisstk extends phiPluginBase {
             redis.del(timeOutKey)
 
             if (!result.success) {
-                send.promptWithAt(e, `登录操作超时，请重新尝试。\n\n${BINDING_REMINDER}`, { kind: 'warning', actions: bindingPromptActions() });
+                send.promptWithAt(e, `登录操作已超时，请重新发起绑定。\n\n${getBindingReminder(e, this.config)}`, { kind: 'warning', actions: bindingPromptActions() });
                 return true
             }
             try {
                 sessionToken = await getQRcode.getSessionToken(result, isGlobal);
             } catch (err) {
                 logger.error(err)
-                send.promptWithAt(e, `获取 sessionToken 失败，请确认 Phigros 已登录 TapTap 并完成同步。\n\n${BINDING_REMINDER}`, { kind: 'error', actions: bindingPromptActions() })
+                send.promptWithAt(e, `未能获取 sessionToken。请确认 Phigros 已登录 TapTap，并完成一次游戏数据同步后重试。\n\n${getBindingReminder(e, this.config)}`, { kind: 'error', actions: bindingPromptActions() })
                 return true
             }
         }
@@ -202,7 +211,7 @@ export class phisstk extends phiPluginBase {
 
         if (!simpleReply && !this.config.isGuild) {
 
-            send.prompt(e, "正在绑定，请稍等一下哦！\n >_<", false, { recallMsg: 5, keyboard: false })
+            send.prompt(e, "正在完成绑定，请稍候。", false, { kind: 'info', recallMsg: 5, keyboard: false })
             // return true
         }
 
@@ -221,7 +230,7 @@ export class phisstk extends phiPluginBase {
                     let updateData = await credentials.getUpdatedSaveFromApi()
                     let history = await credentials.getCloudHistory(['data', 'rks', 'scoreHistory'])
                     if (updateData && history) await build(this.config, e, updateData, history, sessionQuickCommands, '绑定页快捷操作', { simpleReply })
-                    else send.promptWithAt(e, '绑定已成功，但暂时无法读取 API 存档，请稍后执行更新。', { kind: 'success', actions: bindingSuccessActions() })
+                    else send.promptWithAt(e, `绑定成功，但暂时无法读取在线存档。请稍后发送 /${PHI_COMMAND_HEAD} update 重试。`, { kind: 'success', actions: bindingSuccessActions() })
                     return true
                 }
                 logger.warn('[phi-plugin] API绑定未完成，将改用当前 Bot 本地绑定')
@@ -237,13 +246,13 @@ export class phisstk extends phiPluginBase {
                 ? await credentials.getUpdatedSaveFromLocal(sessionToken, isGlobal)
                 : await credentials.bindLocallyWithSessionToken(sessionToken, isGlobal)
             if (!updateData) return true;
-            send.promptWithAt(e, `${apiBindingSucceeded ? '' : 'API绑定不可用，已按当前 Bot 本地状态完成绑定。\n'}请注意保护好自己的sessionToken呐！如果需要获取已绑定的sessionToken可以私聊发送 /${PHI_COMMAND_HEAD} sessionToken 哦！`, false, { recallMsg: 10, keyboard: false })
+            send.promptWithAt(e, `${apiBindingSucceeded ? '' : '在线绑定暂不可用，已完成本地绑定。\n'}请妥善保管 sessionToken；如需查看当前绑定，请私聊发送 /${PHI_COMMAND_HEAD} sessionToken。`, false, { recallMsg: 10, keyboard: false })
             let history = await credentials.getLocalHistory()
             if (history) await build(this.config, e, updateData, history, sessionQuickCommands, '绑定页快捷操作', { simpleReply })
-            else send.promptWithAt(e, '绑定已成功，但暂时无法读取本地存档，请稍后执行更新。', { kind: 'success', actions: bindingSuccessActions() })
+            else send.promptWithAt(e, `绑定成功，但暂时无法读取本地存档。请稍后发送 /${PHI_COMMAND_HEAD} update 重试。`, { kind: 'success', actions: bindingSuccessActions() })
         } catch (error) {
             logger.error(error)
-            send.promptWithAt(e, `绑定成功，但读取存档失败，请稍后重新更新。\n\n${BINDING_REMINDER}`, { kind: 'warning', actions: bindingPromptActions() })
+            send.promptWithAt(e, `绑定状态已保存，但读取存档失败。请稍后发送 /${PHI_COMMAND_HEAD} update 重试。`, { kind: 'warning', actions: bindingSuccessActions() })
         }
 
         return true
@@ -288,7 +297,7 @@ export class phisstk extends phiPluginBase {
 
             let session = await credentials.getSessionToken()
             if (!session) {
-                send.prompt(e, BINDING_REMINDER, { quote: true, kind: 'warning', actions: bindingPromptActions() })
+                send.prompt(e, getBindingReminder(e, this.config), { quote: true, kind: 'warning', actions: bindingPromptActions() })
                 return true
             }
 
@@ -302,7 +311,7 @@ export class phisstk extends phiPluginBase {
                 history = await credentials.getLocalHistory()
             } catch (error) {
                 logger.error(error)
-                send.promptWithAt(e, `更新存档失败，请稍后重试或检查绑定状态。\n\n${BINDING_REMINDER}`, { kind: 'error', actions: bindingPromptActions() })
+                send.promptWithAt(e, `更新存档失败，请稍后重试或检查绑定状态。\n\n${getBindingReminder(e, this.config)}`, { kind: 'error', actions: bindingPromptActions() })
                 return true
             }
         }
@@ -326,20 +335,26 @@ export class phisstk extends phiPluginBase {
         const credentials = UserCredentials.fromEvent(e)
 
         if (await getBanGroup.get(e, 'unbind')) {
-            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！', { keyboard: false })
+            send.promptWithAt(e, '当前群组已禁用解绑功能。', {
+                kind: 'error',
+                actions: [{ command: `/${PHI_COMMAND_HEAD}`, label: '帮助' }],
+            })
             return false
         }
 
 
         const { sessionToken, apiId } = await credentials.getLocalCredentials()
         if (!sessionToken && !apiId) {
-            send.promptWithAt(e, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
+            send.promptWithAt(e, '当前没有可解绑的 Phigros 绑定。', { kind: 'warning', actions: bindingPromptActions() })
             return false
         }
 
-        this.setContext('doUnbind', false, 30, '超时已取消，请注意 @Bot 进行回复哦！')
+        this.setContext('doUnbind', false, 30, '操作已超时，解绑未执行。')
 
-        send.promptWithAt(e, '解绑只会清除当前 Bot 本地保存的绑定、存档和历史，不会修改 API 数据。真的要这么做吗？（确认/取消）', { keyboard: false })
+        send.promptWithAt(e, '解绑会删除当前 Bot 保存的绑定、存档和历史，但不会修改 API 中的数据。确认解绑吗？（确认/取消）', {
+            kind: 'confirm',
+            actions: unbindConfirmActions(),
+        })
 
         return true
     }
@@ -349,14 +364,13 @@ export class phisstk extends phiPluginBase {
         let e = this.e
         const credentials = UserCredentials.fromEvent(e)
 
-        let msg = e.msg.replace(' ', '')
+        let msg = e.msg.replace(/\s/g, '').replace(/^[#/]/, '')
 
         if (msg == '确认') {
             let flag = true
             try {
                 await credentials.unbindAndReport()
             } catch (err) {
-                send.promptWithAt(e, err, { keyboard: false })
                 logger.error(err)
                 flag = false
             }
@@ -370,17 +384,16 @@ export class phisstk extends phiPluginBase {
                     getNotes.putNotesData(e.user_id, pluginData)
                 }
             } catch (err) {
-                send.promptWithAt(e, err, { keyboard: false })
                 logger.error(err)
                 flag = false
             }
             if (flag) {
-                send.promptWithAt(e, '当前 Bot 本地解绑成功', { keyboard: false })
+                send.promptWithAt(e, '已完成解绑。', { kind: 'success', actions: unbindResultActions() })
             } else {
-                send.promptWithAt(e, '没有找到你的存档哦！', { keyboard: false })
+                send.promptWithAt(e, '解绑操作出现问题，请稍后重试或检查当前绑定状态。', { kind: 'error', actions: unbindFailureActions() })
             }
         } else {
-            send.promptWithAt(e, `取消成功！`, { keyboard: false })
+            send.promptWithAt(e, '已取消解绑。', { kind: 'info', actions: unbindResultActions() })
         }
         this.finish('doUnbind', false)
     }
@@ -436,13 +449,13 @@ export class phisstk extends phiPluginBase {
     async getSstk(e) {
         const credentialManager = UserCredentials.fromEvent(e)
         if (e.isGroup) {
-            send.promptWithAt(e, `请私聊使用嗷`, { keyboard: false })
+            send.promptWithAt(e, `请私聊发送 /${PHI_COMMAND_HEAD} sessionToken 查看当前绑定信息。`, { kind: 'info', keyboard: false })
             return false
         }
 
         let save = await send.getsave_result(e)
         if (!save) {
-            send.promptWithAt(e, BINDING_REMINDER, { kind: 'warning', actions: bindingPromptActions() })
+            send.promptWithAt(e, getBindingReminder(e, this.config), { kind: 'warning', actions: bindingPromptActions() })
             return true
         }
 

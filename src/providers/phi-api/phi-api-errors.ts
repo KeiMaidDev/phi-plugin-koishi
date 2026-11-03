@@ -65,14 +65,14 @@ const USER_ERROR_MESSAGES = {
     theme_store_invalid_response: '主题商店返回了无效数据，请稍后重试。',
     theme_store_unavailable: '主题商店暂时不可用，请稍后重试。',
     integration_not_configured: '主题商店集成尚未配置，请联系服务管理员。',
-    binding_not_found: '当前平台账号尚未绑定，请使用sessionToken绑定。',
-    bot_user_credential_required: '当前请求缺少 sessionToken 或 API ID，请重新绑定。',
-    binding_conflict_requires_sstk: '当前平台已绑定其他查分ID，请使用sessionToken重新绑定。',
+    binding_not_found: '当前平台账号尚未完成 Phigros 绑定，请先绑定存档。',
+    bot_user_credential_required: '当前请求缺少绑定信息，请重新绑定。',
+    binding_conflict_requires_sstk: '当前平台已绑定其他查分 ID，请使用 sessionToken 重新绑定。',
     user_id_binding_disabled: () => {
         const commandHead = `${PHI_COMMAND_HEAD}`
-        return `该用户未开启API ID绑定，请使用 /${commandHead} bind <sessionToken> 或 /${commandHead} bind qrcode 获取登录链接重新绑定。`
+        return `该用户未开启 API ID 绑定，请使用 /${commandHead} bind <sessionToken> 或 /${commandHead} bind qrcode 重新绑定。`
     },
-    user_not_found: '未找到对应的查分ID，请检查后重试。',
+    user_not_found: '未找到对应的查分 ID，请检查后重试。',
 }
 
 /** @param {any} error */

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import type { PhiRuntime } from '../../runtime-context'
 import { PHI_COMMAND_HEAD } from '../../constants'
+import { getBindingHelp } from '../../render/binding-prompt'
 
 import send from '../../render/send'
 import picmodle from '../../render/pic-model'
@@ -119,11 +120,14 @@ export class phihelp extends phiPluginBase {
     async tkhelp(e) {
 
         if (await getBanGroup.get(e, 'tkhelp')) {
-            send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
+            send.promptWithAt(e, '当前群组已禁用绑定帮助功能。', {
+                kind: 'error',
+                actions: [{ command: `/${PHI_COMMAND_HEAD}`, label: '帮助' }],
+            })
             return false
         }
 
-        send.promptWithAt(e, `sessionToken有关帮助：\n【推荐】：点击登录链接绑定 TapTap 获取token\n指令：/${PHI_COMMAND_HEAD} bind qrcode\n【基础方法】详见《Phigros非官方查分指引》：https://kdocs.cn/l/cvMDjWPTNaz4\n绑定sessionToken指令：\n/${PHI_COMMAND_HEAD} bind <sessionToken>`, { kind: 'info', actions: [{ command: `/${PHI_COMMAND_HEAD} bind qrcode`, label: 'TapTap' }] })
+        send.promptWithAt(e, getBindingHelp(e, this.config), { kind: 'info', actions: [{ command: `/${PHI_COMMAND_HEAD} bind qrcode`, label: 'TapTap' }] })
     }
 
     /**
