@@ -254,64 +254,57 @@ export function gameQuickCommands(commandHead) {
     ]
 }
 
-/** 用户设置页：快捷入口必须能直接执行对应设置。 */
-export function userSettingQuickCommands(commandHead) {
+const USER_SETTING_COMMAND_ALIAS = {
+    theme: 'theme',
+    b30AvgKind: 'avgkind',
+    b30AvgColor: 'avgcolor',
+    allowApiUsage: 'api',
+    showB30Analysis: 'B30分析',
+}
+
+/** 按设置项决定按钮是否显示序号，并缩到 QQ 的 10 字上限。 */
+function userSettingButtonLabel(option, showIndex) {
+    const raw = String(option?.buttonTitle || option?.title || '').trim()
+    const source = showIndex ? raw : raw.replace(/^\[\d+\]/, '')
+    const chars = Array.from(source)
+    if (chars.length <= 10) return source
+    const prefix = source.match(/^\[\d+\]/)?.[0] || ''
+    const prefixLength = prefix.length
+    if (!prefixLength) return chars.slice(0, 10).join('')
+    return prefix + chars.slice(prefixLength, 10).join('')
+}
+
+/** 从设置图同一份 items 生成五行设置按钮，主题市场不进入键盘。 */
+export function userSettingCommandRows(items, commandHead) {
+    return (items || []).flatMap(item => {
+        const alias = USER_SETTING_COMMAND_ALIAS[item?.key]
+        if (!alias) return []
+        const row = (item.options || []).flatMap((option, index) => {
+            if (item.key === 'theme' && option.market) return []
+            const showIndex = item.key !== 'theme' && item.key !== 'b30AvgKind'
+            const label = userSettingButtonLabel(option, showIndex)
+            if (!label) return []
+            return [{ command: pageCommand(commandHead, `myset ${alias} ${index}`), label }]
+        })
+        return row.length ? [row] : []
+    })
+}
+
+/** 用户设置成功后的紧凑导航。 */
+export function userSettingSuccessActions(commandHead) {
     return [
-        { command: pageCommand(commandHead, 'myset theme 0'), label: '主题风格' },
-        { command: pageCommand(commandHead, 'myset avgkind 0'), label: 'B30统计数据展示' },
-        { command: pageCommand(commandHead, 'myset avgcolor 0'), label: 'B30均值条配色' },
-        { command: pageCommand(commandHead, 'myset api 0'), label: 'API功能开关' },
-        { command: pageCommand(commandHead, 'myset B30分析 0'), label: 'B30统计分析' },
-        { command: pageCommand(commandHead, 'market'), label: '主题市场' },
+        { command: pageCommand(commandHead, 'myset'), label: '继续设置' },
+        { command: pageCommand(commandHead, 'pgr'), label: 'B30成绩' },
+        { command: pageRoot(commandHead), label: '帮助' },
     ]
 }
 
-/** 用户设置页：每个设置区域单独展示该区域的全部选项。 */
-export function userSettingQuickCommandSections(commandHead) {
-    const command = (setting, value) => pageCommand(commandHead, `myset ${setting} ${value}`)
-    return [
-        {
-            title: '主题风格',
-            commands: [
-                { command: command('theme', 0), label: '[0]默认' },
-                { command: command('theme', 1), label: '[1]寒冬' },
-                { command: command('theme', 2), label: '[2]使一颗心免于哀伤' },
-                { command: command('theme', 3), label: '[3]大师赛2' },
-            ],
-        },
-        {
-            title: 'B30统计数据展示',
-            commands: [
-                { command: command('avgkind', 0), label: '[0]全部统计' },
-                { command: command('avgkind', 1), label: '[1]仅B30' },
-                { command: command('avgkind', 2), label: '[2]仅Top' },
-                { command: command('avgkind', 3), label: '[3]隐藏' },
-            ],
-        },
-        {
-            title: 'B30均值条配色',
-            commands: [
-                { command: command('avgcolor', 0), label: '[0]红' },
-                { command: command('avgcolor', 1), label: '[1]金' },
-                { command: command('avgcolor', 2), label: '[2]蓝' },
-                { command: command('avgcolor', 3), label: '[3]绿' },
-            ],
-        },
-        {
-            title: 'API功能开关',
-            commands: [
-                { command: command('api', 0), label: '[0]启用' },
-                { command: command('api', 1), label: '[1]禁用' },
-            ],
-        },
-        {
-            title: 'B30统计分析',
-            commands: [
-                { command: command('B30分析', 0), label: '[0]显示' },
-                { command: command('B30分析', 1), label: '[1]隐藏' },
-            ],
-        },
-    ]
+/** 成功提示使用全角方括号，避免提示转义在序号两侧插入反斜杠。 */
+export function userSettingSuccessMessage(settingTitle, optionTitle) {
+    const displayOption = String(optionTitle ?? '')
+        .replace(/\[/g, '［')
+        .replace(/\]/g, '］')
+    return `✅ 已更新「${settingTitle}」为「${displayOption}」`
 }
 
 /** API 用户设置页。 */

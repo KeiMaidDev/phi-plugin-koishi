@@ -61,9 +61,8 @@ function keyboardData(item: QqKeyboardCommand) {
     return String(item.type === 'link' ? item.href || item.command || '' : item.command || '').trim()
 }
 
-function normalizeKeyboardCommands(commands: QqKeyboardCommand[]) {
+function normalizeKeyboardCommands(commands: QqKeyboardCommand[], seen: Set<string>) {
     const result: QqKeyboardCommand[] = []
-    const seen = new Set<string>()
     for (const item of commands || []) {
         const command = keyboardData(item)
         const label = Array.from(String(item?.label ?? '').trim()).slice(0, 10).join('')
@@ -82,6 +81,64 @@ function normalizeKeyboardCommands(commands: QqKeyboardCommand[]) {
     return result
 }
 
+function buildKeyboard(rows: QqKeyboardCommand[][]) {
+    let buttonIndex = 0
+    return {
+        content: {
+            rows: rows
+                .filter(row => row.length)
+                .map(row => ({
+                    buttons: row.map(item => {
+                        const isLink = item.type === 'link'
+                        const isCallback = item.type === 'callback'
+                        const isInput = item.type === 'input'
+                        const action = isLink
+                            ? {
+                                type: 0,
+                                permission: { type: 2 },
+                                data: keyboardData(item),
+                                unsupport_tips: '当前 QQ 版本不支持链接按钮，请手动打开链接。',
+                            }
+                            : isCallback
+                                ? {
+                                    type: 1,
+                                    permission: { type: 2 },
+                                    data: keyboardData(item),
+                                    unsupport_tips: '当前 QQ 版本不支持回调按钮，请发送 /phi 重新打开菜单。',
+                                }
+                                : isInput
+                                    ? {
+                                        type: 2,
+                                        permission: { type: 2 },
+                                        data: keyboardData(item),
+                                        reply: false,
+                                        enter: false,
+                                        unsupport_tips: '当前 QQ 版本不支持输入按钮，请手动输入答案后发送。',
+                                    }
+                                    : {
+                                        type: 2,
+                                        permission: { type: 2 },
+                                        data: keyboardData(item),
+                                        reply: item.reply ?? false,
+                                        enter: item.enter ?? true,
+                                        unsupport_tips: '当前 QQ 版本不支持指令按钮，请手动发送指令。',
+                                    }
+                        const index = buttonIndex++
+                        return {
+                            id: `phi-quick-${index}`,
+                            render_data: {
+                                label: item.label,
+                                visited_label: item.label,
+                                style: item.style ?? 1,
+                            },
+                            action,
+                        }
+                    }),
+                })),
+        },
+    } satisfies QqKeyboard
+}
+
 /** 构建 QQ 指令/链接/回调键盘；默认每行 2 个，超过 5 行时按调用方顺序截断。 */
 export function buildQqKeyboard(
     commands: QqKeyboardCommand[],
@@ -93,64 +150,42 @@ export function buildQqKeyboard(
         ? requestedColumns
         : DEFAULT_KEYBOARD_BUTTONS_PER_ROW
     const maxButtons = MAX_KEYBOARD_ROWS * columns
-    let normalized = normalizeKeyboardCommands(commands)
+    let normalized = normalizeKeyboardCommands(commands, new Set<string>())
     if (normalized.length > maxButtons) {
         onOverflow?.(normalized.length)
         normalized = normalized.slice(0, maxButtons)
     }
     if (!normalized.length) return undefined
 
-    const rows: Array<{ buttons: QqKeyboardButton[] }> = []
+    const rows: QqKeyboardCommand[][] = []
     for (let index = 0; index < normalized.length; index += columns) {
-        rows.push({
-            buttons: normalized.slice(index, index + columns).map((item, offset) => {
-                const isLink = item.type === 'link'
-                const isCallback = item.type === 'callback'
-                const isInput = item.type === 'input'
-                const action = isLink
-                    ? {
-                        type: 0,
-                        permission: { type: 2 },
-                        data: keyboardData(item),
-                        unsupport_tips: '当前 QQ 版本不支持链接按钮，请手动打开链接。',
-                    }
-                    : isCallback
-                        ? {
-                            type: 1,
-                            permission: { type: 2 },
-                            data: keyboardData(item),
-                            unsupport_tips: '当前 QQ 版本不支持回调按钮，请发送 /phi 重新打开菜单。',
-                        }
-                        : isInput
-                            ? {
-                                type: 2,
-                                permission: { type: 2 },
-                                data: keyboardData(item),
-                                reply: false,
-                                enter: false,
-                                unsupport_tips: '当前 QQ 版本不支持输入按钮，请手动输入答案后发送。',
-                            }
-                    : {
-                        type: 2,
-                        permission: { type: 2 },
-                        data: keyboardData(item),
-                        reply: item.reply ?? false,
-                        enter: item.enter ?? true,
-                        unsupport_tips: '当前 QQ 版本不支持指令按钮，请手动发送指令。',
-                    }
-                return {
-                    id: `phi-quick-${index + offset}`,
-                    render_data: {
-                        label: item.label,
-                        visited_label: item.label,
-                        style: item.style ?? 1,
-                    },
-                    action,
-                }
-            }),
-        })
+        rows.push(normalized.slice(index, index + columns))
     }
-    return { content: { rows } } satisfies QqKeyboard
+    return buildKeyboard(rows)
+}
+
+/** 按调用方分组构建键盘；每组最多 5 个，总共最多 5 行。 */
+export function buildQqKeyboardRows(
+    groups: QqKeyboardCommand[][],
+    onOverflow?: (count: number) => void,
+) {
+    const seen = new Set<string>()
+    const rows: QqKeyboardCommand[][] = []
+    let overflow = 0
+    for (const group of groups || []) {
+        const normalized = normalizeKeyboardCommands(group, seen)
+        if (!normalized.length) continue
+        if (rows.length >= MAX_KEYBOARD_ROWS) {
+            overflow += normalized.length
+            continue
+        }
+        const visible = normalized.slice(0, 5)
+        overflow += normalized.length - visible.length
+        rows.push(visible)
+    }
+    if (overflow) onOverflow?.(overflow)
+    if (!rows.length) return undefined
+    return buildKeyboard(rows)
 }
 
 export async function createQqMarkdownElement(

@@ -75,18 +75,22 @@ export const USER_SETTING_OPTIONS = {
     theme: {
         default: {
             title: '[0]默认',
+            buttonTitle: '默认',
             description: '使用插件基础主题，使用随机曲绘作为背景。'
         },
         snow: {
             title: '[1]寒冬',
+            buttonTitle: '寒冬',
             description: '在默认的基础上加入飘落雪花元素。'
         },
         star: {
             title: '[2]使一颗心免于哀伤',
+            buttonTitle: '飞萤',
             description: '飞萤之火自无梦的长夜亮起，绽放在终竟的明天。'
         },
         dss2: {
             title: '[3]大师赛2',
+            buttonTitle: '大师赛2',
             description: 'Phigros 大师赛第二赛季主题配色'
         }
     },

@@ -13,7 +13,8 @@ import { getThemeInstallRequesterId } from '../theme/install-guard'
 import getBanGroup from '../../domain/user/get-ban-group'
 import send from '../../render/send'
 import { getApiAccessState } from '../../domain/user/api-permission'
-import { sendResultWithQuickCommands, userSettingQuickCommandSections } from '../../domain/game/markdown'
+import { sendResultWithQuickCommands, userSettingCommandRows, userSettingSuccessActions, userSettingSuccessMessage } from '../../domain/game/markdown'
+import { buildQqKeyboardRows } from '../../platform/qq-markdown'
 
 /**@import {botEvent} from '../base-class' */
 
@@ -243,7 +244,13 @@ export class phihelp extends phiPluginBase {
                 return true
             }
 
-            send.promptWithAt(e, `设置成功：${USER_SETTING_META[settingKey].title} -> ${optionMap[canonicalValue].title}`)
+            await send.promptWithAt(e, userSettingSuccessMessage(USER_SETTING_META[settingKey].title, optionMap[canonicalValue].title), {
+                kind: 'success',
+                actions: userSettingSuccessActions(PHI_COMMAND_HEAD),
+                buttonsPerRow: 3,
+                config: this.config,
+            })
+            return true
         }
 
         /**
@@ -284,15 +291,17 @@ export class phihelp extends phiPluginBase {
                     ...Object.keys(builtins).map(value => ({
                         value,
                         title: builtins[value].title,
+                        buttonTitle: builtins[value].buttonTitle,
                         description: builtins[value].description,
                         selected: value === current,
                     })),
                     {
                         value: customTheme?.id || '__market__',
-                        title: customTheme?.name || '自定义',
+                        title: customTheme?.name || '主题市场',
                         description: marketGuide,
                         selected: Boolean(customTheme),
                         fullWidth: true,
+                        market: true,
                     },
                 ],
             }
@@ -315,10 +324,12 @@ export class phihelp extends phiPluginBase {
             background: getInfo.getill(getInfo.illlist[Number((Math.random() * (getInfo.illlist.length - 1)).toFixed(0))]),
             theme: pluginData?.theme || 'default'
         }, 'userSetting')
-        const commands = userSettingQuickCommandSections(PHI_COMMAND_HEAD).flatMap(section => section.commands)
+        const commandRows = userSettingCommandRows(data.items, PHI_COMMAND_HEAD)
+        const commands = commandRows.flat()
+        const keyboard = buildQqKeyboardRows(commandRows)
         await sendResultWithQuickCommands(e, image, commands, {
             config: this.config,
-            buttonsPerRow: 2,
+            keyboard,
         })
         return true
     }
