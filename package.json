@@ -55,7 +55,7 @@
     "chokidar": "^4.0.3",
     "crypto-js": "^4.1.1",
     "csv": "^6.3.6",
-    "image-size": "2.0.2",
+    "image-size": "2.0.3",
     "jszip": "^3.10.1",
     "lodash": "^4.18.1",
     "node-fetch": "^3.3.2",
