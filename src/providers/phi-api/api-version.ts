@@ -1,4 +1,7 @@
 // @ts-nocheck
+/** 上报给 phi-plugin-api 的 Koishi 实现标识。 */
+export const API_PLUGIN_VERSION = 'koishi'
+
 /** 插件当前支持的 phi-plugin-api 协议版本。 */
 export const SUPPORTED_API_VERSION = '1.3.0'
 
