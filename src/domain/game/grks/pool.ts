@@ -1,24 +1,25 @@
 // @ts-nocheck
 import fs from 'node:fs'
 import path from 'node:path'
-import { dataPath, savePath } from '../../../utils/path'
+import { apiSavePath, dataPath, savePath } from '../../../utils/path'
 import logger from '../../../utils/logger'
-import LocalSaveRepository from '../../save/get-save'
 import { buildPuzzle } from './hints'
+import { apiSourceId, getSaveBySourceId, parseSourceId, sessionSourceId } from './source'
 
 /**
  * 出题池：扫描本地已绑定存档，统计可用于出题的 B30。
  *
- * 池中只保存轻量元数据（token / rks / 成绩条数 / 文件时间），
+ * 池中只保存轻量元数据（sourceId / rks / 成绩条数 / 文件时间），
  * 真正的谜题在抽中时才解析完整存档，避免常驻大量内存。
  *
  * @typedef {object} grksPoolEntry
- * @property {string} token sessionToken
+ * @property {string} sourceId 统一存档来源标识
  * @property {number} rks 存档 rks
  * @property {number} recordCount 有效成绩条数
  * @property {number} mtime save.json 的时间戳
  *
  * @typedef {object} grksPool
+ * @property {number} version 缓存结构版本
  * @property {number} builtAt 构建时间戳
  * @property {number} minRecord 构建时使用的成绩条数下限
  * @property {grksPoolEntry[]} entries 可出题的存档
@@ -26,11 +27,14 @@ import { buildPuzzle } from './hints'
  */
 
 const DEFAULT_POOL_FILE = path.join(dataPath, 'grksPool.json')
+const POOL_VERSION = 2
 
 /** @type {string} */
 let poolFile = DEFAULT_POOL_FILE
 /** @type {string} */
 let saveDir = savePath
+/** @type {string} */
+let apiSaveDir = apiSavePath
 
 /** @type {grksPool | null} */
 let cache = null
@@ -39,26 +43,29 @@ let building = null
 
 /**
  * 覆盖存档目录与池缓存路径（测试使用）。
- * @param {{saveDir?: string, poolFile?: string}} paths
+ * @param {{saveDir?: string, apiSaveDir?: string, poolFile?: string}} paths
  */
 export function setPoolPaths(paths = {}) {
     if (paths.saveDir) saveDir = paths.saveDir
+    if (paths.apiSaveDir) apiSaveDir = paths.apiSaveDir
     if (paths.poolFile) poolFile = paths.poolFile
     cache = null
 }
 
 /**
- * 读取存档目录下所有 sessionToken。
+ * 读取存档目录下所有绑定 ID。
+ * @param {string} directory
+ * @param {string} label
  * @returns {string[]}
  */
-function listSessionTokens() {
+function listDirectoryIds(directory, label) {
     try {
-        if (!fs.existsSync(saveDir)) return []
-        return fs.readdirSync(saveDir, { withFileTypes: true })
+        if (!fs.existsSync(directory)) return []
+        return fs.readdirSync(directory, { withFileTypes: true })
             .filter(item => item.isDirectory())
             .map(item => item.name)
     } catch (error) {
-        logger.warn('[phi-plugin][grks] 读取存档目录失败')
+        logger.warn(`[phi-plugin][grks] 读取${label}存档目录失败`)
         logger.warn(error)
         return []
     }
@@ -91,15 +98,16 @@ function readPoolCache() {
     try {
         if (!fs.existsSync(poolFile)) return null
         const raw = JSON.parse(fs.readFileSync(poolFile, 'utf8'))
-        if (!raw || !Array.isArray(raw.entries)) return null
+        if (!raw || Number(raw.version) !== POOL_VERSION || !Array.isArray(raw.entries)) return null
         return {
+            version: POOL_VERSION,
             builtAt: Number(raw.builtAt) || 0,
             minRecord: Number(raw.minRecord) || 0,
             scanned: Number(raw.scanned) || raw.entries.length,
             entries: raw.entries
-                .filter(/** @param {any} item */ item => item && item.token)
+                .filter(/** @param {any} item */ item => item && item.sourceId)
                 .map(/** @param {any} item */ item => ({
-                    token: String(item.token),
+                    sourceId: String(item.sourceId),
                     rks: Number(item.rks) || 0,
                     recordCount: Number(item.recordCount) || 0,
                     mtime: Number(item.mtime) || 0,
@@ -133,19 +141,25 @@ function writePoolCache(pool) {
 export function rebuildPool(minRecord, previous = null) {
     const threshold = Math.max(1, Math.trunc(Number(minRecord) || 27))
     /** @type {Map<string, grksPoolEntry>} */
-    const known = new Map((previous?.entries || []).map(entry => [entry.token, entry]))
+    const known = new Map((previous?.entries || []).map(entry => [entry.sourceId, entry]))
     /** @type {grksPoolEntry[]} */
     const entries = []
-    const tokens = listSessionTokens()
-    for (const token of tokens) {
-        const file = path.join(saveDir, token, 'save.json')
+    const sourceIds = [
+        ...listDirectoryIds(saveDir, 'sessionToken').map(sessionSourceId),
+        ...listDirectoryIds(apiSaveDir, 'API').map(apiSourceId),
+    ]
+    for (const sourceId of sourceIds) {
+        const source = parseSourceId(sourceId)
+        if (!source) continue
+        const directory = source.kind === 'session' ? saveDir : apiSaveDir
+        const file = path.join(directory, source.id, 'save.json')
         let mtime = 0
         try {
             mtime = fs.statSync(file).mtimeMs
         } catch {
             continue
         }
-        const cached = known.get(token)
+        const cached = known.get(sourceId)
         if (cached && cached.mtime === mtime && cached.recordCount >= threshold) {
             entries.push(cached)
             continue
@@ -155,7 +169,7 @@ export function rebuildPool(minRecord, previous = null) {
             const recordCount = countRecords(data)
             if (recordCount < threshold) continue
             entries.push({
-                token,
+                sourceId,
                 rks: Number(data?.saveInfo?.summary?.rankingScore) || 0,
                 recordCount,
                 mtime,
@@ -165,7 +179,7 @@ export function rebuildPool(minRecord, previous = null) {
         }
     }
     /** @type {grksPool} */
-    const pool = { builtAt: Date.now(), minRecord: threshold, entries, scanned: tokens.length }
+    const pool = { version: POOL_VERSION, builtAt: Date.now(), minRecord: threshold, entries, scanned: sourceIds.length }
     writePoolCache(pool)
     return pool
 }
@@ -201,7 +215,7 @@ export async function getPool(options = {}) {
 /**
  * 从池中挑一个可出题的存档。
  * @param {object} options
- * @param {string[]} [options.excludeTokens] 需要排除的 sessionToken（通常是发起者自己）
+ * @param {string[]} [options.excludeSourceIds] 需要排除的来源标识（通常是发起者自己）
  * @param {boolean} [options.allowFallback] 排除后为空时是否回退到被排除的存档
  * @param {number} [options.minRecord]
  * @param {number} [options.refreshHours]
@@ -210,13 +224,13 @@ export async function getPool(options = {}) {
  */
 export async function pickEntry(options = {}) {
     const pool = await getPool(options)
-    const exclude = new Set((options.excludeTokens || []).map(String).filter(Boolean))
+    const exclude = new Set((options.excludeSourceIds || []).map(String).filter(Boolean))
     const rng = options.rng || Math.random
-    const candidates = pool.entries.filter(entry => !exclude.has(entry.token))
+    const candidates = pool.entries.filter(entry => !exclude.has(entry.sourceId))
     if (candidates.length) {
         return { entry: candidates[Math.floor(rng() * candidates.length) % candidates.length], fallback: false }
     }
-    const fallbackList = pool.entries.filter(entry => exclude.has(entry.token))
+    const fallbackList = pool.entries.filter(entry => exclude.has(entry.sourceId))
     if (options.allowFallback !== false && fallbackList.length) {
         return { entry: fallbackList[Math.floor(rng() * fallbackList.length) % fallbackList.length], fallback: true }
     }
@@ -224,14 +238,14 @@ export async function pickEntry(options = {}) {
 }
 
 /**
- * 为一个 sessionToken 生成谜题。
- * @param {string} token
+ * 为一个统一来源标识生成谜题。
+ * @param {string} sourceId
  * @param {object} [options]
  * @param {any} [options.e] 平台事件，用于可选 API 调用
  * @returns {Promise<import('./hints.js').grksPuzzle | null>}
  */
-export async function loadPuzzle(token, options = {}) {
-    const save = await LocalSaveRepository.getSaveBySessionToken(/** @type {any} */ (token))
+export async function loadPuzzle(sourceId, options = {}) {
+    const save = await getSaveBySourceId(sourceId)
     if (!save) return null
     const b30 = await save.getB19(options.e, 33, { avgType: 'none' })
     /** @type {any[]} */
@@ -245,7 +259,7 @@ export async function loadPuzzle(token, options = {}) {
         b30,
         stats,
         challengeModeRank: save.saveInfo?.summary?.challengeModeRank,
-        sourceToken: token,
+        sourceId,
     })
 }
 

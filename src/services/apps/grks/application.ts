@@ -3,7 +3,6 @@ import type { Context } from 'koishi'
 import type { Config } from '../../../config'
 import type { PhiRuntime } from '../../../runtime-context'
 import { UserCredentials } from '../../../domain/user/user-credentials'
-import LocalSaveRepository from '../../../domain/save/get-save'
 import getBanGroup from '../../../domain/user/get-ban-group'
 import getInfo from '../../../domain/game/get-info'
 import send from '../../../render/send'
@@ -23,6 +22,7 @@ import {
 } from '../../../domain/game/grks/hints'
 import { drawPair } from '../../../domain/game/grks/draw-pair'
 import { getPool, loadPuzzle } from '../../../domain/game/grks/pool'
+import { getSaveBySourceId, preferredSourceId } from '../../../domain/game/grks/source'
 import { formatScoreValue, isCorrect, parseGuess, scoreForHintCount } from '../../../domain/game/grks/score'
 import {
   addGrksScore,
@@ -102,7 +102,7 @@ export function parseRankArgs(msg: string): GrksRankInput {
 }
 
 export interface PuzzleSource {
-  token: string
+  sourceId: string
   profile: GrksProfile
   puzzle: any
 }
@@ -163,7 +163,7 @@ export interface GrksApplicationOptions {
   banCheck?: (event: any) => Promise<boolean> | boolean
   loadPool?: typeof getPool
   loadPuzzle?: typeof loadPuzzle
-  loadSource?: (token: string, event: any, puzzle?: any) => Promise<PuzzleSource>
+  loadSource?: (sourceId: string, event: any, puzzle?: any) => Promise<PuzzleSource>
   loadOwnSource?: (event: any, minimum: number) => Promise<PuzzleSource | null>
 }
 
@@ -181,7 +181,7 @@ export class GrksApplication {
   banCheck: (event: any) => Promise<boolean> | boolean
   loadPool: typeof getPool
   loadPuzzle: typeof loadPuzzle
-  loadSource?: (token: string, event: any, puzzle?: any) => Promise<PuzzleSource>
+  loadSource?: (sourceId: string, event: any, puzzle?: any) => Promise<PuzzleSource>
   loadOwnSource?: (event: any, minimum: number) => Promise<PuzzleSource | null>
   soloRooms = new Map<string, SoloRoom>()
   startingRooms = new Set<string>()
@@ -412,22 +412,22 @@ export class GrksApplication {
     this.startingRooms.add(key)
     try {
       const cfg = this.cfg()
-      const ownToken = await this.ownToken(event)
+      const ownSourceId = await this.ownSource(event)
       const pool = await this.loadPool({ minRecord: cfg.minimum, refreshHours: cfg.poolRefreshHours })
-      const candidates = pool.entries.filter(entry => entry.token !== ownToken)
+      const candidates = pool.entries.filter(entry => entry.sourceId !== ownSourceId)
       const poolEntries = candidates.length ? candidates : pool.entries
       if (!poolEntries.length) {
-        await this.prompt(event, `暂无可出题的存档：需要本地存在有效成绩不少于 ${cfg.minimum} 条的绑定存档。`, this.homeActions())
+        await this.prompt(event, `暂无可出题的存档：需要本地存在有效成绩不少于 ${cfg.minimum} 条的绑定存档。API 绑定用户请先发送 /phi update 更新存档。`, this.homeActions())
         return false
       }
       const selected = poolEntries[Math.floor(this.rng() * poolEntries.length) % poolEntries.length]
-      const puzzle = await this.loadPuzzle(selected.token, { e: event })
+      const puzzle = await this.loadPuzzle(selected.sourceId, { e: event })
       if (!puzzle || puzzle.recordCount < cfg.minimum) {
         await this.prompt(event, '出题失败：存档的 B30 数据不完整，请稍后再试。', this.homeActions())
         return false
       }
-      const source = await this.puzzleSource(selected.token, event, puzzle)
-      let state = createSoloState(source.token)
+      const source = await this.puzzleSource(selected.sourceId, event, puzzle)
+      let state = createSoloState(source.sourceId)
       const first = applySoloHint(state, source.puzzle, {
         PositionHintAt: cfg.positionHintAt,
         HintRevealNum: cfg.revealNum,
@@ -569,11 +569,9 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     await this.prompt(event, text, this.homeActions(), this.buildSoloView(room, true, text))
     if (reason === 'correct') {
       try {
-        const token = await this.ownToken(event)
-        const save = await LocalSaveRepository.getSaveBySessionToken(token)
         await this.addScore(this.requireContext(), 'normal', event, points, {
           hints: room.state.hintCount,
-          profile: save ? profileFromSave(save) : undefined,
+          profile: await this.ownProfile(event),
         })
       } catch (error) {
         log.warn('[phi-plugin][grks] 记录单机积分失败', error)
@@ -581,30 +579,47 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     }
   }
 
-  private async ownToken(event: any) {
+  private async ownProfile(event: any) {
     try {
-      return await UserCredentials.fromEvent(event).getSessionToken()
+      const sourceId = await this.ownSource(event)
+      if (!sourceId) return undefined
+      const save = await getSaveBySourceId(sourceId)
+      return save ? profileFromSave(save) : undefined
     } catch {
       return undefined
     }
   }
 
-  private async puzzleSource(token: string, event: any, puzzle?: any): Promise<PuzzleSource> {
-    if (this.loadSource) return await this.loadSource(token, event, puzzle)
-    const save = await LocalSaveRepository.getSaveBySessionToken(token)
-    const resolvedPuzzle = puzzle || await this.loadPuzzle(token, { e: event })
+  private async ownSource(event: any) {
+    try {
+      const credentials = await UserCredentials.fromEvent(event).getLocalCredentials()
+      return preferredSourceId(credentials)
+    } catch {
+      return undefined
+    }
+  }
+
+  private async puzzleSource(sourceId: string, event: any, puzzle?: any): Promise<PuzzleSource> {
+    if (this.loadSource) return await this.loadSource(sourceId, event, puzzle)
+    const save = await getSaveBySourceId(sourceId)
+    const resolvedPuzzle = puzzle || await this.loadPuzzle(sourceId, { e: event })
     if (!save || !resolvedPuzzle) throw new Error('无法读取 GRKS 存档')
     const profile = profileFromSave(save)
     resolvedPuzzle.profile = profile
-    return { token, puzzle: resolvedPuzzle, profile }
+    return { sourceId, puzzle: resolvedPuzzle, profile }
   }
 
   private async loadOwnPuzzle(event: any, minimum: number): Promise<PuzzleSource | null> {
     if (this.loadOwnSource) return await this.loadOwnSource(event, minimum)
-    const token = await this.ownToken(event)
-    if (!token) return null
-    const source = await this.puzzleSource(token, event)
-    return source.puzzle.recordCount >= minimum ? source : null
+    const sourceId = await this.ownSource(event)
+    if (!sourceId) return null
+    try {
+      const source = await this.puzzleSource(sourceId, event)
+      return source.puzzle.recordCount >= minimum ? source : null
+    } catch (error) {
+      log.warn('[phi-plugin][grks] 读取本人存档失败', error)
+      return null
+    }
   }
 
   async match(event: any) {
@@ -628,7 +643,7 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     const cfg = this.cfg()
     const source = await this.loadOwnPuzzle(event, cfg.minimum)
     if (!source) {
-      await this.prompt(event, `匹配需要完整 P3 和 B27，且至少有 ${cfg.minimum} 条有效成绩，请更新存档后重试。`, this.homeActions())
+      await this.prompt(event, `匹配需要完整 P3 和 B27，且至少有 ${cfg.minimum} 条有效成绩。API 缓存缺失或过旧时，请先发送 /phi update 更新存档后重试。`, this.homeActions())
       return false
     }
     const ctx = this.requireContext()
@@ -725,11 +740,11 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
   private async createMatchRoom(left: QueueEntry, right: QueueEntry): Promise<MatchRoom | null> {
     let leftAnswer = right.puzzle
     let rightAnswer = left.puzzle
-    if (left.token === right.token) {
+    if (left.sourceId === right.sourceId) {
       const cfg = this.cfg()
       const pool = await this.loadPool({ minRecord: cfg.minimum, refreshHours: cfg.poolRefreshHours })
-      const tokens = pool.entries.map(entry => entry.token)
-      const drawn = await drawPair(tokens, left.token, right.token, token => this.loadPuzzle(token, { e: left.event }))
+      const sourceIds = pool.entries.map(entry => entry.sourceId)
+      const drawn = await drawPair(sourceIds, left.sourceId, right.sourceId, sourceId => this.loadPuzzle(sourceId, { e: left.event }))
       if (!drawn) return null
       leftAnswer = drawn[0]
       rightAnswer = drawn[1]

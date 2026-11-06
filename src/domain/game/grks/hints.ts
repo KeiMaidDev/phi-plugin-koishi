@@ -44,7 +44,7 @@ export const NOINFO_TEXT = 'noinfo'
  * @property {number} phi φ 数
  *
  * @typedef {object} grksPuzzle 谜题（某个玩家的 B30）
- * @property {string} sourceToken 出题存档的 sessionToken
+ * @property {string} sourceId 出题存档的统一来源标识
  * @property {number} rks B30 计算得到的 rks（答案）
  * @property {grksSlotRecord[]} slots 参与计算的成绩，已按槽位顺序排列
  * @property {number} phiCount P 槽数量
@@ -62,10 +62,10 @@ export const NOINFO_TEXT = 'noinfo'
  * @param {{phi?: any[], b19_list?: any[]}} options.b30 getB19 的返回
  * @param {import('../b30Analysis.js').B30AnalysisRecord[] | any[]} [options.stats] `Save.getStats()` 的返回
  * @param {number} [options.challengeModeRank] 课题模式分数
- * @param {string} [options.sourceToken] 出题存档 token
+ * @param {string} [options.sourceId] 出题存档来源标识
  * @returns {grksPuzzle}
  */
-export function buildPuzzle({ b30, stats, challengeModeRank, sourceToken }) {
+export function buildPuzzle({ b30, stats, challengeModeRank, sourceId }) {
     /** @type {grksSlotRecord[]} */
     const slots = []
     const phi = Array.isArray(b30?.phi) ? b30.phi.slice(0, 3) : []
@@ -89,7 +89,7 @@ export function buildPuzzle({ b30, stats, challengeModeRank, sourceToken }) {
     const rks = Math.round(totalRks / 30 * 10000) / 10000
 
     return {
-        sourceToken: String(sourceToken || ''),
+        sourceId: String(sourceId || ''),
         rks,
         slots,
         phiCount: slots.filter(slot => slot.kind === 'phi').length,
