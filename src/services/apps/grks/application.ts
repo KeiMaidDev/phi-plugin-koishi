@@ -265,6 +265,7 @@ export class GrksApplication {
   private soloActions(): PromptAction[] {
     return [
       { type: 'input', command: '/phi grks ', label: '输入答案' },
+      { command: '/phi grks hint', label: '提示' },
       { command: '/phi grks ans', label: '看答案' },
       { command: '/phi grks lb', label: '排行榜' },
     ]
@@ -461,6 +462,25 @@ export class GrksApplication {
     }
   }
 
+  private applyNextSoloHint(room: SoloRoom, touchGuess = false) {
+    const cfg = this.cfg()
+    const next = applySoloHint(room.state, room.puzzle, {
+      PositionHintAt: cfg.positionHintAt,
+      HintRevealNum: cfg.revealNum,
+      StatsHint: cfg.statsHint,
+    }, this.rng)
+    const now = this.now()
+    room.state = {
+      ...next.state,
+      lastHintAt: now,
+      ...(touchGuess ? { lastGuessAt: now } : {}),
+    }
+    room.latestHint = next.hint
+    this.appendSoloHint(room, next.hint)
+    room.lastHintAt = now
+    return next.hint
+  }
+
   async guess(event: any, rawValue: string) {
     const identity = grksIdentity(event)
     const match = this.userMatches.get(identity.userId)
@@ -506,15 +526,7 @@ export class GrksApplication {
     let hintText = ''
     if (now - room.lastHintAt >= cfg.hintCd * 1000) {
       try {
-        const next = applySoloHint(room.state, room.puzzle, {
-          PositionHintAt: cfg.positionHintAt,
-          HintRevealNum: cfg.revealNum,
-          StatsHint: cfg.statsHint,
-        }, this.rng)
-        room.state = { ...next.state, lastHintAt: now, lastGuessAt: now }
-        room.latestHint = next.hint
-        this.appendSoloHint(room, next.hint)
-        room.lastHintAt = now
+        this.applyNextSoloHint(room, true)
         hintText = `
 ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: room.state.revealedSlots, positionRevealed: room.state.positionRevealed })}`
       } catch (error) {
@@ -868,10 +880,39 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     const cfg = this.cfg()
     room.timer = this.schedule(() => { void this.onMatchTimeout(room).catch(error => log.warn('[phi-plugin][grks] 匹配阶段超时处理失败', error)) }, Math.max(10, cfg.matchTime) * 1000)
   }
+  private async hintSolo(event: any, room: SoloRoom) {
+    const cfg = this.cfg()
+    const now = this.now()
+    const wait = Math.max(0, Math.ceil((room.lastHintAt + cfg.hintCd * 1000 - now) / 1000))
+    if (wait > 0) {
+      await this.prompt(event, `⏳ 还需等待 ${wait}s 才能获得下一条线索。`, this.soloActions())
+      return false
+    }
+    try {
+      room.event = event
+      const hint = this.applyNextSoloHint(room)
+      this.armSoloTimeout(room)
+      const text = hint.kind === 'exhausted'
+        ? '📖 线索已全部公开，可以直接作答或看答案。'
+        : [
+            '💡 新线索',
+            formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: room.state.revealedSlots, positionRevealed: room.state.positionRevealed }),
+          ].join('\n')
+      await this.prompt(event, text, this.soloActions(), this.buildSoloView(room, false, this.soloFootnote(room)))
+      return true
+    } catch (error) {
+      log.warn('[phi-plugin][grks] 生成单机线索失败', error)
+      await this.prompt(event, '生成线索失败，请稍后再试。', this.soloActions())
+      return false
+    }
+  }
+
   async hint(event: any, input: GrksHintInput) {
     const identity = grksIdentity(event)
     const room = this.userMatches.get(identity.userId)
     if (!room) {
+      const soloRoom = this.soloRooms.get(channelKey(event))
+      if (soloRoom) return await this.hintSolo(event, soloRoom)
       if (this.queue.has(identity.userId)) {
         await this.prompt(event, '还在匹配队列中，进入对局后才能选择线索。', this.matchActions())
       } else {

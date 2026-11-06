@@ -304,8 +304,8 @@
             },
             {
                 "title": "/phi grks<br>/phi 猜rks",
-                "eg": "/phi grks · /phi grks 15.25 · /phi grks ans · /phi grks match · /phi grks hint B7 · /phi grks lb",
-                "desc": "猜 RKS 小游戏。单机模式按提示猜测 B30 RKS；匹配模式与其他会话玩家互猜，支持槽位/统计/课题提示及积分、胜率、准确率榜"
+                "eg": "/phi grks · /phi grks 15.25 · /phi grks hint · /phi grks ans · /phi grks match · /phi grks hint B7 · /phi grks lb",
+                "desc": "猜 RKS 小游戏。单机模式可手动获取线索后猜 B30 RKS；匹配模式与其他会话玩家互猜，支持槽位/统计/课题线索及积分、胜率、准确率排行榜"
             },
             {
                 "title": "/theme",
