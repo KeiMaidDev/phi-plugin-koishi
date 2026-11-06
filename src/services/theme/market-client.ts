@@ -119,8 +119,8 @@ function configuredDownloadOrigin(config) {
     return url.origin
 }
 
-/** @param {any} value @param {string} themeId */
-function validateDownload(value, themeId) {
+/** @param {any} value @param {string} themeId @param {any} config */
+function validateDownload(value, themeId, config) {
     const download = value?.download
     let url
     try {
@@ -177,7 +177,7 @@ export async function authorizeThemeDownload(config, themeId, requestId = crypto
     for (let attempt = 0; attempt < AUTH_ATTEMPTS; attempt++) {
         try {
             const response = await makeRequest.requestThemeDownload({ requestId, themeId })
-            return validateDownload(response, themeId)
+            return validateDownload(response, themeId, config)
         } catch (error) {
             if (!retryableAuthorization(error) || attempt + 1 >= AUTH_ATTEMPTS) throw error
             await sleep(retryDelay(error, attempt))
