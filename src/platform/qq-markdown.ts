@@ -57,7 +57,7 @@ export function isQqMarkdownPlatform(event: any) {
 }
 
 function keyboardData(item: QqKeyboardCommand) {
-    if (item.type === 'input') return ' '
+    if (item.type === 'input') return String(item.command || '') || ' '
     return String(item.type === 'link' ? item.href || item.command || '' : item.command || '').trim()
 }
 
