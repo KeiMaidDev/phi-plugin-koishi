@@ -264,7 +264,7 @@ export class phiMarket extends phiPluginBase {
             const caught = /** @type {any} */ (error)
             const code = typeof caught?.code === 'string' && /^[a-z0-9_]{1,80}$/.test(caught.code)
                 ? caught.code : 'theme_install_failed'
-            logger.warn(`[phi-plugin][主题市场] ${themeId} 启用失败：${code}`)
+            logger.warn(`[phi-plugin][主题市场] ${themeId} 启用失败：${code}`, error)
             send.promptWithAt(e, marketThemeErrorMessage(error))
             return true
         }

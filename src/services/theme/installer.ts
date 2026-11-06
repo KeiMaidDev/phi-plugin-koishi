@@ -45,6 +45,55 @@ function normalizedZipError(error) {
     }
     return new ThemeMarketClientError('theme_package_invalid')
 }
+const DIRECTORY_MOVE_RETRY_CODES = new Set(['EPERM', 'EACCES', 'EBUSY'])
+
+/** @param {number} ms */
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+/**
+ * Windows may reject directory rename with EPERM even when source and target
+ * are on the same volume. Keep the atomic rename fast path, then fall back to
+ * copying the verified staging directory before removing the source.
+ * @param {string} source
+ * @param {string} target
+ * @param {{allowSourceCleanupFailure?:boolean}} [options]
+ */
+async function moveDirectory(source, target, options = {}) {
+    let lastError
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            await fs.promises.rename(source, target)
+            return
+        } catch (error) {
+            lastError = error
+            if (!DIRECTORY_MOVE_RETRY_CODES.has(/** @type {any} */ (error)?.code) || attempt === 2) break
+            await sleep(100 * (attempt + 1))
+        }
+    }
+    if (!DIRECTORY_MOVE_RETRY_CODES.has(/** @type {any} */ (lastError)?.code)) throw lastError
+    if (await fs.promises.lstat(target).catch(() => null)) throw lastError
+
+    try {
+        await fs.promises.cp(source, target, {
+            recursive: true,
+            errorOnExist: true,
+            force: false,
+            preserveTimestamps: true,
+        })
+    } catch (error) {
+        await fs.promises.rm(target, { recursive: true, force: true }).catch(() => {})
+        throw error
+    }
+
+    try {
+        await fs.promises.rm(source, { recursive: true, force: true })
+    } catch (error) {
+        if (!options.allowSourceCleanupFailure) {
+            await fs.promises.rm(target, { recursive: true, force: true }).catch(() => {})
+            throw error
+        }
+    }
+}
 
 /** @param {string} zipPath @returns {Promise<import('jszip')>} */
 async function loadZip(zipPath) {
@@ -349,17 +398,18 @@ async function installMarketArchiveUnlocked(themeId, download, zipPath) {
             })
             await assertMarketInstallQuota(themeId, stage)
             if (existing) {
-                await fs.promises.rename(target, backup)
+                await moveDirectory(target, backup)
                 movedOld = true
             }
-            await fs.promises.rename(stage, target)
+            await moveDirectory(stage, target, { allowSourceCleanupFailure: true })
             installed = true
             if (movedOld) await fs.promises.rm(backup, { recursive: true, force: true }).catch(() => {})
             return receipt
         } catch (error) {
             if (!installed && movedOld) {
                 const targetNow = await fs.promises.lstat(target).catch(() => null)
-                if (!targetNow) await fs.promises.rename(backup, target).catch(() => {})
+                if (targetNow) await fs.promises.rm(target, { recursive: true, force: true }).catch(() => {})
+                await moveDirectory(backup, target).catch(() => {})
             }
             throw error
         } finally {
