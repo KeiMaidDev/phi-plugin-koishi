@@ -3,8 +3,6 @@ import platform from '../platform'
 import { buildQqKeyboard, createQqMarkdownElement, isQqMarkdownPlatform, type QqKeyboard, type QqKeyboardCommand } from '../platform/qq-markdown'
 import { formatMarkdownImage, getMarkdownImageDimensions, isPublicHttpUrl, type MarkdownImageAssets, type MarkdownImageLogger } from '../platform/markdown-images'
 import logger from '../utils/logger'
-import { PHI_COMMAND_HEAD } from '../constants'
-import { phiSubcommandCommand } from '../utils/phi-command'
 
 const platformApi = platform as any
 const promptLogger = logger as MarkdownImageLogger
@@ -22,26 +20,6 @@ export type PromptKind = 'info' | 'help' | 'error' | 'warning' | 'success' | 'co
 export interface PromptAction extends QqKeyboardCommand {
   href?: string
   type?: 'command' | 'link'
-}
-
-const DEFAULT_MARKDOWN_ACTIONS: PromptAction[] = [
-  { command: `/${PHI_COMMAND_HEAD} pgr`, label: 'B30成绩' },
-  { command: `/${PHI_COMMAND_HEAD} myset`, label: '用户设置' },
-  { command: `/${PHI_COMMAND_HEAD}`, label: '帮助' },
-]
-
-/** 按当前消息生成“我也要查”按钮，只保留用户原调用的子命令。 */
-function currentQueryAction(event: any): PromptAction {
-  const head = String(PHI_COMMAND_HEAD)
-  const source = String(event?.msg || event?.text || event?.session?.stripped?.content || event?.session?.content || '')
-  return {
-    command: phiSubcommandCommand(head, source, event?.phiSubcommand),
-    label: '我也要查',
-  }
-}
-
-function defaultMarkdownActions(event: any): PromptAction[] {
-  return [currentQueryAction(event), ...DEFAULT_MARKDOWN_ACTIONS]
 }
 
 export interface PromptOptions {
@@ -235,7 +213,7 @@ export async function sendPrompt(event: any, content: unknown, options: PromptOp
     const markdown = await contentToMarkdown(content, { ...options, assets })
     if (!markdown.trim()) return sendFallback(wrapped, content, options)
     const prefix = options.mention ? promptMentionPrefix(wrapped) : ''
-    const actions = options.actions?.length ? promptActions(options.actions) : defaultMarkdownActions(wrapped)
+    const actions = promptActions(options.actions)
     const keyboard = options.keyboard === false
       ? undefined
       : options.keyboard ?? buildQqKeyboard(actions, undefined, options.buttonsPerRow)

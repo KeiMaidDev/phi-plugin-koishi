@@ -83,7 +83,7 @@ export class phiuser extends phiPluginBase {
         }
         if (save.gameProgress) {
             let data = save.gameProgress.money
-            send.promptWithAt(e, `您的data数为：${data[4] ? `${data[4]}PB ` : ''}${data[3] ? `${data[3]}TB ` : ''}${data[2] ? `${data[2]}GB ` : ''}${data[1] ? `${data[1]}MB ` : ''}${data[0] ? `${data[0]}KB ` : ''}`)
+            await sendResultWithQuickCommands(e, `您的data数为：${data[4] ? `${data[4]}PB ` : ''}${data[3] ? `${data[3]}TB ` : ''}${data[2] ? `${data[2]}GB ` : ''}${data[1] ? `${data[1]}MB ` : ''}${data[0] ? `${data[0]}KB ` : ''}`, userListQuickCommands(PHI_COMMAND_HEAD), { config: this.config, query: true })
         } else {
             send.promptWithAt(e, `请先更新数据哦！\n/${PHI_COMMAND_HEAD} update`)
         }
@@ -285,7 +285,7 @@ export class phiuser extends phiPluginBase {
 
         const infoVersion = e.msg.match(new RegExp(`^[#/](?:${PHI_COMMAND_HEAD})\\s*info([12])?`, 'i'))?.at(-1)
         const kind = Number(infoVersion || 0)
-        send.promptWithAt(e, await picmodle.user_info(e, data, kind))
+        await sendResultWithQuickCommands(e, await picmodle.user_info(e, data, kind), userListQuickCommands(PHI_COMMAND_HEAD), { config: this.config, query: true })
     }
 
     /**
@@ -511,7 +511,7 @@ export class phiuser extends phiPluginBase {
         // remsg += `φ:${totRating['phi']} FC:${totRating['FC']} V:${totRating['V']} S:${totRating['S']} A:${totRating['A']} B:${totRating['B']} C:${totRating['C']} F:${totRating['F']}`
 
 
-        send.promptWithAt(e, await picmodle.lvsco(e, data))
+        await sendResultWithQuickCommands(e, await picmodle.lvsco(e, data), userListQuickCommands(PHI_COMMAND_HEAD), { config: this.config, query: true })
     }
 
     /**
@@ -635,6 +635,7 @@ export class phiuser extends phiPluginBase {
             : image
         await sendResultWithQuickCommands(e, content, userListQuickCommands(PHI_COMMAND_HEAD), {
             config: this.config,
+            query: true,
         })
         return true
     }
@@ -671,7 +672,7 @@ export class phiuser extends phiPluginBase {
         await sendResultWithQuickCommands(e, await picmodle.analyzeSaveHistory(e, {
             stats,
             background: getInfo.getill(getInfo.illlist[fCompute.randInt(0, getInfo.illlist.length - 1)]),
-        }), historyQuickCommands(PHI_COMMAND_HEAD), { config: this.config })
+        }), historyQuickCommands(PHI_COMMAND_HEAD), { config: this.config, query: true })
     }
 
     /**
@@ -962,7 +963,7 @@ export class phiuser extends phiPluginBase {
             rows,
             background: getInfo.getill(illList[fCompute.randInt(0, illList.length - 1)]),
             theme: pluginData?.theme || 'star',
-        }), historyQuickCommands(PHI_COMMAND_HEAD), { config: this.config })
+        }), historyQuickCommands(PHI_COMMAND_HEAD), { config: this.config, query: true })
 
     }
 

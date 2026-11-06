@@ -87,6 +87,7 @@ export class phiRankList extends phiPluginBase {
                 const image = await picmodle.common(e, 'rankingList', data)
                 await sendResultWithQuickCommands(e, [image, `总数据量：${data.totDataNum}`], rankQuickCommands(PHI_COMMAND_HEAD), {
                     config: this.config,
+                    query: true,
                     buttonsPerRow: 2,
                 })
                 return true
@@ -151,6 +152,7 @@ export class phiRankList extends phiPluginBase {
         const image = await picmodle.common(e, 'rankingList', data)
         await sendResultWithQuickCommands(e, [image, `总数据量：${data.totDataNum}`], rankQuickCommands(PHI_COMMAND_HEAD), {
             config: this.config,
+            query: true,
             buttonsPerRow: 2,
         })
     }
@@ -177,6 +179,7 @@ export class phiRankList extends phiPluginBase {
             if (res) {
                 await sendResultWithQuickCommands(e, `当前服务器记录中一共有 ${res.rksRank}/${res.totNum} 位玩家的 rks 大于 ${rks}！`, rankQuickCommands(PHI_COMMAND_HEAD), {
                     config: this.config,
+                    query: true,
                     buttonsPerRow: 2,
                 })
                 return true
@@ -189,6 +192,7 @@ export class phiRankList extends phiPluginBase {
 
         await sendResultWithQuickCommands(e, `当前服务器记录中一共有 ${totDataNum - rank + 1}/${totDataNum} 位玩家的 rks 大于等于 ${rks}！`, rankQuickCommands(PHI_COMMAND_HEAD), {
             config: this.config,
+            query: true,
             buttonsPerRow: 2,
         })
 

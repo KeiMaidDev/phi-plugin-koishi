@@ -696,7 +696,7 @@ export class phib19 extends phiPluginBase {
 
         if (e.isGroup) {
             /**群聊只发送10条 */
-            send.promptWithAt(e, Remsg[0])
+            sendResultWithQuickCommands(e, Remsg[0], [], { query: true, config: this.config })
             send.promptWithAt(e, `消息过长，自动转为私聊发送喵～`)
             send.pick_send(e, await common.makeForwardMsg(e, Remsg, undefined))
         } else {
@@ -958,6 +958,7 @@ export class phib19 extends phiPluginBase {
         })
         await sendResultWithQuickCommands(e, truncateNotice ? [image, truncateNotice] : image, suggestQuickCommands(PHI_COMMAND_HEAD), {
             config: this.config,
+            query: true,
             buttonsPerRow: 2,
         })
 
@@ -1091,6 +1092,7 @@ export class phib19 extends phiPluginBase {
         })
         await sendResultWithQuickCommands(e, image, chapterQuickCommands(PHI_COMMAND_HEAD), {
             config: this.config,
+            query: true,
             buttonsPerRow: 2,
         })
 
@@ -1198,6 +1200,7 @@ export class phib19 extends phiPluginBase {
         const image = await picmodle.common(e, 'table', data)
         await sendResultWithQuickCommands(e, image, achievementQuickCommands(PHI_COMMAND_HEAD), {
             config: this.config,
+            query: true,
             buttonsPerRow: 2,
         })
     }

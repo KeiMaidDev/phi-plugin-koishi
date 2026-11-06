@@ -71,13 +71,16 @@ export async function sendQuickCommandMarkdown(e, markdown, commands, config, bu
  * @param {botEvent} e
  * @param {unknown} content
  * @param {{command:string,label:string}[]} commands
- * @param {{config?:any,kind?:string,markdown?:boolean,buttonsPerRow?:number,fallback?:unknown,keyboard?:any}} [options]
+ * @param {{config?:any,kind?:string,markdown?:boolean,buttonsPerRow?:number,fallback?:unknown,keyboard?:any,query?:boolean,command?:string}} [options]
  */
 export async function sendResultWithQuickCommands(e, content, commands, options = {}) {
+    const actions = options.query
+        ? queryWithReplayAction(commands, e, PHI_COMMAND_HEAD, options.command)
+        : commands
     return await send.promptWithAt(e, content, {
         kind: options.kind || 'help',
         markdown: options.markdown === true,
-        actions: commands,
+        actions,
         buttonsPerRow: options.buttonsPerRow,
         keyboard: options.keyboard,
         config: options.config,
@@ -152,6 +155,20 @@ function pageRoot(commandHead) {
  */
 export function replayableScoreCommand(commandHead, currentCommand, subcommand) {
     return phiSubcommandCommand(commandHead, currentCommand, subcommand)
+}
+
+/** 按当前消息生成“我也要查”按钮，只保留用户原调用的子命令。 */
+export function replayQueryAction(e, commandHead = PHI_COMMAND_HEAD, currentCommand) {
+    const source = currentCommand || e?.msg || e?.text || e?.session?.stripped?.content || e?.session?.content || ''
+    return {
+        command: phiSubcommandCommand(commandHead, source, e?.phiSubcommand),
+        label: '我也要查',
+    }
+}
+
+/** 在用户数据查询结果的首位加入“我也要查”。 */
+export function queryWithReplayAction(commands, e, commandHead = PHI_COMMAND_HEAD, currentCommand) {
+    return [replayQueryAction(e, commandHead, currentCommand), ...(commands || [])]
 }
 
 /** 成绩图底部的三个快捷动作。 */
@@ -342,7 +359,7 @@ export function updateQuickCommands(commandHead) {
 /** 成绩筛选页。 */
 export function userListQuickCommands(commandHead) {
     return [
-        { command: pageCommand(commandHead, 'list'), label: '我也要查' },
+        { command: pageCommand(commandHead, 'list'), label: '成绩筛选' },
         { command: pageCommand(commandHead, 'pgr'), label: 'B30成绩' },
         { command: pageCommand(commandHead, 'info'), label: '个人信息' },
         { command: pageRoot(commandHead), label: '帮助' },
