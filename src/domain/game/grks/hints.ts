@@ -407,27 +407,27 @@ export function validateMatchHint(side, puzzle, type, arg) {
     const text = String(arg ?? '').trim()
     if (type === 'records') {
         if (!text) {
-            return { ok: false, error: '提示类型 1 需要指定槽位，例如：grks hint 1 B7（可选 P1-P3 / B1-B27）' }
+            return { ok: false, error: '请指定要公开的槽位，例如 B7。' }
         }
         const slot = normalizeSlotName(text)
-        if (!slot) return { ok: false, error: `槽位 ${text} 不合法，可选 P1-P3 / B1-B27` }
+        if (!slot) return { ok: false, error: `槽位 ${text} 不存在，可选 P1-P3 / B1-B27。` }
         if (!puzzle.slots.some(item => item.slot === slot)) {
-            return { ok: false, error: `你的 B30 中不存在槽位 ${slot}（数据不足 30 条）` }
+            return { ok: false, error: `你的 B30 不足 30 条，没有槽位 ${slot}。` }
         }
         if (side.revealedSlots.includes(slot)) {
             const remain = puzzle.slots.filter(item => !side.revealedSlots.includes(item.slot)).length
-            return { ok: false, error: `${slot} 已经提示过了，还剩 ${remain} 个槽位可提示` }
+            return { ok: false, error: `${slot} 已经提示过了，还剩 ${remain} 个槽位可选。` }
         }
         return { ok: true, slot }
     }
     if (type === 'stats') {
         if (!text) return { ok: true }
         if (text !== 'histogram' && text !== 'range') {
-            return { ok: false, error: '提示类型 3 的参数只能是 histogram 或 range，留空则随机' }
+            return { ok: false, error: '统计图只能选择 histogram 或 range。' }
         }
         return { ok: true, statsKind: /** @type {'histogram' | 'range'} */ (text) }
     }
-    if (text) return { ok: false, error: '提示类型 4 不需要参数' }
+    if (text) return { ok: false, error: '课题信息不需要参数。' }
     return { ok: true }
 }
 
@@ -443,7 +443,7 @@ export function validateMatchHint(side, puzzle, type, arg) {
  */
 export function applyMatchHint(side, puzzle, type, arg, cfg, rng = Math.random) {
     const check = validateMatchHint(side, puzzle, type, arg)
-    if (!check.ok) return { ok: false, error: check.error || '提示参数不合法' }
+    if (!check.ok) return { ok: false, error: check.error || '线索参数无效' }
     if (type === 'records') {
         const slot = /** @type {string} */ (check.slot)
         return {

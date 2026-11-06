@@ -264,26 +264,26 @@ export class GrksApplication {
 
   private soloActions(): PromptAction[] {
     return [
-      { type: 'input', command: '/phi grks ', label: '输入RKS' },
-      { command: '/phi grks ans', label: '公布答案' },
-      { command: '/phi grks lb', label: '积分榜' },
+      { type: 'input', command: '/phi grks ', label: '输入答案' },
+      { command: '/phi grks ans', label: '看答案' },
+      { command: '/phi grks lb', label: '排行榜' },
     ]
   }
 
   private matchActions(): PromptAction[] {
     return [
-      { command: '/phi grks hint B7', label: '提示B7' },
-      { command: '/phi grks hint 3', label: '统计提示' },
-      { command: '/phi grks hint 4', label: '课题提示' },
+      { command: '/phi grks hint B7', label: '提示 B7' },
+      { command: '/phi grks hint 3', label: '直方图' },
+      { command: '/phi grks hint 4', label: '课题信息' },
       { command: '/phi grks cancel', label: '退出' },
     ]
   }
 
   private homeActions(): PromptAction[] {
     return [
-      { command: '/phi grks', label: '开始猜RKS' },
-      { command: '/phi grks match', label: '匹配' },
-      { command: '/phi grks lb', label: '积分榜' },
+      { command: '/phi grks', label: '开始' },
+      { command: '/phi grks match', label: '匹配对战' },
+      { command: '/phi grks lb', label: '排行榜' },
     ]
   }
 
@@ -331,10 +331,10 @@ export class GrksApplication {
   }
 
   private hintLabel(hint: any) {
-    if (!hint || hint.kind === 'exhausted') return '成绩已全部公开'
-    if (hint.kind === 'records') return `公开成绩 ${hint.slots?.join(' / ') || ''}`.trim()
-    if (hint.kind === 'stats') return hint.statsKind === 'range' ? '等效 RKS 上下界' : '等效 RKS 直方图'
-    return '存档统计与课题分'
+    if (!hint || hint.kind === 'exhausted') return '线索已全部公开'
+    if (hint.kind === 'records') return `公开 ${hint.slots?.join(' / ') || '随机成绩'}`.trim()
+    if (hint.kind === 'stats') return hint.statsKind === 'range' ? 'RKS 区间' : 'RKS 直方图'
+    return '统计与课题分'
   }
 
   private appendSoloHint(room: SoloRoom, hint: any) {
@@ -378,10 +378,10 @@ export class GrksApplication {
   private soloFootnote(room: SoloRoom) {
     const cfg = this.cfg()
     return [
-      `第 ${room.state.hintCount} 条提示`,
-      `回答冷却 ${cfg.soloCd}s`,
-      cfg.wrongLimit ? `最多猜错 ${cfg.wrongLimit} 次` : '猜错次数不设上限',
-      `发送 ${this.commandPrefix()} <数值> 猜测，${this.commandPrefix()} ans 放弃`,
+      `第 ${room.state.hintCount} 条线索`,
+      `作答冷却 ${cfg.soloCd}s`,
+      cfg.wrongLimit ? `最多猜错 ${cfg.wrongLimit} 次` : '猜错不限次数',
+      `${this.commandPrefix()} <数值> 作答 · ans 放弃`,
     ].join(' · ')
   }
 
@@ -395,7 +395,7 @@ export class GrksApplication {
 
   async start(event: any) {
     if (await this.isBanned(event)) {
-      await this.prompt(event, '当前群组已禁用猜 RKS 游戏。', this.homeActions())
+      await this.prompt(event, '本群暂未开放猜 RKS。', this.homeActions())
       return false
     }
     const key = channelKey(event)
@@ -405,7 +405,7 @@ export class GrksApplication {
       return false
     }
     if (this.soloRooms.has(key) || this.startingRooms.has(key)) {
-      await this.prompt(event, `当前会话已有进行中的猜 RKS，直接发送 ${this.commandPrefix()} <数值> 继续猜测。`, this.soloActions())
+      await this.prompt(event, `本会话已有进行中的猜 RKS，直接输入数值继续作答。`, this.soloActions())
       return false
     }
 
@@ -417,13 +417,13 @@ export class GrksApplication {
       const candidates = pool.entries.filter(entry => entry.sourceId !== ownSourceId)
       const poolEntries = candidates.length ? candidates : pool.entries
       if (!poolEntries.length) {
-        await this.prompt(event, `暂无可出题的存档：需要本地存在有效成绩不少于 ${cfg.minimum} 条的绑定存档。API 绑定用户请先发送 /phi update 更新存档。`, this.homeActions())
+        await this.prompt(event, `暂无可出题的存档。需要至少 ${cfg.minimum} 条有效成绩；API 用户请先发送 /phi update 更新缓存。`, this.homeActions())
         return false
       }
       const selected = poolEntries[Math.floor(this.rng() * poolEntries.length) % poolEntries.length]
       const puzzle = await this.loadPuzzle(selected.sourceId, { e: event })
       if (!puzzle || puzzle.recordCount < cfg.minimum) {
-        await this.prompt(event, '出题失败：存档的 B30 数据不完整，请稍后再试。', this.homeActions())
+        await this.prompt(event, '出题失败：这份存档的成绩数据不完整，请稍后重试。', this.homeActions())
         return false
       }
       const source = await this.puzzleSource(selected.sourceId, event, puzzle)
@@ -450,7 +450,8 @@ export class GrksApplication {
       this.soloRooms.set(key, room)
       this.armSoloTimeout(room)
       const text = [
-        '猜 RKS 已开始。',
+        '🎯 猜 RKS 开始',
+        `根据线索猜出这份 B30 的最终 RKS，误差在 ±${formatScoreValue(cfg.tolerance)} 内算命中。`,
         formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: room.state.revealedSlots, positionRevealed: room.state.positionRevealed }),
       ].join('\n')
       await this.prompt(event, text, this.soloActions(), this.buildSoloView(room, false, this.soloFootnote(room)))
@@ -470,12 +471,12 @@ export class GrksApplication {
     const key = channelKey(event)
     const room = this.soloRooms.get(key)
     if (!room) {
-      await this.prompt(event, `当前没有进行中的猜 RKS，发送 ${this.commandPrefix()} 开始一局吧。`, this.homeActions())
+      await this.prompt(event, `当前没有进行中的猜 RKS，先开一局吧。`, this.homeActions())
       return false
     }
     const value = parseGuess(rawValue)
     if (value === null) {
-      await this.prompt(event, `请输入 0~99 的数值，例如：${this.commandPrefix()} 15.25`, this.soloActions())
+      await this.prompt(event, `请输入 0~99 之间的数值，例如：${this.commandPrefix()} 15.25`, this.soloActions())
       return false
     }
     const cfg = this.cfg()
@@ -484,7 +485,7 @@ export class GrksApplication {
     const previous = room.answerAtByUser.get(userId) || 0
     if (previous > 0 && now - previous < cfg.soloCd * 1000) {
       const seconds = Math.ceil((cfg.soloCd * 1000 - (now - previous)) / 1000)
-      await this.prompt(event, `你的回答冷却中，请 ${seconds}s 后再试。`, this.soloActions())
+      await this.prompt(event, `⏳ 还需等待 ${seconds}s 才能再次作答。`, this.soloActions())
       return false
     }
     room.answerAtByUser.set(userId, now)
@@ -522,8 +523,8 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     }
     this.armSoloTimeout(room)
     const wait = Math.max(0, Math.ceil((room.lastHintAt + cfg.hintCd * 1000 - now) / 1000))
-    const text = `猜错啦，提交值 ${value.toFixed(4)}。${hintText || (wait ? `
-提示冷却中，约 ${wait}s 后可获得新提示。` : '')}`
+    const text = `❌ ${formatScoreValue(value)} 不是答案。${hintText || (wait ? `
+提示冷却中，约 ${wait}s 后可获得下一条线索。` : '')}`
     await this.prompt(event, text, this.soloActions(), this.buildSoloView(room, false, this.soloFootnote(room)))
     return true
   }
@@ -534,7 +535,7 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     if (match) return await this.cancel(event)
     const room = this.soloRooms.get(channelKey(event))
     if (!room) {
-      await this.prompt(event, '当前没有可放弃的猜 RKS 对局。', this.homeActions())
+      await this.prompt(event, '当前没有可结束的猜 RKS 对局。', this.homeActions())
       return false
     }
     await this.finishSolo(room, event, 'abandoned')
@@ -556,16 +557,16 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     const points = reason === 'correct' ? scoreForHintCount(Math.max(1, room.state.hintCount), cfg.maxScore) : 0
     let text: string
     if (reason === 'correct') {
-      text = `猜对了！答案 ${room.puzzle.rks.toFixed(4)}，本次获得 ${formatScoreValue(points)} 分（${room.state.hintCount} 条提示）。`
+      text = `✅ 猜中了！\n答案 ${room.puzzle.rks.toFixed(4)} · 获得 ${formatScoreValue(points)} 分 · 使用 ${room.state.hintCount} 条线索`
     } else if (reason === 'failed') {
-      text = `猜错次数达到上限，答案 ${room.puzzle.rks.toFixed(4)}。`
+      text = `❌ 猜错次数已达上限\n答案 ${room.puzzle.rks.toFixed(4)}`
     } else if (reason === 'timeout') {
-      text = `超过 ${cfg.soloTimeout}s 没有新的操作，答案 ${room.puzzle.rks.toFixed(4)}。`
+      text = `⌛ 本局超时\n答案 ${room.puzzle.rks.toFixed(4)}`
     } else {
-      text = `本局已放弃，答案 ${room.puzzle.rks.toFixed(4)}。`
+      text = `🏳️ 已放弃本局\n答案 ${room.puzzle.rks.toFixed(4)}`
     }
     if (guess !== null) text += `
-最后提交：${guess.toFixed(4)}`
+最后作答：${guess.toFixed(4)}`
     await this.prompt(event, text, this.homeActions(), this.buildSoloView(room, true, text))
     if (reason === 'correct') {
       try {
@@ -624,7 +625,7 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
 
   async match(event: any) {
     if (await this.isBanned(event)) {
-      await this.prompt(event, '当前群组已禁用猜 RKS 游戏。', this.homeActions())
+      await this.prompt(event, '本群暂未开放猜 RKS。', this.homeActions())
       return false
     }
     const identity = grksIdentity(event)
@@ -637,13 +638,13 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
       return false
     }
     if (this.soloRooms.has(channelKey(event))) {
-      await this.prompt(event, `当前会话还有进行中的单机对局，先发送 ${this.commandPrefix()} ans 结束再匹配吧。`, this.soloActions())
+      await this.prompt(event, `本会话还有单机对局，先发送 ${this.commandPrefix()} ans 结束再匹配。`, this.soloActions())
       return false
     }
     const cfg = this.cfg()
     const source = await this.loadOwnPuzzle(event, cfg.minimum)
     if (!source) {
-      await this.prompt(event, `匹配需要完整 P3 和 B27，且至少有 ${cfg.minimum} 条有效成绩。API 缓存缺失或过旧时，请先发送 /phi update 更新存档后重试。`, this.homeActions())
+      await this.prompt(event, `匹配需要完整 P3 + B27，且至少有 ${cfg.minimum} 条有效成绩。API 缓存缺失或过旧时，请先发送 /phi update。`, this.homeActions())
       return false
     }
     const ctx = this.requireContext()
@@ -659,8 +660,9 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     })
     const paired = await this.tryPair()
     if (!paired) {
-      await this.prompt(event, `正在匹配（当前排队 ${this.queue.size} 人）。优先选择匹配场次与答题正确率接近的跨会话对手；等待 ${MATCH_QUEUE_TIMEOUT_MS / 1000}s 后自动退出。
-发送 ${this.commandPrefix()} cancel 可取消。`, this.homeActions())
+      await this.prompt(event, `🔎 正在匹配（${this.queue.size} 人排队）
+会优先寻找对局场次和准确率接近的对手。
+最长等待 ${MATCH_QUEUE_TIMEOUT_MS / 1000} 秒，发送 ${this.commandPrefix()} cancel 可取消。`, this.homeActions())
     }
     return true
   }
@@ -678,7 +680,7 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     for (const [userId, entry] of this.queue) {
       if (now - entry.joinedAt >= MATCH_QUEUE_TIMEOUT_MS) {
         this.queue.delete(userId)
-        await this.prompt(entry.event, `本次匹配等待已满 ${MATCH_QUEUE_TIMEOUT_MS / 1000}s，已自动退出匹配池。`, this.homeActions())
+        await this.prompt(entry.event, `⌛ 匹配超时，已自动退出队列。`, this.homeActions())
       }
     }
     await this.tryPair()
@@ -730,8 +732,8 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     const room = await this.createMatchRoom(left, right)
     if (!room) {
       await Promise.all([
-        this.prompt(left.event, '匹配失败：题库无法分配双方题目，请稍后重试。', this.homeActions()),
-        this.prompt(right.event, '匹配失败：题库无法分配双方题目，请稍后重试。', this.homeActions()),
+        this.prompt(left.event, '匹配取消：当前题库无法给双方分配不同题目，请稍后重试。', this.homeActions()),
+        this.prompt(right.event, '匹配取消：当前题库无法给双方分配不同题目，请稍后重试。', this.homeActions()),
       ])
     }
     return true
@@ -767,7 +769,7 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
       turn: 1,
       phase: 'hint',
       timer: null,
-      notice: '匹配成功，请选择一次要公开给对手的提示。',
+      notice: '匹配成功，双方选择线索后进入作答回合。',
       result: [],
     }
     this.matchRooms.set(room.id, room)
@@ -833,20 +835,29 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
 
   private matchText(room: MatchRoom, player: MatchPlayer, notice = room.notice) {
     const opponent = this.opponent(player, room)
+    const phaseText = room.phase === 'hint'
+      ? '提示回合：选择一条线索公开给对手，双方锁定后统一公布。'
+      : room.phase === 'answer'
+        ? '作答回合：猜对手 B30 的最终 RKS，双方提交后结算。'
+        : '本局已经结束了。'
+    const status = [
+      `你：线索 ${player.pendingHint ? '已选' : '未选'} / 作答 ${player.guess == null ? '未交' : '已交'}`,
+      `对手：线索 ${opponent.pendingHint ? '已选' : '未选'} / 作答 ${opponent.guess == null ? '未交' : '已交'}`,
+    ].join(' · ')
     return [
-      `猜 RKS 匹配房间 ${room.id} · 第 ${room.turn}/10 轮`,
-      `你是${player.team === 'red' ? '红方' : '蓝方'}，对手：${opponent.profile.name}`,
-      room.phase === 'hint' ? '提示回合：请选择要公开给对手的提示。' : room.phase === 'answer' ? '回答回合：请猜测对手的 B30 RKS。' : '对局已结束。',
+      `🎮 猜 RKS 对战 · 房间 ${room.id} · 第 ${room.turn}/10 轮`,
+      `你是${player.team === 'red' ? '红方' : '蓝方'} · 对手：${opponent.profile.name}`,
+      phaseText,
       notice,
-      `本方提示 ${player.pendingHint ? '已锁定' : '未选择'} · 本方回答 ${player.guess == null ? '未提交' : '已提交'} · 对方提示 ${opponent.pendingHint ? '已锁定' : '未选择'} · 对方回答 ${opponent.guess == null ? '未提交' : '已提交'}`,
-      `${this.commandPrefix()} hint B7 / hint 3 histogram / hint 4 · ${this.commandPrefix()} cancel`,
+      `本轮状态：${status}`,
+      `${this.commandPrefix()} <数值> 作答`,
     ].filter(Boolean).join('\n')
   }
 
   private async sendMatchState(room: MatchRoom, player: MatchPlayer, notice?: string) {
     const text = this.matchText(room, player, notice)
     const actions: PromptAction[] = room.phase === 'hint' ? this.matchActions() : [
-      { type: 'input', command: '/phi grks ', label: '输入RKS' },
+      { type: 'input', command: '/phi grks ', label: '输入答案' },
       { command: '/phi grks cancel', label: '认输' },
     ]
     return this.prompt(player.event, text, actions, this.matchView(player, room, false, text))
@@ -862,42 +873,42 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     const room = this.userMatches.get(identity.userId)
     if (!room) {
       if (this.queue.has(identity.userId)) {
-        await this.prompt(event, '匹配仍在排队，进入房间后才能选择提示。', this.matchActions())
+        await this.prompt(event, '还在匹配队列中，进入对局后才能选择线索。', this.matchActions())
       } else {
-        await this.prompt(event, `当前没有匹配对局，发送 ${this.commandPrefix()} match 加入匹配池。`, this.homeActions())
+        await this.prompt(event, `当前没有匹配对局，发送 ${this.commandPrefix()} match 加入匹配。`, this.homeActions())
       }
       return false
     }
     const player = room.red.userKey === identity.userId ? room.red : room.blue
     player.event = event
     if (room.phase !== 'hint') {
-      await this.prompt(event, '当前是回答回合，不能再选择提示。', this.matchActions())
+      await this.prompt(event, '现在是作答回合，不能再选择线索。', this.matchActions())
       return false
     }
     if (player.pendingHint) {
-      await this.prompt(event, '本轮提示已锁定，等待双方选择完毕后统一公布。', this.matchActions())
+      await this.prompt(event, '本轮线索已锁定，等待对手选择后统一公布。', this.matchActions())
       return false
     }
     if (!input.type) {
-      await this.prompt(event, `格式：${this.commandPrefix()} hint B7 / hint 3 histogram / hint 4`, this.matchActions())
+      await this.prompt(event, `请选择：hint B7（公开成绩）/ hint 3（统计图）/ hint 4（课题信息）`, this.matchActions())
       return false
     }
     const type = matchHintType(input.type)
     if (!type) {
-      await this.prompt(event, '提示类型必须是 1（槽位）、3（统计）或 4（课题）。', this.matchActions())
+      await this.prompt(event, '线索类型无效，请使用 B7、3 或 4。', this.matchActions())
       return false
     }
     const applied = applyMatchHint(player.sideState, player.puzzle, type, input.arg, { StatsHint: this.cfg().statsHint }, this.rng)
     if (!applied.ok) {
-      await this.prompt(event, `提示参数不合法：${applied.error}`, this.matchActions())
+      await this.prompt(event, `这条线索不可用：${applied.error}`, this.matchActions())
       return false
     }
     player.sideState = applied.side
     player.pendingHint = applied.hint
-    room.notice = `${player.team === 'red' ? '红方' : '蓝方'}已锁定本轮提示。`
+    room.notice = `${player.team === 'red' ? '红方' : '蓝方'}已锁定本轮线索。`
     const opponent = this.opponent(player, room)
     if (!opponent.pendingHint) {
-      await this.prompt(event, '提示已锁定，等待对手选择后统一公布。', this.matchActions())
+      await this.prompt(event, '线索已锁定，等待对手确认。', this.matchActions())
       return true
     }
     await this.publishHints(room)
@@ -908,7 +919,7 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     if (room.phase !== 'hint') return
     cancelTimer(room.timer)
     room.phase = 'answer'
-    room.notice = '双方提示已同时公布，请猜测对手的 B30 RKS。'
+    room.notice = '双方线索已公开，开始猜对手的 B30 RKS。'
     room.red.guess = null
     room.blue.guess = null
     this.armMatchTimeout(room)
@@ -920,27 +931,27 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     const player = room.red.userKey === identity.userId ? room.red : room.blue
     player.event = event
     if (room.phase === 'hint') {
-      await this.prompt(event, '当前是提示回合，双方选择完毕并公布提示后才能作答。', this.matchActions())
+      await this.prompt(event, '现在还没到作答回合，先等双方公开线索。', this.matchActions())
       return false
     }
     if (room.phase !== 'answer') {
-      await this.prompt(event, '对局已结束。', this.homeActions())
+      await this.prompt(event, '本局已经结束了。', this.homeActions())
       return false
     }
     if (player.guess !== null) {
-      await this.prompt(event, '本回合已经提交过猜测了，等待本回合结算。', this.matchActions())
+      await this.prompt(event, '本回合已作答，等待对手提交。', this.matchActions())
       return false
     }
     const value = parseGuess(rawValue)
     if (value === null) {
-      await this.prompt(event, `请输入 0~99 的数值，例如：${this.commandPrefix()} 15.25`, this.matchActions())
+      await this.prompt(event, `请输入 0~99 之间的数值，例如：${this.commandPrefix()} 15.25`, this.matchActions())
       return false
     }
     player.guess = value
-    room.notice = `${player.team === 'red' ? '红方' : '蓝方'}已提交回答。`
+    room.notice = `${player.team === 'red' ? '红方' : '蓝方'}已提交作答。`
     const opponent = this.opponent(player, room)
     if (opponent.guess === null) {
-      await this.prompt(event, '回答已提交，等待对手完成后结算本轮。', this.matchActions())
+      await this.prompt(event, '作答已提交，等待对手提交。', this.matchActions())
       return true
     }
     await this.settleMatchRound(room)
@@ -973,10 +984,10 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
       `蓝方猜测 ${room.blue.guess ?? '超时'}：${blueCorrect ? '正确' : '错误'}`,
     ]
 
-    if (redCorrect && !blueCorrect) return await this.finishMatch(room, 'red', '红方猜中，蓝方未猜中')
-    if (blueCorrect && !redCorrect) return await this.finishMatch(room, 'blue', '蓝方猜中，红方未猜中')
-    if (redCorrect && blueCorrect) return await this.finishMatch(room, 'draw', '双方均猜中')
-    if (room.turn >= MAX_GUESSES) return await this.finishMatch(room, 'draw', `${MAX_GUESSES} 轮均未分胜负`)
+    if (redCorrect && !blueCorrect) return await this.finishMatch(room, 'red', '红方命中，蓝方未命中')
+    if (blueCorrect && !redCorrect) return await this.finishMatch(room, 'blue', '蓝方命中，红方未命中')
+    if (redCorrect && blueCorrect) return await this.finishMatch(room, 'draw', '双方都命中了')
+    if (room.turn >= MAX_GUESSES) return await this.finishMatch(room, 'draw', `${MAX_GUESSES} 轮内未分出胜负`)
 
     room.turn += 1
     room.phase = 'hint'
@@ -984,7 +995,7 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     room.blue.guess = null
     room.red.pendingHint = null
     room.blue.pendingHint = null
-    room.notice = '本轮双方均未猜中，进入下一轮提示回合。'
+    room.notice = '双方都没猜中，下一轮继续。'
     this.armMatchTimeout(room)
     await Promise.all([this.sendMatchState(room, room.red), this.sendMatchState(room, room.blue)])
   }
@@ -1002,12 +1013,12 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
           }
         }
       }
-      room.notice = '提示选择超时，系统已代为公开双方提示。'
+      room.notice = '选择线索超时，系统已自动公开双方线索。'
       await this.publishHints(room)
       return
     }
     if (room.phase === 'answer') {
-      room.notice = '回答超时，未提交者视为放弃本轮。'
+      room.notice = '作答超时，未提交的一方本轮不计命中。'
       await this.settleMatchRound(room)
     }
   }
@@ -1037,26 +1048,34 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
       }
     }
     await Promise.all([record(room.red), record(room.blue)])
-    const resultText = [
-      `猜 RKS 匹配结束：${reason}`,
-      `红方答案 ${room.red.answer.rks.toFixed(4)} · 蓝方答案 ${room.blue.answer.rks.toFixed(4)}`,
-      winner === 'draw' ? '结果：平局' : `胜者：${winner === 'red' ? '红方' : '蓝方'}`,
-    ].join('\n')
+    const resultText = (player: MatchPlayer) => {
+      const opponent = this.opponent(player, room)
+      const result = winner === 'draw' ? '平局' : winner === player.team ? '你获胜' : '你惜败'
+      return [
+        '⚔️ 猜 RKS 对战结束',
+        `结果：${result}`,
+        `原因：${reason}`,
+        `你的目标 ${player.answer.rks.toFixed(4)} · 对手目标 ${opponent.answer.rks.toFixed(4)}`,
+        `本局积分 +${formatScoreValue(reward(player))}`,
+      ].join('\n')
+    }
+    const redText = resultText(room.red)
+    const blueText = resultText(room.blue)
     await Promise.all([
-      this.prompt(room.red.event, resultText, this.homeActions(), this.matchView(room.red, room, true, resultText)),
-      this.prompt(room.blue.event, resultText, this.homeActions(), this.matchView(room.blue, room, true, resultText)),
+      this.prompt(room.red.event, redText, this.homeActions(), this.matchView(room.red, room, true, redText)),
+      this.prompt(room.blue.event, blueText, this.homeActions(), this.matchView(room.blue, room, true, blueText)),
     ])
   }
 
   async cancel(event: any) {
     const identity = grksIdentity(event)
     if (this.queue.delete(identity.userId)) {
-      await this.prompt(event, '已退出匹配池。', this.homeActions())
+      await this.prompt(event, '已退出匹配队列。', this.homeActions())
       return true
     }
     const room = this.userMatches.get(identity.userId)
     if (!room) {
-      await this.prompt(event, '当前不在匹配队列或匹配房间中。', this.homeActions())
+      await this.prompt(event, '当前不在匹配队列或对局中。', this.homeActions())
       return false
     }
     const player = room.red.userKey === identity.userId ? room.red : room.blue
@@ -1077,24 +1096,24 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
         avatar: row.profile?.avatar || 'Introduction',
         me: row.userId === result.meId || row.id === result.me?.id,
         metric: result.kind === 'accuracy'
-          ? `${averageHints(row)?.toFixed(2) ?? '--'} 条提示`
+          ? `${averageHints(row)?.toFixed(2) ?? '--'} 条线索`
           : result.kind === 'winRate'
             ? `${(winRate(row) * 100).toFixed(1)}%`
             : `${row.score.toFixed(2)} 分`,
         detail: result.kind === 'accuracy'
-          ? `${row.hintPlays} 局统计 · 积分 ${row.score.toFixed(2)}`
+          ? `${row.hintPlays} 局 · 积分 ${row.score.toFixed(2)}`
           : result.kind === 'winRate'
-            ? `${row.wins} 胜 · ${row.losses} 负 · ${row.draws} 平 · 积分 ${row.score.toFixed(2)}`
+            ? `${row.wins} 胜 / ${row.losses} 负 / ${row.draws} 平 · 积分 ${row.score.toFixed(2)}`
             : `${row.plays} 局 · 单局最高 ${row.best.toFixed(2)} 分`,
       })),
       emptyText: result.kind === 'accuracy'
-        ? `暂无符合条件的玩家（至少完成 ${result.minimum} 局）`
+        ? `暂无符合条件的玩家，至少需要完成 ${result.minimum} 局。`
         : result.kind === 'winRate'
-          ? `暂无符合条件的玩家（至少 ${result.minimum} 场匹配对局）`
-          : '暂无数据，快去玩一局吧！',
+          ? `暂无符合条件的玩家，至少需要 ${result.minimum} 场匹配对局。`
+          : '还没有成绩，先开一局吧。',
       footer: result.meRank !== null
-        ? `我的排名：#${result.meRank} · ${result.me?.profile?.name || '匿名用户'}`
-        : '我的排名：未上榜',
+        ? `你：第 ${result.meRank} 名 · ${result.me?.profile?.name || '匿名用户'}`
+        : '你：未上榜',
     }
   }
   async leaderboard(event: any, input: GrksRankInput) {
@@ -1115,7 +1134,7 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     const actions: PromptAction[] = [
       { command: `/phi grks lb ${mode} ${metric} ${Math.max(1, result.page - 1)}`, label: '上一页' },
       { command: `/phi grks lb ${mode} ${metric} ${result.page + 1}`, label: '下一页' },
-      { command: '/phi grks', label: '开始游戏' },
+      { command: '/phi grks', label: '再来一局' },
     ]
     await this.prompt(event, result.text, actions, this.rankingView(result), result.text, 'ranking')
     return true
@@ -1134,7 +1153,7 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     if (/^(cancel|取消|退出)$/i.test(head)) return await this.cancel(event)
     if (/^(hint|提示)$/i.test(head)) return await this.hint(event, parseHintArgs(event.msg))
     if (/^(lb|榜)$/i.test(head)) return await this.leaderboard(event, parseRankArgs(event.msg))
-    await this.prompt(event, `未知的猜 RKS 操作。使用 ${this.commandPrefix()} 开始，${this.commandPrefix()} match 匹配，${this.commandPrefix()} lb 查看积分榜。`, this.homeActions())
+    await this.prompt(event, `没有识别这个操作。可发送 ${this.commandPrefix()} 开始、${this.commandPrefix()} match 匹配、${this.commandPrefix()} lb 查看排行榜。`, this.homeActions())
     return false
   }
 

@@ -189,9 +189,9 @@ function modeLabel(mode: GrksMode) {
 
 function describeRow(row: GrksScoreRow, kind: GrksRankKind) {
   const name = row.profile?.name || ANONYMOUS_GRKS_PROFILE.name
-  if (kind === 'accuracy') return `${name}　平均 ${averageHints(row)?.toFixed(2) ?? '--'} 条提示　${row.hintPlays} 局　积分 ${row.score.toFixed(2)}`
-  if (kind === 'winRate') return `${name}　胜率 ${(winRate(row) * 100).toFixed(1)}%　${row.wins}胜 ${row.losses}负 ${row.draws}平　积分 ${row.score.toFixed(2)}`
-  return `${name}　${row.score.toFixed(2)} 分　${row.plays} 局　最高 ${row.best.toFixed(2)}`
+  if (kind === 'accuracy') return `${name} · 平均 ${averageHints(row)?.toFixed(2) ?? '--'} 条线索 · ${row.hintPlays} 局 · 积分 ${row.score.toFixed(2)}`
+  if (kind === 'winRate') return `${name} · 胜率 ${(winRate(row) * 100).toFixed(1)}% · ${row.wins}胜 / ${row.losses}负 / ${row.draws}平 · 积分 ${row.score.toFixed(2)}`
+  return `${name} · ${row.score.toFixed(2)} 分 · ${row.plays} 局 · 最高 ${row.best.toFixed(2)}`
 }
 
 export interface GrksRankingResult {
@@ -231,23 +231,23 @@ export async function queryGrksRanking(ctx: Context, options: {
   const paged = paginate(sorted, options.page, options.pageSize ?? 10)
   const meId = grksIdentity(options.event).userId
   const meIndex = sorted.findIndex(row => row.userId === meId)
-  const title = `猜RKS · ${modeLabel(mode)} ${kindLabel(kind)}`
-  const lines = [`🏆 ${title}（共 ${sorted.length} 人）`, `第 ${paged.page}/${paged.pages} 页`]
+  const title = `猜 RKS · ${modeLabel(mode)}${kindLabel(kind)}`
+  const lines = [`🏆 ${title}`, `第 ${paged.page}/${paged.pages} 页 · 共 ${sorted.length} 位玩家`]
   if (!paged.items.length) {
     lines.push(kind === 'score'
-      ? '暂无数据，快去玩一局吧！'
+      ? '还没有成绩，先开一局吧。'
       : kind === 'accuracy'
-        ? `暂无符合条件的玩家（至少完成 ${minimum} 局）`
-        : `暂无符合条件的玩家（至少 ${minimum} 场匹配对局）`)
+        ? `暂无符合条件的玩家，至少需要完成 ${minimum} 局。`
+        : `暂无符合条件的玩家，至少需要 ${minimum} 场匹配对局。`)
   } else {
     paged.items.forEach((row, index) => {
       lines.push(`#${(paged.page - 1) * (options.pageSize ?? 10) + index + 1} ${describeRow(row, kind)}`)
     })
   }
   lines.push(meIndex >= 0
-    ? `我的排名：#${meIndex + 1} ${describeRow(sorted[meIndex], kind)}`
-    : kind === 'score' ? '我的排名：暂无记录'
-      : `我的排名：未上榜（需要至少 ${minimum} ${kind === 'accuracy' ? '局' : '场匹配对局'}）`)
+    ? `你：第 ${meIndex + 1} 名 · ${describeRow(sorted[meIndex], kind)}`
+    : kind === 'score' ? '你：暂无记录'
+      : `你：未上榜，至少需要 ${minimum} ${kind === 'accuracy' ? '局' : '场匹配对局'}。`)
   return {
     ok: true,
     title,
