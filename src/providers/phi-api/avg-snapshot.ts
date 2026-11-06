@@ -4,7 +4,7 @@ import path from 'node:path'
 import { createHash, randomUUID } from 'node:crypto'
 import { promisify } from 'node:util'
 import { gunzip } from 'node:zlib'
-import { dataPath } from '../../utils/path'
+import { cachePath } from '../../utils/path'
 import logger from '../../utils/logger'
 import botApiAuth from './bot-api-auth'
 
@@ -211,7 +211,7 @@ export class AvgSnapshotService {
   scheduledTimers = new Set<any>()
 
   constructor(options: AvgSnapshotServiceOptions = {}) {
-    this.cacheFile = options.cacheFile || path.join(dataPath, 'avgSnapshot.bin')
+    this.cacheFile = options.cacheFile || path.join(cachePath, 'avgSnapshot.bin')
     this.now = options.now || Date.now
     this.logger = options.logger || logger
     this.download = options.download || ((route, maxBytes, signal) =>

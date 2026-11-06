@@ -1,7 +1,7 @@
 // @ts-nocheck
 import fs from 'node:fs'
 import YAML from 'yaml'
-import { dataPath, pluginDataPath, savePath } from "./path";
+import { assertStoragePath, dataPath, pluginDataPath, savePath } from './path'
 import path from 'node:path';
 import getRksRank from '../domain/game/get-rks-rank';
 import logger from './logger';
@@ -73,6 +73,7 @@ export default class readFile {
      */
     static SetFile(filepath, data, style = undefined) {
         try {
+            filepath = assertStoragePath(filepath)
             const fatherPath = path.dirname(filepath)
             const fileName = path.basename(filepath)
             // console.info(filepath, fatherPath, fileName)
@@ -114,15 +115,14 @@ export default class readFile {
      * 删除指定文件
      * @param {string} path 
      */
-    static async DelFile(path) {
+    static async DelFile(filepath) {
         try {
-            if (!fs.existsSync(`${path}`)) { return false }
-            fs.unlink(`${path}`, (err) => {
-                if (err) throw err
-            })
+            filepath = assertStoragePath(filepath)
+            if (!fs.existsSync(filepath)) { return false }
+            fs.unlinkSync(filepath)
             return true
         } catch (error) {
-            logger.warn(`[phi-plugin][${path}] 删除失败`)
+            logger.warn(`[phi-plugin][${filepath}] 删除失败`)
             logger.warn(error)
             return false
         }
@@ -133,6 +133,12 @@ export default class readFile {
      * @param {*} _path 
      */
     static async rmEmptyDir(_path, level = 0) {
+        try {
+            _path = assertStoragePath(_path)
+        } catch (error) {
+            logger.warn(error)
+            return false
+        }
         if (!fs.existsSync(_path)) return false
         if (!fs.lstatSync(_path).isDirectory()) return false
         const files = fs.readdirSync(_path);

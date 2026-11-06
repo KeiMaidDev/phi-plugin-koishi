@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
-import { pluginResources, tempPath } from '../utils/path'
+import { assertStoragePath, basePath, pluginResources, tempPath } from '../utils/path'
 import chokidar from 'chokidar'
 import MemoryRedis from './memory-redis'
 import { createKoishiDatabaseRedis } from './koishi-database-redis'
@@ -488,7 +488,7 @@ export function createKoishiAdapter(ctx, options = {}) {
         })),
         RendererBase: /** @type {import('./types').PlatformRendererBaseConstructor} */ (/** @type {unknown} */ (KoishiRenderer)),
         redis,
-        rootPath: options.rootPath || process.cwd(),
+        rootPath: options.rootPath || basePath,
         logger,
         hasPuppeteerService() {
             return Boolean(ctx?.puppeteer)
@@ -839,6 +839,7 @@ export function createKoishiAdapter(ctx, options = {}) {
          */
         async downFile(url, file) {
             if (typeof fetch !== 'function') return false
+            file = assertStoragePath(file)
             const response = await fetch(url)
             if (!response.ok) return false
             mkdirs(path.dirname(file))

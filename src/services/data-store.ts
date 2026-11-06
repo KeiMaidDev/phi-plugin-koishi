@@ -10,11 +10,7 @@ import { redis } from '../platform/index'
  * @returns {string}
  */
 const getRoot = (root = '') => {
-    if (root === 'root' || root === 'yunzai') {
-        root = `${process.cwd()}/`
-    } else if (!root) {
-        root = `${dataPath}/`
-    }
+    if (!root || root === 'root' || root === 'yunzai') return `${dataPath}/`
     return root
 }
 

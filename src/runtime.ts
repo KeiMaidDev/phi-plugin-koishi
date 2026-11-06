@@ -5,7 +5,6 @@ import type { Context, h as H } from 'koishi'
 import type { Config } from './config'
 import type { PhiRuntime } from './runtime-context'
 import YAML from 'yaml'
-import { PHI_DATA_NAME } from './constants'
 
 export interface EngineRuntime extends PhiRuntime {
     apps: Record<string, any>
@@ -81,10 +80,12 @@ function restoreLegacyBotIdentity(ctx: Context, config: Config, configRoot: stri
 
 export async function createEngine(ctx: Context, config: Config, h: typeof H): Promise<EngineRuntime> {
     const pluginRoot = path.resolve(__dirname, '..')
-    const dataRoot = path.join(ctx.baseDir, 'data', PHI_DATA_NAME)
-    fs.mkdirSync(dataRoot, { recursive: true })
     ;(globalThis as any).__PHI_PLUGIN_ROOT = pluginRoot
-    ;(globalThis as any).__PHI_DATA_ROOT = dataRoot
+    const { configureStorage } = require('./utils/path.ts')
+    const storage = configureStorage(ctx.baseDir)
+    for (const root of [storage.dataPath, storage.cachePath, storage.tempPath]) {
+        fs.mkdirSync(root, { recursive: true })
+    }
 
     const { useKoishiAdapter } = require('./platform/koishi.ts')
     const adapter = useKoishiAdapter(ctx, { h, rootPath: ctx.baseDir, botConfig: config })
@@ -93,7 +94,7 @@ export async function createEngine(ctx: Context, config: Config, h: typeof H): P
     const { BusinessDataStore } = require('./services/business-data.ts')
     const data = new BusinessDataStore()
     await data.init()
-    restoreLegacyBotIdentity(ctx, config, dataRoot)
+    restoreLegacyBotIdentity(ctx, config, storage.dataPath)
 
     const runtime: PhiRuntime = { config, data }
     const updateConfig = async (values: Partial<Config>, signal?: AbortSignal) => {

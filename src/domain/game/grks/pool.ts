@@ -1,7 +1,7 @@
 // @ts-nocheck
 import fs from 'node:fs'
 import path from 'node:path'
-import { apiSavePath, dataPath, savePath } from '../../../utils/path'
+import { apiSavePath, cachePath, savePath } from '../../../utils/path'
 import logger from '../../../utils/logger'
 import { buildPuzzle } from './hints'
 import { apiSourceId, getSaveBySourceId, parseSourceId, sessionSourceId } from './source'
@@ -26,7 +26,7 @@ import { apiSourceId, getSaveBySourceId, parseSourceId, sessionSourceId } from '
  * @property {number} scanned 扫描过的存档数量
  */
 
-const DEFAULT_POOL_FILE = path.join(dataPath, 'grksPool.json')
+const DEFAULT_POOL_FILE = path.join(cachePath, 'grksPool.json')
 const POOL_VERSION = 2
 
 /** @type {string} */
