@@ -24,6 +24,16 @@ export class phiGrks extends phiPluginBase {
     this.application.configure(ctx, adapter)
   }
 
+  async menu(event: any) {
+    this.e = event
+    return await this.application.menu(event)
+  }
+
+  async solo(event: any) {
+    this.e = event
+    return await this.application.start(event)
+  }
+
   async dispatch(event: any) {
     this.e = event
     return await this.application.dispatch(event)

@@ -262,12 +262,21 @@ export class GrksApplication {
     return Boolean(await this.banCheck(event))
   }
 
+  private menuActions(): PromptAction[] {
+    return [
+      { command: '/phi grks solo', label: '单机模式' },
+      { command: '/phi grks match', label: '匹配对战' },
+      { command: '/phi grks lb', label: '单机积分榜' },
+      { command: '/phi grks lb match', label: '匹配积分榜' },
+      { command: '/phi grks lb accuracy', label: '准确率榜' },
+    ]
+  }
+
   private soloActions(): PromptAction[] {
     return [
       { type: 'input', command: '/phi grks ', label: '输入答案' },
       { command: '/phi grks hint', label: '提示' },
       { command: '/phi grks ans', label: '看答案' },
-      { command: '/phi grks lb', label: '排行榜' },
     ]
   }
 
@@ -281,11 +290,7 @@ export class GrksApplication {
   }
 
   private homeActions(): PromptAction[] {
-    return [
-      { command: '/phi grks', label: '开始' },
-      { command: '/phi grks match', label: '匹配对战' },
-      { command: '/phi grks lb', label: '排行榜' },
-    ]
+    return this.menuActions()
   }
 
   private async prompt(event: any, text: string, actions: PromptAction[], viewData?: any, fallbackText = text, renderKind: 'game' | 'ranking' = 'game') {
@@ -394,6 +399,24 @@ export class GrksApplication {
     }, Math.max(30, cfg.soloTimeout) * 1000)
   }
 
+  async menu(event: any) {
+    const identity = grksIdentity(event)
+    const status = this.userMatches.has(identity.userId)
+      ? '匹配对战中'
+      : this.queue.has(identity.userId)
+        ? '匹配排队中'
+        : this.soloRooms.has(channelKey(event))
+          ? '本会话单机进行中'
+          : ''
+    const text = [
+      '🎮 猜 RKS',
+      '玩法：单机根据线索猜 B30；匹配由双方互相出题，先命中者获胜。',
+      '榜单：单机积分榜、匹配积分榜、准确率榜。',
+      status ? `当前状态：${status}` : '',
+    ].filter(Boolean).join('\n')
+    await this.prompt(event, text, this.menuActions())
+    return true
+  }
   async start(event: any) {
     if (await this.isBanned(event)) {
       await this.prompt(event, '本群暂未开放猜 RKS。', this.homeActions())
@@ -1172,11 +1195,10 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     }
     const metric = input.kind || 'score'
     const mode = input.mode || 'normal'
-    const actions: PromptAction[] = [
-      { command: `/phi grks lb ${mode} ${metric} ${Math.max(1, result.page - 1)}`, label: '上一页' },
-      { command: `/phi grks lb ${mode} ${metric} ${result.page + 1}`, label: '下一页' },
-      { command: '/phi grks', label: '再来一局' },
-    ]
+    const actions: PromptAction[] = []
+    if (result.page > 1) actions.push({ command: `/phi grks lb ${mode} ${metric} ${result.page - 1}`, label: '上一页' })
+    if (result.page < result.pages) actions.push({ command: `/phi grks lb ${mode} ${metric} ${result.page + 1}`, label: '下一页' })
+    actions.push(...this.menuActions())
     await this.prompt(event, result.text, actions, this.rankingView(result), result.text, 'ranking')
     return true
   }
@@ -1186,7 +1208,8 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
       .replace(/^[#/]\S*\s*/, '')
       .replace(/^(grks|猜rks)\s*/, '')
       .trim()
-    if (!text) return await this.start(event)
+    if (!text) return await this.menu(event)
+    if (/^(solo|single|start|单机|开始)$/i.test(text)) return await this.start(event)
     const [head] = text.split(/\s+/)
     if (/^\d+(?:\.\d+)?$/.test(head)) return await this.guess(event, head)
     if (/^(ans|答案|放弃)$/i.test(head)) return await this.ans(event)
@@ -1194,7 +1217,7 @@ ${formatHintText({ puzzle: room.puzzle, hint: room.latestHint, revealedSlots: ro
     if (/^(cancel|取消|退出)$/i.test(head)) return await this.cancel(event)
     if (/^(hint|提示)$/i.test(head)) return await this.hint(event, parseHintArgs(event.msg))
     if (/^(lb|榜)$/i.test(head)) return await this.leaderboard(event, parseRankArgs(event.msg))
-    await this.prompt(event, `没有识别这个操作。可发送 ${this.commandPrefix()} 开始、${this.commandPrefix()} match 匹配、${this.commandPrefix()} lb 查看排行榜。`, this.homeActions())
+    await this.prompt(event, `没有识别这个操作。发送 ${this.commandPrefix()} 打开菜单。`, this.homeActions())
     return false
   }
 
