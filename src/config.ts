@@ -69,6 +69,18 @@ export interface Config {
   FribNearDifficulty: number
   FribNearBpm: number
   FribNearCombo: number
+  GrksTolerance: number
+  GrksMinRecord: number
+  GrksMaxScore: number
+  GrksPositionHintAt: number
+  GrksHintRevealNum: number
+  GrksTipCd: number
+  GrksSoloCd: number
+  GrksTimeLength: number
+  GrksWrongLimit: number
+  GrksStatsHint: "auto" | "histogram" | "range"
+  GrksPoolRefreshHours: number
+  GrksMatchTurnTime: number
   allowChartTag: boolean
   themeMarketDownloadOrigin: string
   apiPluginVersion: string
@@ -147,6 +159,18 @@ export const DEFAULT_CONFIG = {
   FribNearDifficulty: 0.3,
   FribNearBpm: 20,
   FribNearCombo: 200,
+  GrksTolerance: 0.1,
+  GrksMinRecord: 27,
+  GrksMaxScore: 10,
+  GrksPositionHintAt: 5,
+  GrksHintRevealNum: 2,
+  GrksTipCd: 3,
+  GrksSoloCd: 5,
+  GrksTimeLength: 600,
+  GrksWrongLimit: 0,
+  GrksStatsHint: "auto",
+  GrksPoolRefreshHours: 6,
+  GrksMatchTurnTime: 90,
   allowChartTag: false,
   themeMarketDownloadOrigin: "https://lyh.org.cn:18473",
   apiPluginVersion: "1.0.3",
@@ -247,6 +271,20 @@ export const Config: Schema<Config> = Schema.intersect([
     FribNearBpm: Schema.number().min(0).max(500).default(20).description("BPM相近范围"),
     FribNearCombo: Schema.number().min(0).max(10000).default(200).description("物量相近范围"),
   }).description("弗一把设置"),
+  Schema.object({
+    GrksTolerance: Schema.number().min(0.01).max(2).step(0.01).default(0.1).description("猜中容差：与 B30 计算 RKS 相差不超过该值即算猜对"),
+    GrksMinRecord: Schema.number().min(1).max(30).step(1).default(27).description("出题与匹配至少需要的有效成绩条数"),
+    GrksMaxScore: Schema.number().min(1).max(100).default(10).description("单机猜中满分，实际积分 = 满分 / 提示条数"),
+    GrksPositionHintAt: Schema.number().min(1).max(30).step(1).default(5).description("从第几条提示开始公开成绩位置"),
+    GrksHintRevealNum: Schema.number().min(1).max(10).step(1).default(2).description("每次成绩提示公开的条数"),
+    GrksTipCd: Schema.number().min(0).max(3600).default(3).description("提示冷却，单位：秒"),
+    GrksSoloCd: Schema.number().min(0).max(3600).default(5).description("单机回答与提示冷却，单位：秒"),
+    GrksTimeLength: Schema.number().min(30).max(86400).default(600).description("单机待机超时，单位：秒"),
+    GrksWrongLimit: Schema.number().min(0).max(99).step(1).default(0).description("单机猜错次数上限，0 为不限制"),
+    GrksStatsHint: Schema.union([Schema.const("auto").description("随机"), Schema.const("histogram").description("直方图"), Schema.const("range").description("上下界")]).default("auto").description("统计提示默认形式"),
+    GrksPoolRefreshHours: Schema.number().min(0).max(168).default(6).description("本地存档出题池刷新周期，单位：小时"),
+    GrksMatchTurnTime: Schema.number().min(10).max(3600).default(90).description("匹配提示/回答阶段时限，单位：秒"),
+  }).description("猜 RKS 设置"),
   Schema.object({
     debug: Schema.number().min(0).default(0).description("调试日志：设置为 0 关闭测试日志。"),
   }).description("其他设置"),

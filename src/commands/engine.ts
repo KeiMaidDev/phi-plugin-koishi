@@ -31,15 +31,25 @@ function buildLegacyMessage(session: any, commandName: string, legacy: string) {
   return `/phi ${legacy}${rest ? ` ${rest}` : ''}`
 }
 
-async function invokeEngine(runtime: EngineRuntime, spec: EngineCommandSpec, session: any) {
+async function invokeEngine(runtime: EngineRuntime, spec: EngineCommandSpec, session: any, legacyMessage?: string) {
   const app = runtime.apps[spec.app]
   const method = app?.[spec.method]
   if (typeof method !== 'function') throw new Error(`Phi engine method not found: ${spec.app}.${spec.method}`)
   const event = runtime.adapter.fromSession(session)
-  event.msg = event.text = buildLegacyMessage(session, `phi.${spec.path}`, spec.legacy)
+  event.msg = event.text = legacyMessage ?? buildLegacyMessage(session, `phi.${spec.path}`, spec.legacy)
   event.phiSubcommand = getPhiSubcommand(session?.stripped?.content ?? session?.content, PHI_COMMAND_HEAD)
   app.e = event
   return await method.call(app, event)
+}
+
+/** 将上游 `越30` / `越级30` / `越 30` 单 token 形式规范为旧的越级 B30 消息。 */
+export function normalizeOverLevelMessage(source: unknown) {
+  const text = String(source ?? '').trim()
+  const match = text.match(/^\S+\s*越级?\s*(?:b\s*)?(\d{0,3})\s*(flick|fl|fk|划键|划)?\s*$/i)
+  if (!match) return null
+  const count = match[1] || ''
+  const rest = match[2] || ''
+  return `/phi 越级${count ? ` ${count}` : ''}${rest ? ` ${rest}` : ''}`
 }
 
 async function invokeRootHelp(runtime: EngineRuntime, session: any) {
@@ -87,7 +97,7 @@ export async function dispatchButtonCallback(runtime: EngineRuntime, session: an
 }
 
 export function registerEngineCommands(ctx: Context, runtime: EngineRuntime) {
-  const root = ctx.command('phi', 'Phi 相关功能', { slash: false, checkArgCount: true })
+  const root = ctx.command('phi', 'Phi 相关功能', { slash: false, checkArgCount: false })
 
   const register = (spec: EngineCommandSpec) => {
     const command = ctx.command(`phi.${spec.path} [...args]`, spec.description, {
@@ -112,6 +122,14 @@ export function registerEngineCommands(ctx: Context, runtime: EngineRuntime) {
 
   root.action(async (argv) => {
     try {
+      const source = argv.session?.stripped?.content ?? argv.session?.content
+      const normalized = normalizeOverLevelMessage(source)
+      if (normalized) {
+        const spec = engineCommands.find(item => item.path === 'overlevelb30')
+        if (!spec) throw new Error('越级 B30 命令未注册')
+        const result = await invokeEngine(runtime, spec, argv.session, normalized)
+        return await sendCommandResult(runtime, argv.session, result)
+      }
       const result = await invokeRootHelp(runtime, argv.session)
       return await sendCommandResult(runtime, argv.session, result)
     } catch (error) {

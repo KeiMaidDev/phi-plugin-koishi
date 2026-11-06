@@ -348,8 +348,6 @@ export default class Save {
             minuprks += 0.01
         }
 
-        /** @type {idString[]} */
-        const b19Ids = []
         /** @type {{songId: idString, rank: levelKind, acc: number}[]} */
         const b19Dual = []
 
@@ -391,23 +389,24 @@ export default class Save {
             rkslist[i].illustration = getInfo.getill(rkslist[i].id, 'low', rkslist[i].rank)
             /**b19列表 */
             b19_list.push(rkslist[i])
-            b19Ids.push(rkslist[i].id);
             b19Dual.push({ songId: rkslist[i].id, rank: /**@type {levelKind} */(rkslist[i].rank), acc: rkslist[i].acc })
         }
 
         let com_rks = sum_rks / 30
 
-        if (option.avgType !== 'none' && await canUseApi(autoSeekApi.config, e, 'scoreStatistics')) {
+        const snapshotOnly = !option.avgType || option.avgType === 'all' || option.avgType === 'b30'
+        if (option.avgType !== 'none' && (snapshotOnly || await canUseApi(autoSeekApi.config, e, 'scoreStatistics'))) {
             try {
+                const { default: avgSnapshot, lookupAvgGroups } = require('../../providers/phi-api/avg-snapshot.ts')
+                const snapshot = option.avgType === 'top' ? undefined : await avgSnapshot.local()
 
                 if (!option.avgType || option.avgType === "all") {
-                    const res = await makeRequest.getAllSongAccAvg({
-                        songIds: b19Ids,
+                    const res = lookupAvgGroups(snapshot?.all, {
                         minRks: Math.floor((com_rks - 0.05) / 0.05) * 0.05,
                         maxRks: Math.floor((com_rks + 0.05) / 0.05) * 0.05
-                    }, { event: e })
+                    })
                     if (!res) {
-                        throw new Error('avg-getAllSongAccAvg failed')
+                        throw new Error('avg snapshot all range unavailable')
                     }
                     let allhiger = true
                     for (let i = 0; i < b19_list.length; ++i) {
@@ -416,7 +415,7 @@ export default class Save {
                         }
                         const x = b19_list[i];
                         if (x.rank == 'LEGACY') continue;
-                        const accAvg = res[x.id][x.rank]?.accAvg
+                        const accAvg = res[x.id]?.[x.rank]?.[0]
                         if (accAvg != null && !isNaN(accAvg)) {
                             b19_list[i].accAvg = option.avgValue ? accAvg : `Avg: ${accAvg.toFixed(4)}%`
                             if (x.acc < accAvg) {
@@ -428,17 +427,17 @@ export default class Save {
                         }
                     }
                     if (allhiger) {
-                        const res = await makeRequest.getAllSongAccAvg(
-                            { songIds: b19Ids, minRks: (Math.floor((com_rks - 0.05) / 0.05) + 2) * 0.05, maxRks: (Math.ceil((com_rks + 0.05) / 0.05) + 2) * 0.05 },
-                            { event: e },
-                        )
+                        const res = lookupAvgGroups(snapshot?.all, {
+                            minRks: (Math.floor((com_rks - 0.05) / 0.05) + 2) * 0.05,
+                            maxRks: (Math.ceil((com_rks + 0.05) / 0.05) + 2) * 0.05,
+                        })
                         if (!res) {
-                            throw new Error('avg-getAllSongAccAvg-up failed')
+                            throw new Error('avg snapshot upper range unavailable')
                         }
                         for (let i = 0; i < b19_list.length; ++i) {
                             const x = b19_list[i];
                             if (x.rank == 'LEGACY') continue;
-                            const accAvg = res[x.id][x.rank]?.accAvg
+                            const accAvg = res[x.id]?.[x.rank]?.[0]
                             if (accAvg != null && !isNaN(accAvg)) {
                                 b19_list[i].accAvg = option.avgValue ? accAvg : `Avg: ${accAvg.toFixed(4)}%`
                                 if (x.acc < accAvg) {
@@ -451,13 +450,12 @@ export default class Save {
                         }
                     }
                 } else if (option.avgType === "b30") {
-                    const res = await makeRequest.getAllSongAccAvgB30({
-                        songIds: b19Ids,
+                    const res = lookupAvgGroups(snapshot?.b30, {
                         minRks: Math.floor((com_rks - 0.05) / 0.05) * 0.05,
-                        maxRks: Math.floor((com_rks + 0.05) / 0.05) * 0.05
-                    }, { event: e })
+                        maxRks: Math.floor((com_rks + 0.05) / 0.05) * 0.05,
+                    })
                     if (!res) {
-                        throw new Error('avg-getAllSongAccAvgB30 failed')
+                        throw new Error('avg snapshot b30 range unavailable')
                     }
                     const kind = option.color === "red" || option.color === "gold";
                     const low = kind ? "Lower" : "Hyper"
@@ -465,7 +463,7 @@ export default class Save {
                     for (let i = 0; i < b19_list.length; ++i) {
                         const x = b19_list[i];
                         if (x.rank == 'LEGACY') continue;
-                        const accAvg = res[x.id][x.rank]?.accAvg
+                        const accAvg = res[x.id]?.[x.rank]?.[0]
                         if (accAvg != null && !isNaN(accAvg)) {
                             b19_list[i].accAvg = option.avgValue ? accAvg : `BAvg: ${accAvg.toFixed(4)}%`;
                             if (x.acc < accAvg) {

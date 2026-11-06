@@ -66,7 +66,7 @@ export class phib19 extends phiPluginBase {
                     fnc: 'lmtAcc'
                 },
                 {
-                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)越级.*$`,
+                    reg: `^[#/](${PHI_COMMAND_HEAD})(\\s*)越级?.*$`,
                     fnc: 'overLevelB30'
                 },
                 {
@@ -542,10 +542,10 @@ export class phib19 extends phiPluginBase {
         let err = save.checkNoInfo()
 
         /**是否计入Flick */
-        let withFlick = /(?:越级\s*(?:b\s*)?[0-9]*\s*)(flick|fl|fk|划键|划)\s*$/i.test(e.msg)
+        let withFlick = /(?:越级?\s*(?:b\s*)?[0-9]*\s*)(flick|fl|fk|划键|划)\s*$/i.test(e.msg)
 
         /**显示数量，默认30 */
-        let nnum = Number(e.msg.match(/越级\s*(?:b\s*)?([0-9]*)/i)?.[1])
+        let nnum = Number(e.msg.match(/越级?\s*(?:b\s*)?([0-9]*)/i)?.[1])
         if (!nnum) {
             nnum = 30
         }

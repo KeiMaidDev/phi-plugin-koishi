@@ -381,7 +381,7 @@
                         <circle class="tag-radar-point" cx="{{category.pointX}}" cy="{{category.pointY}}" r="2.3"></circle>
                         <text class="tag-radar-label" x="{{category.labelX}}" y="{{category.labelY}}" text-anchor="{{category.anchor}}">
                             <tspan x="{{category.labelX}}">{{category.name}}</tspan>
-                            <tspan class="tag-radar-score" x="{{category.labelX}}" dy="10">{{category.displayRks}}</tspan>
+                            <tspan class="tag-radar-score" x="{{category.labelX}}" dy="15">{{category.displayRks}}</tspan>
                         </text>
                         {{/each}}
                     </svg>
@@ -416,13 +416,19 @@
             </div>
             {{if !b30Analysis.tagAnalysis || b30Analysis.tagAnalysis.insufficient}}
             <div class="tag-insufficient-message">
-                <p>有效选票或逐标签成绩样本不足，请前往 https://www.phib19.top 或使用 /settag 进行谱面标签投票</p>
+                <p>维度标签体系参考自 @空游小站（kyou.net.cn）</p>
+                {{if b30Analysis.tagAnalysis}}
+                <p>有效选票或逐标签成绩样本不足，请前往 phib19.top 或使用 /settag 进行谱面标签投票</p>
+                {{else}}
+                <p>未获取到谱面标签分析结果</p>
+                {{/if}}
             </div>
             {{/if}}
         </div>
         {{if b30Analysis.tagAnalysis && !b30Analysis.tagAnalysis.insufficient}}
         <div class="tag-analysis-tip">
-            <p>谱面投票可前往 https://www.phib19.top 或使用 /settag 指令提交</p>
+            <p>维度标签体系参考自 @空游小站（kyou.net.cn）</p>
+            <p>谱面投票可前往 phib19.top 或使用 /settag 指令提交</p>
         </div>
         {{/if}}
     </section>

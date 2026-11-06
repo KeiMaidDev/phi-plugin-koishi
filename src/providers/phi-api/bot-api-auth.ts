@@ -418,6 +418,65 @@ export class BotApiAuth {
         return this.recoveryFailure(cause);
     }
 
+    /**
+     * 下载 Bot 鉴权文件。禁用重定向并限制响应体大小，供均值快照等二进制资源使用。
+     * @param {string} originalPath 包含查询参数的 API 原始路径
+     * @param {{maxBytes:number, timeout?:number, signal?:AbortSignal}} options
+     * @returns {Promise<Buffer>}
+     */
+    async signedDownload(originalPath, options) {
+        this.assertVersion();
+        this.assertUsable();
+        const maxBytes = Number(options?.maxBytes);
+        if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) throw new TypeError('signedDownload maxBytes must be a positive safe integer');
+        const generation = this.generation;
+        const initialIdentity = this.activeIdentity;
+        if (!isCompleteIdentity(initialIdentity)) await this.ensureRegistration(getApiPluginVersion(), options?.signal);
+        else if (this.persistenceDirty) await this.persistPendingIdentity();
+        const identity = this.activeIdentity;
+        this.assertUsable(generation);
+        const headers = { ...this.sign('GET', originalPath, '', identity) };
+        const merged = mergeAbortSignals(this.lifecycleController.signal, options?.signal);
+        let response;
+        try {
+            response = await this.http.request({
+                url: `${APIBASEURL}${originalPath}`,
+                method: 'GET',
+                headers,
+                responseType: 'arraybuffer',
+                timeout: Number(options?.timeout) || 120_000,
+                maxRedirects: 0,
+                maxContentLength: maxBytes,
+                maxBodyLength: maxBytes,
+                validateStatus: () => true,
+                signal: merged.signal,
+            });
+        } catch (error) {
+            if (this.disposed || generation !== this.generation || options?.signal?.aborted) {
+                throw new PhiApiError('API Bot下载已取消', 0, 'bot_identity_aborted');
+            }
+            throw classifyApiConnectionError(error);
+        } finally {
+            merged.cleanup();
+        }
+        this.assertUsable(generation);
+        if (response.status >= 300 && response.status < 400) {
+            throw new PhiApiError('API Bot下载不接受重定向', response.status, 'redirect_not_allowed');
+        }
+        if (response.status < 200 || response.status >= 300) {
+            throw new PhiApiError(`API Bot下载失败 (${response.status})`, response.status, 'download_failed');
+        }
+        const declared = Number(response.headers?.['content-length']);
+        if (Number.isFinite(declared) && declared > maxBytes) {
+            throw new PhiApiError('API Bot下载内容超过大小限制', 413, 'download_too_large');
+        }
+        const bytes = Buffer.from(response.data);
+        if (!bytes.length || bytes.length > maxBytes) {
+            throw new PhiApiError('API Bot下载内容大小无效', 502, 'download_invalid_size');
+        }
+        return bytes;
+    }
+
     async signedRequest(originalPath, body, method = 'POST', identity = undefined, extraHeaders = {}, requestOptions = {}) {
         this.assertVersion();
         this.assertUsable();

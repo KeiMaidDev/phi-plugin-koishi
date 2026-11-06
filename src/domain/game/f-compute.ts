@@ -8,6 +8,11 @@ import getInfo from './get-info'
 import platform from '../../platform/index'
 
 export default class fCompute {
+    /** 随机获取一张曲绘作为背景。 */
+    static randBackground(original = false) {
+        const id = getInfo.illlist?.[Math.floor(Math.random() * Math.max(1, (getInfo.illlist?.length || 1) - 1))]
+        return id ? getInfo.getill(id, original ? 'common' : 'blur') : ''
+    }
     /**
      * 计算等效rks
      * @param {number} acc 

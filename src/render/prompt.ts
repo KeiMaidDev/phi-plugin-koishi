@@ -19,7 +19,7 @@ export type PromptKind = 'info' | 'help' | 'error' | 'warning' | 'success' | 'co
 
 export interface PromptAction extends QqKeyboardCommand {
   href?: string
-  type?: 'command' | 'link'
+  type?: 'command' | 'link' | 'input' | 'callback'
 }
 
 export interface PromptOptions {

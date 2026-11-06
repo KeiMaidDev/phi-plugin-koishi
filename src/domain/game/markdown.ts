@@ -265,6 +265,7 @@ export function gameQuickCommands(commandHead) {
         { command: pageCommand(commandHead, 'jrrp'), label: '🍀今日人品' },
         { command: pageCommand(commandHead, 'guess'), label: '🖼猜曲绘' },
         { command: pageCommand(commandHead, 'ltr'), label: '🔤开字母' },
+        { command: pageCommand(commandHead, 'grks'), label: '🎯猜RKS' },
         { command: pageCommand(commandHead, 'fri'), label: '🧩弗一把' },
         { command: pageCommand(commandHead, 'market'), label: '🎨主题市场' },
         { command: phiMenuCallbackData('query'), type: 'callback', label: '↩️返回查询' },

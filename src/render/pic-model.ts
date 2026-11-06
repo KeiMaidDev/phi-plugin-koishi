@@ -513,6 +513,16 @@ export class PicModel {
      * } picKind
      */
 
+    /** 渲染猜 RKS 游戏面板；固定使用内置模板，不受用户主题影响。 */
+    async grks(e, data) {
+        return await this.common(e, 'grks', { ...data, theme: undefined }, 'grks')
+    }
+
+    /** 渲染猜 RKS 积分榜。 */
+    async grksRanking(e, data) {
+        return await this.common(e, 'grks', { ...data, theme: undefined }, 'ranking')
+    }
+
     /**
      * 
      * @param {*} e 

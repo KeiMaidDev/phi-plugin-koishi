@@ -16,7 +16,29 @@ export interface PhiUser {
 declare module 'koishi' {
   interface Tables {
     phi_user: PhiUser
+    phi_grks_score: PhiGrksScore
   }
+}
+
+export interface PhiGrksScore {
+  id: string
+  gameId: string
+  mode: 'normal' | 'match'
+  platform: string
+  platformId: string
+  score: number
+  best: number
+  plays: number
+  wins: number
+  losses: number
+  draws: number
+  hintSum: number
+  hintPlays: number
+  answerTotal: number
+  answerCorrect: number
+  profile: { source: 'phigros', name: string, avatar: string } | null
+  createdAt: Date
+  updatedAt: Date
 }
 
 export const NOTE_CURRENCY = 'note'
@@ -38,6 +60,26 @@ export function installPhiModels(ctx: Context) {
     createdAt: 'timestamp',
     updatedAt: 'timestamp',
   }, { primary: 'uid' })
+  ctx.model.extend('phi_grks_score', {
+    id: 'string',
+    gameId: 'string',
+    mode: 'string',
+    platform: 'string',
+    platformId: 'string',
+    score: 'double',
+    best: 'double',
+    plays: 'unsigned',
+    wins: 'unsigned',
+    losses: 'unsigned',
+    draws: 'unsigned',
+    hintSum: 'double',
+    hintPlays: 'unsigned',
+    answerTotal: 'unsigned',
+    answerCorrect: 'unsigned',
+    profile: { type: 'json', nullable: true },
+    createdAt: 'timestamp',
+    updatedAt: 'timestamp',
+  }, { primary: 'id' })
 }
 
 export async function getNoteBalance(ctx: Context, uid: number) {

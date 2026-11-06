@@ -93,9 +93,9 @@
                 "desc": "计算筛去小于输入的acc值的成绩后的玩家RKS值 <br>eg: /lmtacc 98.5"
             },
             {
-                "title": "/越级b30",
-                "eg": "/越级b30 [数量] [flick]",
-                "desc": "筛选acc低于越级线(98.5%+1.5×Dr占比，附加 flick/fl/fk/划/划键 参数时计入Flick)的成绩构造b30分表，成绩旁百分比为该谱面越级线 <br>eg: /越级b30 50 flick"
+                "title": "/phi 越30<br>/phi 越级b30",
+                "eg": "/phi 越[数量] [flick] · /phi 越级[数量] [flick]",
+                "desc": "筛选acc低于越级线(98.5%+1.5×Dr占比，附加 flick/fl/fk/划/划键 参数时计入Flick)的成绩构造b30分表，成绩旁百分比为该谱面越级线 <br>eg: /phi 越30 flick"
             },
             {
                 "title": "/bestN",
@@ -301,6 +301,11 @@
                 "title": "/弗一把<br>/friberg",
                 "eg": "/phi fri [难度] [定数下限] (直接回答) · 不玩了",
                 "desc": "弗一把猜歌，每次猜测都会对比曲目属性，逐步逼近正确答案<br>eg1: /friberg<br>eg2: /弗一把 IN 14+<br>eg3: /fib 14.3"
+            },
+            {
+                "title": "/phi grks<br>/phi 猜rks",
+                "eg": "/phi grks · /phi grks 15.25 · /phi grks ans · /phi grks match · /phi grks hint B7 · /phi grks lb",
+                "desc": "猜 RKS 小游戏。单机模式按提示猜测 B30 RKS；匹配模式与其他会话玩家互猜，支持槽位/统计/课题提示及积分、胜率、准确率榜"
             },
             {
                 "title": "/theme",

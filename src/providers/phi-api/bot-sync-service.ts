@@ -37,6 +37,10 @@ export class BotSyncService {
             for (const id of acknowledgedMessageIds) this.pendingAcknowledgements.delete(id)
             this.reportRenderPressure = response?.reporting?.renderPressure === true
             if (response?.themePolicy) themePolicy.apply(response.themePolicy)
+            if (response?.avgAccSnapshot) {
+                const { default: avgSnapshot } = require('./avg-snapshot.ts')
+                void avgSnapshot.refresh(response.avgAccSnapshot)
+            }
 
             for (const request of response?.unbindRequests || []) {
                 if (signal?.aborted) return

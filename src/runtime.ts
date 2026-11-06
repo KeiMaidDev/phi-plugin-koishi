@@ -103,6 +103,9 @@ export async function createEngine(ctx: Context, config: Config, h: typeof H): P
     const { default: botApiAuth } = require('./providers/phi-api/bot-api-auth.ts')
     botApiAuth.configure(config, updateConfig)
 
+    const { default: avgSnapshot } = require('./providers/phi-api/avg-snapshot.ts')
+    avgSnapshot.configure(ctx)
+
     // 启动后立即异步探测 Online API；本地初始化继续并行执行。
     const { default: autoSeekApi } = require('./providers/phi-api/auto-seek-api.ts')
     autoSeekApi.start(ctx, config)
@@ -130,6 +133,7 @@ export async function createEngine(ctx: Context, config: Config, h: typeof H): P
     const { createApps } = require('./services/apps/index.ts')
     const apps = createApps(runtime)
     apps.guessGame.configureInteraction(adapter, ctx)
+    apps.grks.configure(ctx, adapter)
     const { registerAliasProposalTask } = require('./services/apps/alias-proposal.ts')
     registerAliasProposalTask(ctx, config)
 
@@ -147,10 +151,12 @@ export async function createEngine(ctx: Context, config: Config, h: typeof H): P
                 await picmodle.endSession(ctx)
             } finally {
                 const closers = [
+                    () => apps.grks.dispose?.(),
                     () => apps.guessGame.dispose?.(),
                     () => getInfo.close?.(),
                     () => data.close(),
                     () => botApiAuth.dispose(),
+                    () => avgSnapshot.dispose(),
                     () => autoSeekApi.dispose(),
                     () => adapter.close?.(),
                     async () => require('./utils/file-watcher-registry.ts').default.closeAll(),

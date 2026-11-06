@@ -8,6 +8,7 @@ import { phib19 } from './b19'
 import { phiBotClient } from './bot-client'
 import { phihelp as phiChart } from './chart'
 import { phiGames } from './guess-game'
+import { phiGrks } from './grks'
 import { phihelp as phiHelp } from './help'
 import { phiset as phiManage } from './manage'
 import { phiMarket } from './market'
@@ -26,6 +27,7 @@ const appClasses = {
     b19: phib19,
     botClient: phiBotClient,
     chart: phiChart,
+    grks: phiGrks,
     guessGame: phiGames,
     help: phiHelp,
     manage: phiManage,
