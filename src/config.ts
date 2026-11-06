@@ -71,6 +71,7 @@ export interface Config {
   FribNearCombo: number
   allowChartTag: boolean
   themeMarketDownloadOrigin: string
+  apiPluginVersion: string
   debug: number
   apiBotClientId: string
   apiBotClientSecret: string
@@ -148,6 +149,7 @@ export const DEFAULT_CONFIG = {
   FribNearCombo: 200,
   allowChartTag: false,
   themeMarketDownloadOrigin: "https://lyh.org.cn:18473",
+  apiPluginVersion: "1.0.3",
   debug: 0,
   apiBotClientId: "",
   apiBotClientSecret: "",
@@ -196,6 +198,7 @@ export const Config: Schema<Config> = Schema.intersect([
     aliasSyncTaskCron: Schema.string().pattern(/^[\d*,\-/?A-Za-z]+(?: +[\d*,\-/?A-Za-z]+){4,5}$/).default("0 * * * * ?").description("同步任务周期，支持 cron 表达式"),
     aliasSyncTaskLog: Schema.boolean().default(false).description("同步任务日志"),
     themeMarketDownloadOrigin: Schema.string().role('link').pattern(/^https:\/\/[^/?#]+$/).default("https://lyh.org.cn:18473").description("主题下载来源"),
+    apiPluginVersion: Schema.string().pattern(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/).default("1.0.3").description("API 插件兼容版本：主题市场按此 SemVer 判断兼容性；修改后需重启或重载插件"),
     apiBotClientId: Schema.string().default("").description("Bot 客户端 ID：由 API 自动签发，也可手动修改；客户端 ID、密钥及版本号须保持匹配。"),
     apiBotClientSecret: Schema.string().role('secret').default("").description("Bot 客户端密钥：由 API 自动签发，也可手动修改；客户端 ID、密钥及版本号须保持匹配。"),
     apiBotSecretVersion: Schema.number().min(0).step(1).default(0).description("Bot 密钥版本：由 API 自动签发，也可手动修改；客户端 ID、密钥及版本号须保持匹配。"),

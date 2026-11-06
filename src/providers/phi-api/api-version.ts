@@ -1,6 +1,19 @@
 // @ts-nocheck
-/** 上报给 phi-plugin-api 的 Koishi 实现标识。 */
-export const API_PLUGIN_VERSION = 'koishi'
+/** 上报给 phi-plugin-api 的默认 phi-plugin 兼容版本；主题市场按该 SemVer 判断兼容性。 */
+export const API_PLUGIN_VERSION = '1.0.3'
+
+let runtimeApiPluginVersion = API_PLUGIN_VERSION
+
+/** 设置当前实例使用的 API 插件兼容版本；非法值回退默认值。 */
+export function setApiPluginVersion(value) {
+    const parsed = parseApiVersion(value)
+    runtimeApiPluginVersion = parsed?.normalized || API_PLUGIN_VERSION
+}
+
+/** 获取当前实例使用的 API 插件兼容版本。 */
+export function getApiPluginVersion() {
+    return runtimeApiPluginVersion
+}
 
 /** 插件当前支持的 phi-plugin-api 协议版本。 */
 export const SUPPORTED_API_VERSION = '1.3.0'

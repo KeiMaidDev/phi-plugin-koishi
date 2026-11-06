@@ -7,7 +7,7 @@ import axios from "axios";
 import botApiAuth from "./bot-api-auth";
 import { classifyApiConnectionError, getPhiApiUserMessage, isApiConnectionError, isFatalBotIdentityError, isRetryableBotRegistrationError, PhiApiError } from "./phi-api-errors";
 import {
-  API_PLUGIN_VERSION,
+  getApiPluginVersion,
   compareApiVersion,
   isApiVersionBlocked,
   setApiVersionBlocked,
@@ -444,7 +444,7 @@ export class AutoSeekApi {
       if (signal?.aborted) throw signal.reason ?? new Error('API recovery aborted')
     }
     throwIfAborted()
-    const identity = await botApiAuth.recoverAfterReconnect(API_PLUGIN_VERSION, signal)
+    const identity = await botApiAuth.recoverAfterReconnect(getApiPluginVersion(), signal)
     throwIfAborted()
     this.logger.mark(chalk.green(`API Bot身份已就绪：${identity.clientId}`))
     const { default: botSyncService } = require('./bot-sync-service.ts')

@@ -11,7 +11,7 @@ import {
     isApiConnectionError,
     isRetryableBotRegistrationError,
 } from '../../providers/phi-api/phi-api-errors';
-import { API_PLUGIN_VERSION } from '../../providers/phi-api/api-version';
+import { getApiPluginVersion } from '../../providers/phi-api/api-version';
 
 export class phiBotClient extends phiPluginBase {
     constructor(runtime: PhiRuntime, dependencies: any = {}) {
@@ -36,7 +36,7 @@ export class phiBotClient extends phiPluginBase {
         this.identityService = dependencies.identityService || defaultIdentityService;
         this.sender = dependencies.sender || defaultSender;
         this.logger = dependencies.logger || defaultLogger;
-        this.pluginVersion = dependencies.pluginVersion;
+        this.pluginVersion = dependencies.pluginVersion || runtime.config?.apiPluginVersion;
         this.onIdentityRecoveryError = dependencies.onIdentityRecoveryError;
     }
 
@@ -66,7 +66,7 @@ export class phiBotClient extends phiPluginBase {
         if (!e.isMaster) return false;
         if (!this.ensurePrivate(e)) return true;
         try {
-            const pluginVersion = this.pluginVersion || API_PLUGIN_VERSION;
+            const pluginVersion = this.pluginVersion || getApiPluginVersion();
             const issued = await this.identityService.reset(pluginVersion);
             this.logger.mark(`[phi-plugin] API Bot身份已由master重置：${issued.clientId}`);
             const message = `API Bot身份已重置。\nclientId: ${issued.clientId}\n认领链接: ${issued.claimUrl || '请重新获取'}`;

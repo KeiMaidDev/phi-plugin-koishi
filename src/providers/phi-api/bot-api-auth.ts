@@ -4,7 +4,7 @@ import axios from 'axios';
 import defaultLogger from '../../utils/logger';
 import { APIBASEURL } from '../../domain/game/const-num';
 import { classifyApiConnectionError, isFatalBotIdentityError, PhiApiError } from './phi-api-errors';
-import { API_PLUGIN_VERSION, isApiVersionBlocked, SUPPORTED_API_VERSION } from './api-version';
+import { getApiPluginVersion, isApiVersionBlocked, setApiPluginVersion, SUPPORTED_API_VERSION } from './api-version';
 
 const TIMEOUT = 5000;
 
@@ -129,6 +129,7 @@ export class BotApiAuth {
         this.disposed = false;
         if (previous) previous.abort(new PhiApiError('API Bot身份实例已替换', 0, 'bot_identity_aborted'));
 
+        setApiPluginVersion(config?.apiPluginVersion);
         this.config = config;
         this.updateConfig = updateConfig;
         this.activeIdentity = normalizeConfigIdentity(config);
@@ -166,7 +167,7 @@ export class BotApiAuth {
         }
     }
 
-    async initialize(pluginVersion = API_PLUGIN_VERSION, signal = undefined) {
+    async initialize(pluginVersion = getApiPluginVersion(), signal = undefined) {
         this.assertVersion();
         this.assertUsable();
         if (this.ready && isCompleteIdentity(this.activeIdentity)) return { ...this.activeIdentity };
@@ -215,7 +216,7 @@ export class BotApiAuth {
     }
 
     /** 注册一套新身份；并发调用共享同一个网络请求。 */
-    async ensureRegistration(pluginVersion = API_PLUGIN_VERSION, signal = undefined) {
+    async ensureRegistration(pluginVersion = getApiPluginVersion(), signal = undefined) {
         this.assertVersion();
         this.assertUsable();
         if (this.registrationPromise) return this.registrationPromise;
@@ -327,12 +328,12 @@ export class BotApiAuth {
         return !this.persistenceDirty;
     }
 
-    async recoverAfterReconnect(pluginVersion = API_PLUGIN_VERSION, signal = undefined) {
+    async recoverAfterReconnect(pluginVersion = getApiPluginVersion(), signal = undefined) {
         return this.initialize(pluginVersion, signal);
     }
 
     /** 主人主动重置身份；成功后会清空本进程的自动重签限制。 */
-    async reset(pluginVersion = API_PLUGIN_VERSION) {
+    async reset(pluginVersion = getApiPluginVersion()) {
         this.assertVersion();
         this.assertUsable();
 
@@ -346,7 +347,7 @@ export class BotApiAuth {
     }
 
     async getClaimLink(signal = undefined) {
-        await this.initialize(API_PLUGIN_VERSION, signal);
+        await this.initialize(getApiPluginVersion(), signal);
         return this.signedRequest('/bot-clients/self/claim-code', {}, 'POST', undefined, {}, { signal });
     }
 
@@ -426,7 +427,7 @@ export class BotApiAuth {
         const registeredForThisRequest = !hadUsableIdentity;
 
         if (!hadUsableIdentity) {
-            await this.ensureRegistration(API_PLUGIN_VERSION, requestOptions.signal);
+            await this.ensureRegistration(getApiPluginVersion(), requestOptions.signal);
         } else if (this.persistenceDirty) {
             await this.persistPendingIdentity();
         }
@@ -461,7 +462,7 @@ export class BotApiAuth {
     }
 
     async retryAfterRegistration(originalPath, body, method, extraHeaders, requestOptions, generation) {
-        await this.ensureRegistration(API_PLUGIN_VERSION, requestOptions.signal);
+        await this.ensureRegistration(getApiPluginVersion(), requestOptions.signal);
         this.assertUsable(generation);
         this.automaticReissueUsed = true;
         try {

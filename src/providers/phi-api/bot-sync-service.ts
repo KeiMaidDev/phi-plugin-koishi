@@ -3,7 +3,7 @@ import logger from '../../utils/logger'
 import autoSeekApi from './auto-seek-api'
 import platform from '../../platform/index'
 import makeRequest from './make-request'
-import { API_PLUGIN_VERSION, isApiVersionBlocked } from './api-version'
+import { getApiPluginVersion, isApiVersionBlocked } from './api-version'
 import themePolicy from '../../services/theme/policy'
 import { UserCredentials } from '../../domain/user/user-credentials'
 
@@ -29,7 +29,7 @@ export class BotSyncService {
             // 始终在本地滚动采样；服务端许可只决定是否把匿名压力历史放入请求。
             const renderPressure = require('../../render/pic-model.ts').default.takeRenderPressureSnapshot()
             const response = await makeRequest.syncBot({
-                pluginVersion: API_PLUGIN_VERSION,
+                pluginVersion: getApiPluginVersion(),
                 acknowledgedMessageIds,
                 ...(this.reportRenderPressure ? { renderPressure } : {}),
             }, { signal })
