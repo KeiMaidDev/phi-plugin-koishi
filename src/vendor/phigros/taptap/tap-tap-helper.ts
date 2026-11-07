@@ -1,5 +1,4 @@
 // @ts-nocheck
-import fetch from 'node-fetch';
 import crypto from 'crypto';
 import CompleteQRCodeData from './complete-qr-code-data';
 

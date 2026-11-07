@@ -1,5 +1,4 @@
 // @ts-nocheck
-import fetch from 'node-fetch';
 import CryptoJS from 'crypto-js';
 
 const AppKey = 'Qr9AEqtuoSVS3zeD6iVbM4ZC0AtkJcQ89tywVyi0';

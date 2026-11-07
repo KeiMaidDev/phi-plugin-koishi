@@ -2,7 +2,6 @@
 
 import SaveManager from './save-manager';
 import JSZip from 'jszip';
-import fetch from 'node-fetch';
 import ByteReader from './byte-reader';
 import GameRecord from './game-record';
 import GameProgress from './game-progress';

@@ -1,7 +1,6 @@
 // @ts-nocheck
 
 
-import fetch from 'node-fetch'
 
 // 创建一个HTTP客户端对象
 class HttpClient {
