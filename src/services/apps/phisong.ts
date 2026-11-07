@@ -949,7 +949,7 @@ export class phisong extends phiPluginBase {
             return false
         }
 
-        let save = await send.getsave_result(e);
+        let { save } = await send.getsave_result(e) || {};
 
         if (!save) {
             return true
@@ -1154,7 +1154,7 @@ export class phisong extends phiPluginBase {
         let save;
         const sessionToken = await credentials.getSessionToken()
         if (!e.isMaster) {
-            save = await send.getsave_result(e);
+            save = (await send.getsave_result(e) || {}).save;
             if (!save) {
                 return true;
             }
@@ -1207,7 +1207,7 @@ export class phisong extends phiPluginBase {
             return false
         }
 
-        let save = await send.getsave_result(e);
+        let { save } = await send.getsave_result(e) || {};
 
         if (!save) {
             return true

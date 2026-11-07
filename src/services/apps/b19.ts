@@ -122,7 +122,7 @@ export class phib19 extends phiPluginBase {
                 return true;
             }
         } else {
-            save = await send.getsave_result(e)
+            save = (await send.getsave_result(e) || {}).save
             if (!save) {
                 return true
             }
@@ -269,7 +269,7 @@ export class phib19 extends phiPluginBase {
             return false
         }
 
-        let save = await send.getsave_result(e)
+        let { save } = await send.getsave_result(e) || {}
         if (!save) {
             return true
         }
@@ -389,7 +389,7 @@ export class phib19 extends phiPluginBase {
             return false
         }
 
-        let save = await send.getsave_result(e)
+        let { save } = await send.getsave_result(e) || {}
         if (!save) {
             return true
         }
@@ -455,7 +455,7 @@ export class phib19 extends phiPluginBase {
             return false
         }
 
-        let save = await send.getsave_result(e)
+        let { save } = await send.getsave_result(e) || {}
         if (!save) {
             return false
         }
@@ -534,7 +534,7 @@ export class phib19 extends phiPluginBase {
             return false
         }
 
-        let save = await send.getsave_result(e)
+        let { save } = await send.getsave_result(e) || {}
         if (!save) {
             return false
         }
@@ -648,7 +648,7 @@ export class phib19 extends phiPluginBase {
             send.promptWithAt(e, '这里被管理员禁止使用这个功能了呐QAQ！')
         }
 
-        const save = await send.getsave_result(e)
+        const { save } = await send.getsave_result(e) || {}
 
         if (!save) {
             return true
@@ -778,7 +778,7 @@ export class phib19 extends phiPluginBase {
             return false
         }
 
-        const save = await send.getsave_result(e)
+        const { save } = await send.getsave_result(e) || {}
 
         if (!save) {
             return true
@@ -981,7 +981,7 @@ export class phib19 extends phiPluginBase {
             return true
         }
 
-        let save = await send.getsave_result(e)
+        let { save } = await send.getsave_result(e) || {}
         if (!save) {
             return false
         }
@@ -1108,7 +1108,7 @@ export class phib19 extends phiPluginBase {
             return false
         }
 
-        let save = await send.getsave_result(e)
+        let { save } = await send.getsave_result(e) || {}
         if (!save) {
             return false
         }
@@ -1215,9 +1215,7 @@ export class phib19 extends phiPluginBase {
  */
 async function getScore(songId, e, args = {}, config) {
 
-    const credentials = UserCredentials.fromEvent(e)
-
-    const save = await send.getsave_result(e)
+    const { save, history: saveHistory } = await send.getsave_result(e) || {}
 
     if (!save) {
         return true
@@ -1241,33 +1239,8 @@ async function getScore(songId, e, args = {}, config) {
 
     // const dan = await get.getDan(e.user_id)
 
-    /**获取历史成绩 */
-    /**
-     * @type {songRecordHistory | undefined}
-     */
-    let HistoryData = undefined;
-    /**历史成绩的展示时区：优先 API 记录方时区，其次本地历史来源时区，最后运行环境 */
-    let historyTimezone = undefined;
-    /**读取本地历史，并顺带补齐展示时区 */
-    const readLocalSongHistory = async () => {
-        const localHistory = await credentials.getLocalHistory()
-        if (!historyTimezone) historyTimezone = localHistory?.getTimezone?.()
-        return localHistory?.scoreHistory[songId]
-    };
-    if (await canUseApi(config, e)) {
-        try {
-            const cloudRecord = await credentials.getCloudSongHistory(songId)
-            HistoryData = cloudRecord?.data
-            historyTimezone = cloudRecord?.timezone ?? historyTimezone
-            if (!HistoryData) HistoryData = await readLocalSongHistory()
-        } catch (err) {
-            logger.warn(`[phi-plugin] API ERR`, err)
-            HistoryData = await readLocalSongHistory()
-        }
-    } else {
-        HistoryData = await readLocalSongHistory()
-    }
-    historyTimezone = historyTimezone || fCompute.timezoneOffset()
+    const HistoryData = saveHistory?.scoreHistory[songId]
+    const historyTimezone = saveHistory?.getTimezone() || fCompute.timezoneOffset()
 
     /** @type {(import('../../domain/save/score-history').extendedScoreHistoryDetail | {date_new: string})[]} */
     let history = []

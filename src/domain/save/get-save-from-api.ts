@@ -2,6 +2,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import Save from './save'
+import saveHistory from './save-history'
 import readFile from '../../utils/get-file'
 import { apiSavePath } from '../../utils/path'
 
@@ -43,5 +44,34 @@ export default class ApiSaveCacheRepository {
         if (!apiId) return false
         fs.rmSync(path.join(apiSavePath, apiId), { recursive: true, force: true })
         return true
+    }
+
+    /**
+     * 读取 API ID 对应的本地历史记录缓存。
+     * @param {apiUserId | null | undefined} apiId API 用户 ID
+     * @returns {Promise<import('./save-history').default | null>} 历史记录；不存在时返回 null
+     */
+    static async getHistoryByApiId(apiId) {
+        if (!apiId) return null
+        const file = path.join(apiSavePath, apiId, 'history.json')
+        if (!fs.existsSync(file)) return null
+        return new saveHistory(JSON.parse(await fs.promises.readFile(file, 'utf8')))
+    }
+
+    /**
+     * 合并并保存 API ID 对应的本地历史记录缓存。
+     * @param {apiUserId} apiId API 用户 ID
+     * @param {import('./save-history').default} history 待合并的历史记录
+     */
+    static async putHistoryByApiId(apiId, history) {
+        if (!apiId) throw new Error('apiId is undefined')
+        const directory = path.join(apiSavePath, apiId)
+        fs.mkdirSync(directory, { recursive: true })
+        const file = path.join(directory, 'history.json')
+        const merged = fs.existsSync(file) ? new saveHistory(JSON.parse(fs.readFileSync(file, 'utf8'))) : new saveHistory()
+        merged.add(history)
+        const temporary = `${file}.${process.pid}.tmp`
+        fs.writeFileSync(temporary, JSON.stringify(merged))
+        fs.renameSync(temporary, file)
     }
 }

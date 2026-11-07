@@ -435,7 +435,7 @@ export class phihelp extends phiPluginBase {
       return false
     }
 
-    const save = await send.getsave_result(e);
+    const { save } = await send.getsave_result(e) || {};
 
     if (!save) {
       return true;

@@ -34,12 +34,13 @@ export default class getBanGroup {
     static async get(e, fnc) {
         const { group_id } = e;
         const credentials = UserCredentials.fromEvent(e)
-        if (await canUseApi(this.config, e)) {
-            if (await credentials.getUserAPIBanStatus({ ignoreUnboundError: true })) {
-                send.promptWithAt(e, "当前账户被加入黑名单，详情请联系管理员(1)。")
-                return true;
-            }
-        }
+        // 跳过联网用户黑名单校验（上游 edc5322e）
+        // if (await canUseApi(this.config, e)) {
+        //     if (await credentials.getUserAPIBanStatus({ ignoreUnboundError: true })) {
+        //         send.promptWithAt(e, "当前账户被加入黑名单，详情请联系管理员(1)。")
+        //         return true;
+        //     }
+        // }
         if (await credentials.getUserLoaclBanStatus()) {
             send.promptWithAt(e, "当前账户被加入黑名单，详情请联系管理员(2)。")
             return true;

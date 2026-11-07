@@ -223,10 +223,6 @@ export class phisstk extends phiPluginBase {
                     apiBindingSucceeded = true
                     let resMsg = `绑定成功！您的查分ID为：${result.apiUserId}，请妥善保管嗷！`
                     send.promptWithAt(e, resMsg, { keyboard: false })
-                    let oldHistory = await credentials.getLocalHistory()
-                    if (oldHistory) {
-                        await credentials.uploadHistory(oldHistory)
-                    }
                     let updateData = await credentials.getUpdatedSaveFromApi()
                     let history = await credentials.getCloudHistory(['data', 'rks', 'scoreHistory'])
                     if (updateData && history) await build(this.config, e, updateData, history, sessionQuickCommands, '绑定页快捷操作', { simpleReply })
@@ -453,7 +449,7 @@ export class phisstk extends phiPluginBase {
             return false
         }
 
-        let save = await send.getsave_result(e)
+        let { save } = await send.getsave_result(e) || {}
         if (!save) {
             send.promptWithAt(e, getBindingReminder(e, this.config), { kind: 'warning', actions: bindingPromptActions() })
             return true
