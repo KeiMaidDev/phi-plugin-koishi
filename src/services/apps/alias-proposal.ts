@@ -10,6 +10,7 @@ import aliasProposalService from '../../providers/phi-api/alias-proposal-service
 import botSyncService from '../../providers/phi-api/bot-sync-service'
 import { isValidCron, type Config } from '../../config'
 import logger from '../../utils/logger'
+import { isPluginContextActive } from '../../utils/context-lifecycle'
 import type { Context } from 'koishi'
 import type {} from 'koishi-plugin-cron'
 
@@ -52,6 +53,9 @@ export function createAliasProposalTask(config: Config) {
  * 将同步任务注册到 Koishi cron 服务；表达式无效时回退为默认每分钟。
  */
 export function registerAliasProposalTask(ctx: Context, config: Config) {
+    // 异步初始化期间插件可能已被 HMR 卸载，旧上下文不能再注册 cron 副作用。
+    if (!isPluginContextActive(ctx)) return
+
     const task = createAliasProposalTask(config)
     const run = async () => {
         if (!config.enableAliasSyncTask) return
@@ -66,7 +70,9 @@ export function registerAliasProposalTask(ctx: Context, config: Config) {
     try {
         return ctx.cron(expression, run)
     } catch (error) {
+        if (!isPluginContextActive(ctx) || (error as { code?: string })?.code === 'INACTIVE_EFFECT') return
         logger.warn(`[phi-plugin] 同步任务周期配置无效：${expression}，已回退为 ${DEFAULT_TASK_CRON}`, error)
+        if (!isPluginContextActive(ctx)) return
         return ctx.cron(DEFAULT_TASK_CRON, run)
     }
 }
